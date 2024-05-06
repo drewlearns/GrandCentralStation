@@ -1,0 +1,4 @@
+**/*.tfstate
+**/.terraform
+**/deploy/*.zip
+**/node_modules

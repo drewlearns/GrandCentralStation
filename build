@@ -1,0 +1,29 @@
+#!/bin/bash
+set -vex
+set -o pipefail
+# Install npm packages (assumes package.json is in the project root)
+npm install
+
+# Directory where all Lambda handlers are stored
+SRC_DIR="./src"
+
+# Output directory for the zipped files, within the project root
+OUTPUT_DIR="./deploy"
+mkdir -p $OUTPUT_DIR
+
+# Loop over each js file in the src directory
+for handler in $SRC_DIR/*.js; do
+    # Extract the base name of the file
+    base_name=$(basename "$handler" .js)
+
+    # Navigate to the src directory to use relative paths for zipping
+    cd $SRC_DIR
+
+    # Zip the handler along with the node_modules directory
+    zip -r "../$OUTPUT_DIR/$base_name.zip" "$base_name.js" "../node_modules"
+
+    # Return to the project root directory
+    cd ..
+done
+
+echo "Deployment packages are ready in $OUTPUT_DIR"
