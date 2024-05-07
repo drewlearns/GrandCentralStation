@@ -1,40 +1,49 @@
-// Importing AWS SDK v3 packages
-import { CognitoIdentityProviderClient, ForgotPasswordCommand } from "@aws-sdk/client-cognito-identity-provider";
+const { CognitoIdentityProviderClient, ForgotPasswordCommand } = require("@aws-sdk/client-cognito-identity-provider");
+const crypto = require('crypto');
+const client = new CognitoIdentityProviderClient({ region: "us-east-1" });
 
-// Initializing the Cognito client
-const REGION = "us-east-1"; // Region can be dynamic based on your configuration
-const cognitoClient = new CognitoIdentityProviderClient({ region: REGION });
-
-const USER_POOL_ID = process.env.USER_POOL_ID;
-const CLIENT_ID = process.env.CLIENT_ID;
+function generateSecretHash(username, clientId, clientSecret) {
+    return crypto.createHmac('SHA256', clientSecret)
+                 .update(username + clientId)
+                 .digest('base64');
+}
 
 exports.handler = async (event) => {
-    const { username } = JSON.parse(event.body);
+    const { username } = JSON.parse(event.body); 
+    const clientId = process.env.USER_POOL_CLIENT_ID;
+    const clientSecret = process.env.USER_POOL_CLIENT_SECRET;
 
     try {
+        const secretHash = generateSecretHash(username, clientId, clientSecret);
+
         const params = {
-            ClientId: CLIENT_ID,
+            ClientId: clientId,
             Username: username,
+            SecretHash: secretHash
         };
 
-        // Using v3 command pattern
-        const command = new ForgotPasswordCommand(params);
-        await cognitoClient.send(command);
-        
+        await client.send(new ForgotPasswordCommand(params));
+
         return {
             statusCode: 200,
             body: JSON.stringify({
-                message: 'Password reset initiated, verification code sent.',
+                message: "Password reset code sent successfully. Check your registered email or SMS."
             }),
+            headers: {
+                "Content-Type": "application/json"
+            }
         };
     } catch (error) {
-        console.error('Forgot password error:', error);
+        console.error("Error in forgot password process:", error);
         return {
             statusCode: 400,
             body: JSON.stringify({
-                message: 'Failed to initiate password reset',
-                error: error.message,
+                message: "Failed to send password reset code",
+                errorDetails: error.message
             }),
+            headers: {
+                "Content-Type": "application/json"
+            }
         };
     }
 };

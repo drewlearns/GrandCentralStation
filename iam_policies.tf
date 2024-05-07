@@ -11,7 +11,7 @@ resource "aws_iam_policy" "lambda_dynamodb_policy" {
           "dynamodb:Query",
           "dynamodb:UpdateItem"
         ],
-        Resource = "arn:aws:dynamodb:*:*:table/YourDynamoDBTableName",
+        Resource = "arn:aws:dynamodb:*:*:table/*",
         Effect   = "Allow"
       }
     ]
