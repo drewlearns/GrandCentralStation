@@ -6,7 +6,7 @@ const { DynamoDBDocumentClient, PutCommand } = require("@aws-sdk/lib-dynamodb");
 const ddbClient = new DynamoDBClient({ region: process.env.AWS_REGION });
 const docClient = DynamoDBDocumentClient.from(ddbClient);
 
-const TABLE_NAME = process.env.TABLE_NAME;
+const TABLE_NAME = "family_table";
 
 exports.handler = async (event) => {
     const { familyId, memberId, memberName, role } = JSON.parse(event.body);

@@ -10,6 +10,7 @@
   "license": "ISC",
   "dependencies": {
     "@aws-sdk/client-cognito-identity-provider": "^3.569.0",
-    "crypto-js": "^4.2.0"
+    "crypto-js": "^4.2.0",
+    "jwt-decode": "^4.0.0"
   }
 }

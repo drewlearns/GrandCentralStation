@@ -9,7 +9,8 @@ resource "aws_iam_policy" "lambda_dynamodb_policy" {
           "dynamodb:DeleteItem",
           "dynamodb:Scan",
           "dynamodb:Query",
-          "dynamodb:UpdateItem"
+          "dynamodb:UpdateItem",
+          "dynamodb:GetItem"
         ],
         Resource = "arn:aws:dynamodb:*:*:table/*",
         Effect   = "Allow"

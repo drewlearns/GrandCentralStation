@@ -11,7 +11,7 @@ resource "aws_api_gateway_domain_name" "this_domain_name" {
 
 # Base path mapping to connect the custom domain to the API deployment
 resource "aws_api_gateway_base_path_mapping" "this_base_path_mapping" {
-  depends_on = [aws_api_gateway_domain_name.this_domain_name]
+  depends_on = [aws_api_gateway_domain_name.this_domain_name, aws_route53_record.api_dns]
 
   domain_name = aws_api_gateway_domain_name.this_domain_name.domain_name
   api_id = aws_api_gateway_rest_api.this_api.id

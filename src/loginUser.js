@@ -1,9 +1,10 @@
 const { CognitoIdentityProviderClient, InitiateAuthCommand, RespondToAuthChallengeCommand } = require("@aws-sdk/client-cognito-identity-provider");
+const { DynamoDBClient, UpdateItemCommand } = require("@aws-sdk/client-dynamodb");
 const crypto = require('crypto');
 
 const client = new CognitoIdentityProviderClient({ region: "us-east-1" });
+const dbClient = new DynamoDBClient({ region: "us-east-1" });
 
-// Function to generate the secret hash using the client secret
 function generateSecretHash(username, clientId, clientSecret) {
     return crypto.createHmac('SHA256', clientSecret)
                  .update(username + clientId)
@@ -42,7 +43,7 @@ function initiateAuth(username, password, clientId, clientSecret) {
     };
 
     return client.send(new InitiateAuthCommand(params))
-        .then(response => handleAuthResponse(response))
+        .then(response => handleAuthResponse(response, username))
         .catch(error => {
             console.error("Authentication error:", error);
             return {
@@ -67,7 +68,7 @@ function respondToMFASetupChallenge(username, session, clientId, clientSecret) {
     };
 
     return client.send(new RespondToAuthChallengeCommand(params))
-        .then(response => handleAuthResponse(response))
+        .then(response => handleAuthResponse(response, username))
         .catch(error => {
             console.error("MFA setup error:", error);
             return {
@@ -78,9 +79,10 @@ function respondToMFASetupChallenge(username, session, clientId, clientSecret) {
         });
 }
 
-
-function handleAuthResponse(response) {
+function handleAuthResponse(response, username) {
     if (response.AuthenticationResult) {
+        updateLastLoginDate(username).catch(console.error);
+        
         return {
             statusCode: 200,
             body: JSON.stringify({
@@ -105,5 +107,24 @@ function handleAuthResponse(response) {
             body: JSON.stringify({ message: "Unexpected response" }),
             headers: { "Content-Type": "application/json" }
         };
+    }
+}
+
+async function updateLastLoginDate(username) {
+    const params = {
+        TableName: "user_table",
+        Key: { "user_id": { S: username } },
+        UpdateExpression: "set last_login = :d",
+        ExpressionAttributeValues: {
+            ":d": { S: new Date().toISOString() }
+        }
+    };
+
+    try {
+        await dbClient.send(new UpdateItemCommand(params));
+        console.log("Updated last login date for user:", username);
+    } catch (error) {
+        console.error("Error updating last login date:", error);
+        throw error;
     }
 }

@@ -27,12 +27,13 @@ exports.handler = async (event) => {
         
         // Proceed to insert the user into the database
         await createUserInDatabase({
-            cognitoId: signUpResponse.UserSub, // Cognito unique user identifier
+            cognitoId: username, // Cognito unique user identifier
             username,
             email,
             phoneNumber,
             firstName,
-            lastName
+            lastName,
+            signUpDate: new Date().toISOString(),
         });
 
         return {
@@ -60,12 +61,15 @@ async function createUserInDatabase(user) {
     const params = {
         TableName: "user_table",
         Item: {
-            "user_id": { S: user.cognitoId },
+            "user_id": { S: user.username },
             "username": { S: user.username },
             "email": { S: user.email },
             "phoneNumber": { S: user.phoneNumber },
             "firstName": {S: user.firstName},
-            "lastName":{S:user.lastName}
+            "lastName":{S: user.lastName},
+            "signupDate":{ S: new Date().toISOString() },
+            "last_login":{ S: "" },
+            "subscribed": { BOOL: false }
         }
     };
 

@@ -92,6 +92,7 @@ resource "aws_api_gateway_method" "this_method" {
   resource_id   = aws_api_gateway_resource.this_resource[each.key].id
   http_method   = each.value.method
   authorization = each.value.authorization
+  authorizer_id = aws_api_gateway_authorizer.cognito_authorizer.id
 }
 
 resource "aws_api_gateway_integration" "lambda_integration" {
@@ -113,11 +114,13 @@ resource "aws_api_gateway_deployment" "this_deployment" {
 
   rest_api_id = aws_api_gateway_rest_api.this_api.id
   stage_name  = "v1"
+
 }
 
 resource "aws_api_gateway_authorizer" "cognito_authorizer" {
-  name          = "CognitoAuthorizer"
-  type          = "COGNITO_USER_POOLS"
-  rest_api_id   = aws_api_gateway_rest_api.this_api.id
-  provider_arns = [var.cognito_user_pool_arn]
+  name                             = "CognitoAuthorizer"
+  type                             = "COGNITO_USER_POOLS"
+  rest_api_id                      = aws_api_gateway_rest_api.this_api.id
+  provider_arns                    = [var.cognito_user_pool_arn]
+  identity_source                  = "method.request.header.Authorization"
 }

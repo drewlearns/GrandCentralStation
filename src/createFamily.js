@@ -10,7 +10,7 @@ exports.handler = async (event) => {
 
     try {
         const params = {
-            TableName: TABLE_NAME,
+            TableName: "family_name",
             Item: {
                 familyId: familyId,
                 familyName: familyName,
