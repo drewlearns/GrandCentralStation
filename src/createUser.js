@@ -27,13 +27,12 @@ exports.handler = async (event) => {
         
         // Proceed to insert the user into the database
         await createUserInDatabase({
-            cognitoId: username, // Cognito unique user identifier
-            username,
+            userId: username, // Assuming username is the unique identifier for the user
             email,
             phoneNumber,
             firstName,
             lastName,
-            signUpDate: new Date().toISOString(),
+            createdAt: new Date().toISOString()
         });
 
         return {
@@ -59,24 +58,27 @@ function generateSecretHash(username, clientId, clientSecret) {
 
 async function createUserInDatabase(user) {
     const params = {
-        TableName: "user_table",
+        TableName: process.env.DYNAMODB_TABLE_NAME, // Ensure you have the table name from environment variables
         Item: {
-            "user_id": { S: user.username },
-            "username": { S: user.username },
-            "email": { S: user.email },
-            "phoneNumber": { S: user.phoneNumber },
-            "firstName": {S: user.firstName},
-            "lastName":{S: user.lastName},
-            "signupDate":{ S: new Date().toISOString() },
-            "last_login":{ S: "" },
-            "subscribed": { BOOL: false }
+            PK: { S: `USER#${user.userId}` },
+            SK: { S: `USER#${user.userId}` },
+            email: { S: user.email },
+            phoneNumber: { S: user.phoneNumber },
+            firstName: { S: user.firstName },
+            lastName: { S: user.lastName },
+            createdAt: { S: user.createdAt },
+            // Additional attributes if needed, using the correct names and structure for your single table design
+            lastLogin: { S: "" }, // Empty string if not logged in yet
+            subscribed: { BOOL: false }
         }
     };
 
     try {
         await dbClient.send(new PutItemCommand(params));
+        console.log("Updated user in the database:", user.userId);
     } catch (dbError) {
         console.error("Error saving user to database:", dbError);
         throw new Error("Database operation failed");
     }
 }
+

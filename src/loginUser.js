@@ -112,9 +112,12 @@ function handleAuthResponse(response, username) {
 
 async function updateLastLoginDate(username) {
     const params = {
-        TableName: "user_table",
-        Key: { "user_id": { S: username } },
-        UpdateExpression: "set last_login = :d",
+        TableName: process.env.DYNAMODB_TABLE_NAME, // Use the environment variable for the table name
+        Key: {
+            PK: { S: `USER#${username}` }, // Adjust to use 'PK' and 'SK' for the adjacency list pattern
+            SK: { S: `USER#${username}` }
+        },
+        UpdateExpression: "set lastLogin = :d", // Correct the attribute name to 'lastLogin'
         ExpressionAttributeValues: {
             ":d": { S: new Date().toISOString() }
         }

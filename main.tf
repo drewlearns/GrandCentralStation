@@ -7,19 +7,22 @@ module "lambdas" {
   lambdas = {
     "createFamily" = {
       runtime       = "nodejs20.x"
-      method        = "POST" # CAN ONLY BE POST
+      method        = "POST"               # CAN ONLY BE POST
       authorization = "COGNITO_USER_POOLS" # "NONE" OR "COGNITO_USER_POOLS"
-      policy_arns   = []
-      environment   = {}
+      policy_arns   = [aws_iam_policy.lambda_dynamodb_policy.arn]
+      environment = {
+        DYNAMODB_TABLE_NAME = "tppb"
+      }
     },
     "createUser" = {
       runtime       = "nodejs20.x"
       method        = "POST" # CAN ONLY BE POST
       authorization = "NONE" # "NONE" OR "COGNITO_USER_POOLS"
       policy_arns   = [aws_iam_policy.lambda_cognito_create_user_policy.arn, aws_iam_policy.lambda_dynamodb_policy.arn]
-      environment   = {
+      environment = {
         USER_POOL_CLIENT_ID     = aws_cognito_user_pool_client.cognito_user_pool_client.id
         USER_POOL_CLIENT_SECRET = aws_cognito_user_pool_client.cognito_user_pool_client.client_secret
+        DYNAMODB_TABLE_NAME     = "tppb"
       }
     },
     "confirmSignup" = {
@@ -27,7 +30,7 @@ module "lambdas" {
       method        = "POST" # CAN ONLY BE POST
       authorization = "NONE" # "NONE" OR "COGNITO_USER_POOLS"
       policy_arns   = [aws_iam_policy.confirm_user_policy.arn]
-      environment   = {
+      environment = {
         USER_POOL_CLIENT_ID     = aws_cognito_user_pool_client.cognito_user_pool_client.id
         USER_POOL_CLIENT_SECRET = aws_cognito_user_pool_client.cognito_user_pool_client.client_secret
       }
@@ -37,9 +40,11 @@ module "lambdas" {
       method        = "POST" # CAN ONLY BE POST
       authorization = "NONE" # "NONE" OR "COGNITO_USER_POOLS"
       policy_arns   = [aws_iam_policy.lambda_cognito_login_policy.arn, aws_iam_policy.lambda_dynamodb_policy.arn]
-      environment   = {
+      environment = {
         USER_POOL_CLIENT_ID     = aws_cognito_user_pool_client.cognito_user_pool_client.id
         USER_POOL_CLIENT_SECRET = aws_cognito_user_pool_client.cognito_user_pool_client.client_secret
+        DYNAMODB_TABLE_NAME     = "tppb"
+
       }
     },
     "forgotPassword" = {
@@ -47,7 +52,7 @@ module "lambdas" {
       method        = "POST" # CAN ONLY BE POST
       authorization = "NONE" # "NONE" OR "COGNITO_USER_POOLS"
       policy_arns   = [aws_iam_policy.forgot_password_policy.arn]
-      environment   = {
+      environment = {
         USER_POOL_CLIENT_ID     = aws_cognito_user_pool_client.cognito_user_pool_client.id
         USER_POOL_CLIENT_SECRET = aws_cognito_user_pool_client.cognito_user_pool_client.client_secret
       }
@@ -57,7 +62,7 @@ module "lambdas" {
       method        = "POST" # CAN ONLY BE POST
       authorization = "NONE" # "NONE" OR "COGNITO_USER_POOLS"
       policy_arns   = [aws_iam_policy.forgot_password_policy.arn]
-      environment   = {
+      environment = {
         USER_POOL_CLIENT_ID     = aws_cognito_user_pool_client.cognito_user_pool_client.id
         USER_POOL_CLIENT_SECRET = aws_cognito_user_pool_client.cognito_user_pool_client.client_secret
       }
@@ -66,18 +71,20 @@ module "lambdas" {
 }
 
 resource "aws_dynamodb_table" "user_table" {
-  name           = "user_table"
+  name           = "tppb"
   billing_mode   = "PROVISIONED"
   read_capacity  = 5
   write_capacity = 5
-  hash_key       = "user_id"
+  hash_key       = "PK"
+  range_key      = "SK"
 
   attribute {
-    name = "user_id"
+    name = "PK"
     type = "S"
   }
 
-  tags = {
-    Name = "UserTable"
+  attribute {
+    name = "SK"
+    type = "S"
   }
 }

@@ -12,7 +12,7 @@ resource "aws_iam_policy" "lambda_dynamodb_policy" {
           "dynamodb:UpdateItem",
           "dynamodb:GetItem"
         ],
-        Resource = "arn:aws:dynamodb:*:*:table/*",
+        Resource = "arn:aws:dynamodb:us-east-1:*:table/tppb",
         Effect   = "Allow"
       }
     ]
