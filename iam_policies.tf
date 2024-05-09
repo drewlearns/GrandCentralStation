@@ -1,3 +1,5 @@
+data "aws_caller_identity" "current" {}
+
 resource "aws_iam_policy" "lambda_dynamodb_policy" {
   name = "lambda_dynamodb_policy"
   policy = jsonencode({
@@ -12,7 +14,8 @@ resource "aws_iam_policy" "lambda_dynamodb_policy" {
           "dynamodb:UpdateItem",
           "dynamodb:GetItem"
         ],
-        Resource = "arn:aws:dynamodb:us-east-1:*:table/tppb",
+        Resource = "arn:aws:dynamodb:us-east-1:${data.aws_caller_identity.current.account_id}:table/tppb*",
+        
         Effect   = "Allow"
       }
     ]

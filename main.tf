@@ -14,6 +14,24 @@ module "lambdas" {
         DYNAMODB_TABLE_NAME = "tppb"
       }
     },
+    "getFamilyId" = {
+      runtime       = "nodejs20.x"
+      method        = "POST"               # CAN ONLY BE POST
+      authorization = "COGNITO_USER_POOLS" # "NONE" OR "COGNITO_USER_POOLS"
+      policy_arns   = [aws_iam_policy.lambda_dynamodb_policy.arn]
+      environment = {
+        DYNAMODB_TABLE_NAME = "tppb"
+      }
+    },
+    "addFamilyMember" = {
+      runtime       = "nodejs20.x"
+      method        = "POST"               # CAN ONLY BE POST
+      authorization = "COGNITO_USER_POOLS" # "NONE" OR "COGNITO_USER_POOLS"
+      policy_arns   = [aws_iam_policy.lambda_dynamodb_policy.arn]
+      environment = {
+        DYNAMODB_TABLE_NAME = "tppb"
+      }
+    },
     "createUser" = {
       runtime       = "nodejs20.x"
       method        = "POST" # CAN ONLY BE POST
@@ -70,21 +88,3 @@ module "lambdas" {
   }
 }
 
-resource "aws_dynamodb_table" "user_table" {
-  name           = "tppb"
-  billing_mode   = "PROVISIONED"
-  read_capacity  = 5
-  write_capacity = 5
-  hash_key       = "PK"
-  range_key      = "SK"
-
-  attribute {
-    name = "PK"
-    type = "S"
-  }
-
-  attribute {
-    name = "SK"
-    type = "S"
-  }
-}

@@ -17,9 +17,9 @@ exports.handler = async (event) => {
             TableName: TABLE_NAME,
             Item: {
                 PK: `FAMILY#${familyId}`, // Use PK to uniquely identify the family
-                SK: `CREATOR#${createdBy}`, // Use SK to relate the family to its creator
+                SK: `FAMILY#${familyId}`, // Use SK to relate the family to its creator
+                userId: `USER#${createdBy}`,
                 familyName: familyName,
-                createdBy: createdBy,
                 members: [createdBy],
                 createdAt: new Date().toISOString()
             }
@@ -34,7 +34,6 @@ exports.handler = async (event) => {
                 message: 'Family created successfully',
                 familyId: familyId,
                 familyName: familyName,
-                createdBy: createdBy
             }),
         };
     } catch (error) {

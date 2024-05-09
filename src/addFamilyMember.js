@@ -1,40 +1,61 @@
-// Import AWS SDK v3 packages
 const { DynamoDBClient } = require("@aws-sdk/client-dynamodb");
-const { DynamoDBDocumentClient, PutCommand } = require("@aws-sdk/lib-dynamodb");
+const { DynamoDBDocumentClient, PutCommand, GetCommand, UpdateCommand } = require("@aws-sdk/lib-dynamodb");
 
-// Initialize DynamoDB Document Client
-const ddbClient = new DynamoDBClient({ region: process.env.AWS_REGION });
-const docClient = DynamoDBDocumentClient.from(ddbClient);
+const dynamoDBClient = new DynamoDBClient({ region: "us-east-1" });
+const docClient = DynamoDBDocumentClient.from(dynamoDBClient);
 
-const TABLE_NAME = "family_table";
+const TABLE_NAME = process.env.DYNAMODB_TABLE_NAME; // Ensure this is set in the Lambda environment variables
 
 exports.handler = async (event) => {
-    const { familyId, memberId, memberName, role } = JSON.parse(event.body);
+    const { familyId, newMember } = JSON.parse(event.body); // Expecting 'familyId' and 'newMember' in the request body
 
     try {
-        const item = {
-            familyId: familyId,
-            memberId: memberId,
-            memberName: memberName,
-            role: role,
-            addedAt: new Date().toISOString(),
+        // Retrieve the current family record
+        const getParams = {
+            TableName: TABLE_NAME,
+            Key: {
+                PK: `FAMILY#${familyId}`,
+                SK: `FAMILY#${familyId}` // Assuming SK is the same as PK for retrieving the family
+            }
         };
 
-        // Create a PutCommand to add an item to the DynamoDB table
-        const command = new PutCommand({
-            TableName: TABLE_NAME,
-            Item: item
-        });
+        const { Item } = await docClient.send(new GetCommand(getParams));
 
-        // Execute the PutCommand using the Document Client
-        await docClient.send(command);
+        if (!Item) {
+            return {
+                statusCode: 404,
+                body: JSON.stringify({
+                    message: 'Family not found',
+                }),
+            };
+        }
+
+        // Add the new member without duplicating it
+        const updatedMembers = Item.members.includes(newMember) ? Item.members : [...Item.members, newMember];
+
+        // Update the family record with the new member list
+        const updateParams = {
+            TableName: TABLE_NAME,
+            Key: {
+                PK: `FAMILY#${familyId}`,
+                SK: `FAMILY#${familyId}`
+            },
+            UpdateExpression: 'SET members = :members',
+            ExpressionAttributeValues: {
+                ':members': updatedMembers
+            }
+        };
+
+        await docClient.send(new UpdateCommand(updateParams));
 
         return {
-            statusCode: 201,
+            statusCode: 200,
             body: JSON.stringify({
                 message: 'Family member added successfully',
                 familyId: familyId,
-                memberId: memberId,
+                familyName: Item.familyName,
+                createdBy: Item.createdBy,
+                members: updatedMembers
             }),
         };
     } catch (error) {
