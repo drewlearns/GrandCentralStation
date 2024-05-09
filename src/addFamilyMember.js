@@ -1,5 +1,5 @@
 const { DynamoDBClient } = require("@aws-sdk/client-dynamodb");
-const { DynamoDBDocumentClient, PutCommand, GetCommand, UpdateCommand } = require("@aws-sdk/lib-dynamodb");
+const { DynamoDBDocumentClient, PutCommand, QueryCommand, UpdateCommand, GetCommand } = require("@aws-sdk/lib-dynamodb");
 
 const dynamoDBClient = new DynamoDBClient({ region: "us-east-1" });
 const docClient = DynamoDBDocumentClient.from(dynamoDBClient);
@@ -10,18 +10,52 @@ exports.handler = async (event) => {
     const { familyId, newMember } = JSON.parse(event.body); // Expecting 'familyId' and 'newMember' in the request body
 
     try {
-        // Retrieve the current family record
-        const getParams = {
+        // Check if the new member already exists
+        const memberCheckParams = {
             TableName: TABLE_NAME,
-            Key: {
-                PK: `FAMILY#${familyId}`,
-                SK: `FAMILY#${familyId}` // Assuming SK is the same as PK for retrieving the family
+            KeyConditionExpression: "PK = :pk and SK = :sk",
+            ExpressionAttributeValues: {
+                ":pk": `FAMILY#${familyId}`,
+                ":sk": `MEMBER#${newMember}`
             }
         };
 
-        const { Item } = await docClient.send(new GetCommand(getParams));
+        const { Items: existingMembers } = await docClient.send(new QueryCommand(memberCheckParams));
 
-        if (!Item) {
+        if (existingMembers.length > 0) {
+            return {
+                statusCode: 409,
+                body: JSON.stringify({
+                    message: 'Member already exists in the family',
+                }),
+            };
+        }
+
+        // Add the new member as a separate item
+        const memberParams = {
+            TableName: TABLE_NAME,
+            Item: {
+                PK: `FAMILY#${familyId}`,
+                SK: `MEMBER#${newMember}`,
+                userId: `USER#${newMember}`,
+                role: "member" // Set roles as needed
+            }
+        };
+
+        await docClient.send(new PutCommand(memberParams));
+
+        // Retrieve the current list of members for updating the family overview
+        const getFamilyParams = {
+            TableName: TABLE_NAME,
+            Key: {
+                PK: `FAMILY#${familyId}`,
+                SK: `FAMILY#${familyId}`
+            }
+        };
+
+        const { Item: familyItem } = await docClient.send(new GetCommand(getFamilyParams));
+
+        if (!familyItem) {
             return {
                 statusCode: 404,
                 body: JSON.stringify({
@@ -30,32 +64,29 @@ exports.handler = async (event) => {
             };
         }
 
-        // Add the new member without duplicating it
-        const updatedMembers = Item.members.includes(newMember) ? Item.members : [...Item.members, newMember];
+        const updatedMembers = familyItem.members ? [...familyItem.members, newMember] : [newMember];
 
-        // Update the family record with the new member list
-        const updateParams = {
+        // Update the family overview item with new members list using list_append
+        const familyUpdateParams = {
             TableName: TABLE_NAME,
             Key: {
                 PK: `FAMILY#${familyId}`,
                 SK: `FAMILY#${familyId}`
             },
-            UpdateExpression: 'SET members = :members',
+            UpdateExpression: 'SET members = list_append(members, :newMembers)',
             ExpressionAttributeValues: {
-                ':members': updatedMembers
+                ':newMembers': [newMember]
             }
         };
 
-        await docClient.send(new UpdateCommand(updateParams));
+        // Perform the update
+        await docClient.send(new UpdateCommand(familyUpdateParams));
 
         return {
-            statusCode: 200,
+            statusCode: 201,
             body: JSON.stringify({
                 message: 'Family member added successfully',
-                familyId: familyId,
-                familyName: Item.familyName,
-                createdBy: Item.createdBy,
-                members: updatedMembers
+                familyId: familyId
             }),
         };
     } catch (error) {
