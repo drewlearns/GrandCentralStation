@@ -3,6 +3,9 @@ set -vex
 set -o pipefail
 # Install npm packages (assumes package.json is in the project root)
 npm install
+npx prisma generate
+npx prisma migrate dev --name init
+npx prisma db seed
 
 # Directory where all Lambda handlers are stored
 SRC_DIR="./src"

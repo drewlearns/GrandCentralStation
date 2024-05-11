@@ -14,20 +14,21 @@ resource "aws_iam_role" "lambda_role" {
   })
 }
 
-# IAM policy to allow Lambda function to access DynamoDB
-resource "aws_iam_role_policy" "lambda_dynamodb_access" {
-  name = "lambda_dynamodb_access"
+# IAM policy to allow Lambda function to manage EC2 network interfaces
+resource "aws_iam_role_policy" "lambda_ec2_network_access" {
+  name = "lambda_ec2_network_access"
   role = aws_iam_role.lambda_role.id
 
   policy = jsonencode({
     Version = "2012-10-17"
     Statement = [{
       Action = [
-        "dynamodb:Scan",
-        "dynamodb:UpdateItem"
+        "ec2:CreateNetworkInterface",
+        "ec2:DeleteNetworkInterface",
+        "ec2:DescribeNetworkInterfaces"
       ],
-      Effect = "Allow",
-      Resource = "*" # It's better to restrict this to specific tables
+      Effect   = "Allow",
+      Resource = "*" # Restrict this as needed for your security practices
     }]
   })
 }
@@ -43,8 +44,16 @@ resource "aws_lambda_function" "disable_access" {
 
   environment {
     variables = {
-      DYNAMODB_TABLE = "tppb" 
+      PGUSER     = "root"
+      PGHOST     = var.aurora_endpoint
+      PGDATABASE = "tppb"
+      PGPASSWORD = "root"
+      PGPORT     = "rootroot" # TODO: Make this more secure
     }
+  }
+  vpc_config {
+    subnet_ids         = var.lambda_vpc_subnet_ids
+    security_group_ids = [var.lambda_vpc_security_group_ids]
   }
 }
 

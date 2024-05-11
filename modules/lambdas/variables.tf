@@ -22,3 +22,18 @@ variable "cognito_user_pool_arn" {
   description = "arn of the cognito user pool"
   type        = string
 }
+
+variable "lambda_vpc_subnet_ids" {
+  description = "ids of lambda security groups"
+  type        = list(string)
+}
+
+variable "lambda_vpc_security_group_ids" {
+  description = "security group ids for lambda"
+  type = string
+}
+
+variable "aurora_endpoint" {
+  description = "aws_rds_cluster_instance.aurora_instance.endpoint"
+  type = string
+}
