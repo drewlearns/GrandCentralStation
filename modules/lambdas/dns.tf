@@ -14,7 +14,7 @@ resource "aws_api_gateway_base_path_mapping" "this_base_path_mapping" {
   depends_on = [aws_api_gateway_domain_name.this_domain_name, aws_route53_record.api_dns]
 
   domain_name = aws_api_gateway_domain_name.this_domain_name.domain_name
-  api_id = aws_api_gateway_rest_api.this_api.id
+  api_id      = aws_api_gateway_rest_api.this_api.id
   stage_name  = aws_api_gateway_deployment.this_deployment.stage_name
 }
 

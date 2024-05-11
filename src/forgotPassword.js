@@ -9,7 +9,7 @@ function generateSecretHash(username, clientId, clientSecret) {
 }
 
 exports.handler = async (event) => {
-    const { username } = JSON.parse(event.body); 
+    const { username } = JSON.parse(event.body);
     const clientId = process.env.USER_POOL_CLIENT_ID;
     const clientSecret = process.env.USER_POOL_CLIENT_SECRET;
 

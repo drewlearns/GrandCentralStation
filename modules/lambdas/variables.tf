@@ -1,9 +1,10 @@
 variable "lambdas" {
+  description = "lambdas configuration object"
   type = map(object({
     runtime       = string
     method        = string
     authorization = string
-    policy_arns   = list(string) // New field for policy ARNs
+    policy_arns   = list(string)
     environment   = map(string)
   }))
 }
@@ -30,10 +31,26 @@ variable "lambda_vpc_subnet_ids" {
 
 variable "lambda_vpc_security_group_ids" {
   description = "security group ids for lambda"
-  type = string
+  type        = string
 }
 
 variable "aurora_endpoint" {
   description = "aws_rds_cluster_instance.aurora_instance.endpoint"
-  type = string
+  type        = string
+}
+
+# Define variables for database connection details
+variable "db_username" {
+  description = "rds database username (root) typically"
+  type        = string
+  default     = "root"
+}
+variable "db_password" {
+  description = "Master db password for rds"
+  type        = string
+}
+variable "db_name" {
+  description = "RDS Database name, typically tppb-environment"
+  type        = string
+  default     = "tppb-dev"
 }

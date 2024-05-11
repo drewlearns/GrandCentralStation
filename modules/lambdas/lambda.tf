@@ -17,6 +17,7 @@ resource "aws_lambda_function" "this_lambda" {
     subnet_ids         = var.lambda_vpc_subnet_ids
     security_group_ids = [var.lambda_vpc_security_group_ids]
   }
+  depends_on = [ null_resource.run_build_script ]
 }
 
 resource "aws_lambda_permission" "api_gateway_permission" {

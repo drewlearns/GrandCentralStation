@@ -3,3 +3,4 @@
 **/deploy/*.zip
 **/node_modules
 .env
+**/prisma/migrations/*

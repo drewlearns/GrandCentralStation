@@ -35,9 +35,8 @@ resource "aws_wafv2_web_acl" "web_acl" {
     sampled_requests_enabled   = true
   }
 }
-data "aws_caller_identity" "current" {}
 
 resource "aws_wafv2_web_acl_association" "api_gateway_association" {
-  resource_arn = "arn:aws:apigateway:us-east-1::/restapis/${aws_api_gateway_rest_api.this_api.id}/stages/${aws_api_gateway_deployment.this_deployment.stage_name}"
+  resource_arn = "arn:aws:apigateway:us-east-1:${data.aws_caller_identity.current.account_id}:/restapis/${aws_api_gateway_rest_api.this_api.id}/stages/${aws_api_gateway_deployment.this_deployment.stage_name}"
   web_acl_arn  = aws_wafv2_web_acl.web_acl.arn
 }

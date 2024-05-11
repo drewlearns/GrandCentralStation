@@ -1,37 +1,37 @@
 resource "aws_vpc" "main" {
-  cidr_block = "10.0.0.0/16"
-  enable_dns_support = true
+  cidr_block           = "10.0.0.0/16"
+  enable_dns_support   = true
   enable_dns_hostnames = true
 }
 
 # Public Subnets
 resource "aws_subnet" "public1" {
-  vpc_id     = aws_vpc.main.id
-  cidr_block = "10.0.1.0/24"
+  vpc_id                  = aws_vpc.main.id
+  cidr_block              = "10.0.1.0/24"
   map_public_ip_on_launch = true
-  availability_zone = "us-east-1a"
+  availability_zone       = "us-east-1a"
 }
 
 resource "aws_subnet" "public2" {
-  vpc_id     = aws_vpc.main.id
-  cidr_block = "10.0.3.0/24"
+  vpc_id                  = aws_vpc.main.id
+  cidr_block              = "10.0.3.0/24"
   map_public_ip_on_launch = true
-  availability_zone = "us-east-1b"
+  availability_zone       = "us-east-1b"
 }
 
 # Private Subnets for Aurora and potentially Lambda
 resource "aws_subnet" "private1" {
-  vpc_id     = aws_vpc.main.id
-  cidr_block = "10.0.2.0/24"
+  vpc_id                  = aws_vpc.main.id
+  cidr_block              = "10.0.2.0/24"
   map_public_ip_on_launch = false
-  availability_zone = "us-east-1c"
+  availability_zone       = "us-east-1c"
 }
 
 resource "aws_subnet" "private2" {
-  vpc_id     = aws_vpc.main.id
-  cidr_block = "10.0.4.0/24"
+  vpc_id                  = aws_vpc.main.id
+  cidr_block              = "10.0.4.0/24"
   map_public_ip_on_launch = false
-  availability_zone = "us-east-1d"
+  availability_zone       = "us-east-1d"
 }
 
 resource "aws_internet_gateway" "gw" {
@@ -40,7 +40,7 @@ resource "aws_internet_gateway" "gw" {
 
 # NAT Gateway requires an Elastic IP
 resource "aws_eip" "nat" {
-  vpc = true
+  domain = "vpc"
 }
 
 # NAT Gateway in the public subnet
@@ -65,7 +65,7 @@ resource "aws_route_table" "private" {
   vpc_id = aws_vpc.main.id
 
   route {
-    cidr_block = "0.0.0.0/0"
+    cidr_block     = "0.0.0.0/0"
     nat_gateway_id = aws_nat_gateway.nat_gw.id
   }
 }

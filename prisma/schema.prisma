@@ -1,0 +1,187 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
+// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  uuid            String          @id
+  username        String
+  firstName       String
+  lastName        String
+  email           String
+  phoneNumber     String
+  signupDate      DateTime
+  mailOptIn       Boolean
+  defaultFamily   Family?         @relation(fields: [defaultFamilyId], references: [familyId])
+  defaultFamilyId String?
+  createdAt       DateTime
+  updatedAt       DateTime
+  familyMembers   FamilyMembers[]
+  invited         Invitations[]
+  audits          AuditTrail[]
+  confirmed_email Boolean
+}
+
+model Family {
+  familyId                   String              @id
+  familyName                 String
+  creationDate               DateTime
+  customFamilyNameSuchAsCrew String
+  createdAt                  DateTime
+  updatedAt                  DateTime
+  account                    String
+  setupComplete              Boolean
+  members                    FamilyMembers[]
+  incomes                    Incomes[]
+  transactionLedgers         TransactionLedger[]
+  calendars                  Calendar[]
+  billTables                 BillTable[]
+  preferences                Preferences[]
+  invitations                Invitations[]
+  categories                 Categories[]
+  activeSubscription         Boolean
+  User                       User[]
+}
+
+model FamilyMembers {
+  familyId   String   @id
+  memberUuid String
+  role       String
+  joinedDate DateTime
+  createdAt  DateTime
+  updatedAt  DateTime
+  family     Family   @relation(fields: [familyId], references: [familyId])
+  user       User     @relation(fields: [memberUuid], references: [uuid])
+}
+
+model Incomes {
+  incomeId    String @id
+  familyId    String
+  name        String
+  amount      Int
+  frequency   String
+  firstPayDay String
+  family      Family @relation(fields: [familyId], references: [familyId])
+}
+
+model TransactionLedger {
+  transactionId   String        @id
+  familyId        String
+  amount          Float
+  transactionType String
+  transactionDate DateTime
+  category        String
+  description     String
+  createdAt       DateTime
+  updatedAt       DateTime
+  updatedBy       String
+  attachments     Attachments[]
+  family          Family        @relation(fields: [familyId], references: [familyId])
+  Calendar        Calendar[]
+}
+
+model Calendar {
+  dateId        Int                @id
+  familyId      String
+  eventName     String
+  eventDate     DateTime
+  transactionId String?
+  billId        String?
+  description   String
+  createdAt     DateTime
+  updatedAt     DateTime
+  family        Family             @relation(fields: [familyId], references: [familyId])
+  transaction   TransactionLedger? @relation(fields: [transactionId], references: [transactionId])
+  bill          BillTable?         @relation(fields: [billId], references: [billId])
+}
+
+model BillTable {
+  billId       String     @id
+  familyId     String
+  category     String
+  billName     String
+  amount       Float
+  dayOfMonth   Int
+  frequency    String
+  isDebt       Boolean
+  interestRate Float
+  totalDebt    Int
+  description  String
+  status       String
+  url          String
+  username     String
+  password     String
+  createdAt    DateTime
+  updatedAt    DateTime
+  family       Family     @relation(fields: [familyId], references: [familyId])
+  Calendar     Calendar[]
+}
+
+model Preferences {
+  preferenceId    String   @id
+  familyId        String
+  preferenceType  String
+  preferenceValue String
+  createdAt       DateTime
+  updatedAt       DateTime
+  family          Family   @relation(fields: [familyId], references: [familyId])
+}
+
+model Invitations {
+  invitationId     String   @id
+  familyId         String
+  invitedUserUuid  String
+  invitationStatus String
+  sentDate         DateTime
+  createdAt        DateTime
+  updatedAt        DateTime
+  family           Family   @relation(fields: [familyId], references: [familyId])
+  invitedUser      User     @relation(fields: [invitedUserUuid], references: [uuid])
+}
+
+model AuditTrail {
+  auditId       String   @id
+  tableAffected String
+  actionType    String
+  oldValue      String
+  newValue      String
+  changedBy     String
+  changeDate    DateTime
+  timestamp     DateTime
+  device        String
+  ipAddress     String
+  deviceType    String
+  ssoEnabled    String
+  user          User     @relation(fields: [changedBy], references: [uuid])
+}
+
+model Attachments {
+  attachmentId  String            @id
+  transactionId String
+  fileType      String
+  filePath      String
+  uploadDate    DateTime
+  createdAt     DateTime
+  updatedAt     DateTime
+  transaction   TransactionLedger @relation(fields: [transactionId], references: [transactionId])
+}
+
+model Categories {
+  category_id String   @id
+  familyId    String
+  name        String
+  budgetLimit Int
+  createdAt   DateTime
+  updatedAt   DateTime
+  family      Family   @relation(fields: [familyId], references: [familyId])
+}

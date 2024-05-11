@@ -15,8 +15,8 @@ resource "aws_iam_policy" "lambda_dynamodb_policy" {
           "dynamodb:GetItem"
         ],
         Resource = "arn:aws:dynamodb:us-east-1:${data.aws_caller_identity.current.account_id}:table/tppb*",
-        
-        Effect   = "Allow"
+
+        Effect = "Allow"
       }
     ]
   })
@@ -124,8 +124,8 @@ resource "aws_iam_policy" "lambda_textract_policy" {
 }
 
 resource "aws_iam_policy" "forgot_password_policy" {
-  name   = "ForgotPasswordPolicy"
-  path   = "/"
+  name        = "ForgotPasswordPolicy"
+  path        = "/"
   description = "Policy for Forgot Password Lambda function to access Cognito"
 
   policy = jsonencode({
@@ -145,8 +145,8 @@ resource "aws_iam_policy" "forgot_password_policy" {
 }
 
 resource "aws_iam_policy" "confirm_user_policy" {
-  name   = "confirm_user_policy"
-  path   = "/"
+  name        = "confirm_user_policy"
+  path        = "/"
   description = "Policy for Forgot Password Lambda function to access Cognito"
 
   policy = jsonencode({
@@ -164,4 +164,3 @@ resource "aws_iam_policy" "confirm_user_policy" {
     ]
   })
 }
-
