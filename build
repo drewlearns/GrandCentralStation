@@ -1,30 +1,58 @@
 #!/bin/bash
 set -vex
 set -o pipefail
-# Install npm packages (assumes package.json is in the project root)
-npm install
+
+# Remove existing files in the deploy directory
+rm -rf ./deploy/*
+
+# Generate Prisma client
 npx prisma generate
 
-# Directory where all Lambda handlers are stored
-SRC_DIR="./src"
+# Install production node_modules
+npm ci --only=production
 
-# Output directory for the zipped files, within the project root
-OUTPUT_DIR="./deploy"
-mkdir -p $OUTPUT_DIR
+# Prepare the deploy directory
+mkdir -p deploy
 
-# Loop over each js file in the src directory
-for handler in $SRC_DIR/*.js; do
-    # Extract the base name of the file
-    base_name=$(basename "$handler" .js)
+# Copy necessary Prisma files and binaries
+mkdir -p deploy/node_modules/.prisma/client
+cp -r node_modules/@prisma/client deploy/node_modules/@prisma
+cp node_modules/.prisma/client/libquery_engine-rhel-openssl-3.0.x.so.node deploy/node_modules/.prisma/client
+cp prisma/schema.prisma deploy/
 
-    # Navigate to the src directory to use relative paths for zipping
-    cd $SRC_DIR
+# Copy node_modules to deploy to make it accessible for all functions
+cp -r node_modules deploy/
 
-    # Zip the handler along with the node_modules directory
-    zip -r "../$OUTPUT_DIR/$base_name.zip" "$base_name.js" "../node_modules"
+# Process each JavaScript file from the source directory
+for file in src/*.js; do
+  # Extract the base name of the function file without extension
+  func_name=$(basename "$file" .js)
+  
+  # Create a dedicated directory for each function within deploy
+  mkdir -p "deploy/$func_name"
 
-    # Return to the project root directory
-    cd ..
+  # Copy the JavaScript file to the function's directory
+  cp "$file" "deploy/$func_name/"
+  
+  # Copy the node_modules and Prisma schema to the function's directory
+  cp -r deploy/node_modules "deploy/$func_name/"
+  cp deploy/schema.prisma "deploy/$func_name/"
+
+  # Change directory to the function's directory to zip the contents
+  pushd "deploy/$func_name"
+  zip -r "../$func_name.zip" *
+  popd
+
+  # Clean up the function directory but leave node_modules for other functions
+  rm -rf "deploy/$func_name"
 done
 
-echo "Deployment packages are ready in $OUTPUT_DIR"
+# Change to the deploy directory to list the contents of each zip file
+cd deploy
+
+# Verify the contents of the zip files
+echo "Contents of the zip files:"
+for zip_file in *.zip; do
+  echo "Inspecting $zip_file"
+  unzip -l "$zip_file"
+done

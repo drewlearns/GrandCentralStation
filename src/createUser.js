@@ -2,18 +2,23 @@ const { PrismaClient } = require('@prisma/client');
 const prisma = new PrismaClient();
 
 exports.handler = async (event) => {
-  const { username, email, password, phoneNumber, firstName, lastName } = JSON.parse(event.body);
+  const { username, email, mailOptIn, phoneNumber, firstName, lastName } = JSON.parse(event.body);
+  const mailOptInValue = mailOptIn === "true"; // Converts "true" to true and any other string to false
 
   try {
-    // Create a new user using Prisma Client
     const newUser = await prisma.user.create({
       data: {
-        userId: username,
+        uuid: username,
+        username,
         email,
         phoneNumber,
         firstName,
         lastName,
         createdAt: new Date(),
+        signupDate: new Date(),
+        updatedAt: new Date(),
+        confirmed_email: false,
+        mailOptIn: mailOptInValue,
       },
     });
 

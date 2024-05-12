@@ -3,10 +3,10 @@ const {
   InitiateAuthCommand,
   RespondToAuthChallengeCommand,
 } = require("@aws-sdk/client-cognito-identity-provider");
-const {
-  DynamoDBClient,
-  UpdateItemCommand,
-} = require("@aws-sdk/client-dynamodb");
+// const {
+//   DynamoDBClient,
+//   UpdateItemCommand,
+// } = require("@aws-sdk/client-dynamodb");
 const crypto = require("crypto");
 
 const client = new CognitoIdentityProviderClient({ region: "us-east-1" });
