@@ -2,57 +2,59 @@
 set -vex
 set -o pipefail
 
-# Remove existing files in the deploy directory
-rm -rf ./deploy/*
 
-# Generate Prisma client
-npx prisma generate
+# Define the source and deploy directories
+SRC_DIR="./src"
+DEPLOY_DIR="./deploy"
 
-# Install production node_modules
-npm ci --only=production
+# Clean and prepare the deploy directory
+rm -rf $DEPLOY_DIR
+mkdir -p $DEPLOY_DIR
+# Copy the schema.prisma and the .so.node file to the deploy directory
+cp "prisma/schema.prisma" "$DEPLOY_DIR"
+cp "node_modules/.prisma/client/libquery_engine-rhel-openssl-3.0.x.so.node" "$DEPLOY_DIR"
 
-# Prepare the deploy directory
-mkdir -p deploy
+# Loop through each .js file in the src directory
+for entry in $(find "$SRC_DIR" -name "*.js"); do
+  # Get the base name of the file without the extension
+  base_name=$(basename "$entry" .js)
 
-# Copy necessary Prisma files and binaries
-mkdir -p deploy/node_modules/.prisma/client
-cp -r node_modules/@prisma/client deploy/node_modules/@prisma
-cp node_modules/.prisma/client/libquery_engine-rhel-openssl-3.0.x.so.node deploy/node_modules/.prisma/client
-cp prisma/schema.prisma deploy/
+  # Run Webpack to bundle this file and log the process
+  echo "Bundling $entry using Webpack..."
+  webpack --config webpack.config.js --env entry=$base_name.js
 
-# Copy node_modules to deploy to make it accessible for all functions
-cp -r node_modules deploy/
+  # Check if the expected JS file is created
+  if [ ! -f "$DEPLOY_DIR/$base_name.js" ]; then
+    echo "Bundled file for $base_name not found, skipping."
+    continue
+  fi
 
-# Process each JavaScript file from the source directory
-for file in src/*.js; do
-  # Extract the base name of the function file without extension
-  func_name=$(basename "$file" .js)
-  
-  # Create a dedicated directory for each function within deploy
-  mkdir -p "deploy/$func_name"
+  # Move bundled JS, schema.prisma, and .so.node to a temporary directory to zip
+  mkdir -p "$DEPLOY_DIR/tmp"
+  mv "$DEPLOY_DIR/$base_name.js" "$DEPLOY_DIR/tmp"
+  cp "$DEPLOY_DIR/schema.prisma" "$DEPLOY_DIR/tmp"
+  cp "$DEPLOY_DIR/libquery_engine-rhel-openssl-3.0.x.so.node" "$DEPLOY_DIR/tmp"
 
-  # Copy the JavaScript file to the function's directory
-  cp "$file" "deploy/$func_name/"
-  
-  # Copy the node_modules and Prisma schema to the function's directory
-  cp -r deploy/node_modules "deploy/$func_name/"
-  cp deploy/schema.prisma "deploy/$func_name/"
+  # Ensure @prisma/client and the entire .prisma structure are included
+  mkdir -p "$DEPLOY_DIR/tmp/node_modules/@prisma"
+  cp -r node_modules/@prisma/client "$DEPLOY_DIR/tmp/node_modules/@prisma/client"
+  cp -r node_modules/.prisma "$DEPLOY_DIR/tmp/node_modules/.prisma"
 
-  # Change directory to the function's directory to zip the contents
-  pushd "deploy/$func_name"
-  zip -r "../$func_name.zip" *
-  popd
+  # Change directory to tmp and zip the contents directly at the root level
+  echo "Zipping contents for $base_name..."
+  (cd "$DEPLOY_DIR/tmp" && zip -r "../$base_name.zip" ./*)
 
-  # Clean up the function directory but leave node_modules for other functions
-  rm -rf "deploy/$func_name"
+  # Cleanup the tmp directory
+  rm -rf "$DEPLOY_DIR/tmp"
+
+  # Confirm the contents of the zip file to ensure correctness
+  echo "Contents of the zip file for $base_name:"
+  unzip -l "$DEPLOY_DIR/$base_name.zip"
+
 done
 
-# Change to the deploy directory to list the contents of each zip file
-cd deploy
+# Clean up remaining .js and .txt files in the deploy directory
+rm -rf deploy/*.js # Do not modify
+rm -rf deploy/*.txt # Do not modify
 
-# Verify the contents of the zip files
-echo "Contents of the zip files:"
-for zip_file in *.zip; do
-  echo "Inspecting $zip_file"
-  unzip -l "$zip_file"
-done
+echo "Build and packaging completed."

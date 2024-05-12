@@ -7,6 +7,8 @@ resource "aws_lambda_function" "this_lambda" {
   role          = aws_iam_role.this_lambda_role[each.key].arn
   runtime       = each.value.runtime
   filename      = "./deploy/${each.key}.zip"
+  timeout       = 30
+  memory_size = 256
   tags = {
     Name = "each.key"
   }
@@ -17,7 +19,7 @@ resource "aws_lambda_function" "this_lambda" {
     subnet_ids         = var.lambda_vpc_subnet_ids
     security_group_ids = [var.lambda_vpc_security_group_ids]
   }
-  depends_on = [ null_resource.run_build_script ]
+  depends_on = [null_resource.run_build_script]
 }
 
 resource "aws_lambda_permission" "api_gateway_permission" {
