@@ -54,7 +54,7 @@ exports.handler = async (event) => {
         createdAt: new Date(),
         signupDate: new Date(),
         updatedAt: new Date(),
-        confirmed_email: false,
+        confirmedEmail: false,
         mailOptIn: mailOptInValue,
       },
     });

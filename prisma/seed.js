@@ -13,7 +13,7 @@ async function main() {
       phoneNumber: "123-456-7890",
       signupDate: new Date(),
       mailOptIn: true,
-      confirmed_email: true,
+      confirmedEmail: true,
       createdAt: new Date(),
       updatedAt: new Date(),
     },
