@@ -1,49 +1,39 @@
-const { DynamoDBClient } = require("@aws-sdk/client-dynamodb");
-// const { DynamoDBDocumentClient, PutCommand, BatchWriteCommand } = require("@aws-sdk/lib-dynamodb");
-const { v4: uuidv4 } = require("uuid");
-
-const dynamoDBClient = new DynamoDBClient({ region: "us-east-1" });
-const docClient = DynamoDBDocumentClient.from(dynamoDBClient);
-
-const TABLE_NAME = process.env.DYNAMODB_TABLE_NAME; // Ensure this is set in the Lambda environment variables
+const { PrismaClient } = require('@prisma/client');
+const prisma = new PrismaClient();
+const { v4: uuidv4 } = require('uuid');
 
 exports.handler = async (event) => {
-    const { familyName, createdBy } = JSON.parse(event.body); // Expecting 'familyName' and 'createdBy' in the request body
-
-    const familyId = uuidv4(); // Generates a unique UUID for each new family
+    const { familyName, createdBy, customFamilyName, account } = JSON.parse(event.body);
+    const familyId = uuidv4();
 
     try {
-        // Prepare a batch write to create the family and the creator's member entry
-        const batchParams = {
-            RequestItems: {
-                [TABLE_NAME]: [
-                    {
-                        PutRequest: {
-                            Item: {
-                                PK: `FAMILY#${familyId}`, // Unique identifier for the family
-                                SK: `FAMILY#${familyId}`, // Same SK to indicate this is the family entry
-                                familyName: familyName,
-                                createdAt: new Date().toISOString(),
-                                members: [createdBy] // List members here for quick overview; detailed in member entries
-                            }
-                        }
+        const result = await prisma.$transaction(async (prisma) => {
+            // Create the family record
+            const family = await prisma.family.create({
+                data: {
+                    familyId: familyId,
+                    familyName: familyName,
+                    customFamilyNameSuchAsCrew: customFamilyName,
+                    creationDate: new Date(),
+                    createdAt: new Date(),  // Set createdAt for Family
+                    updatedAt: new Date(),  // Set updatedAt for Family
+                    account: account,
+                    setupComplete: false,
+                    activeSubscription: false,
+                    members: {
+                        create: [{
+                            memberUuid: createdBy,
+                            role: 'creator',
+                            joinedDate: new Date(),  // Ensure joinedDate for FamilyMembers
+                            createdAt: new Date(),  // Set createdAt for FamilyMembers
+                            updatedAt: new Date(),  // Set updatedAt for FamilyMembers
+                        }],
                     },
-                    {
-                        PutRequest: {
-                            Item: {
-                                PK: `FAMILY#${familyId}`,
-                                SK: `MEMBER#${createdBy}`, // Unique identifier for each member
-                                role: "creator",
-                                userId: `USER#${createdBy}`
-                            }
-                        }
-                    }
-                ]
-            }
-        };
+                },
+            });
 
-        // Execute the batch write to insert both the family and its creator
-        await docClient.send(new BatchWriteCommand(batchParams));
+            return family;
+        });
 
         return {
             statusCode: 201,
@@ -51,6 +41,8 @@ exports.handler = async (event) => {
                 message: 'Family created successfully',
                 familyId: familyId,
                 familyName: familyName,
+                customFamilyName: customFamilyName,
+                account: account,
             }),
         };
     } catch (error) {

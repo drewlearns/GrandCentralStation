@@ -6,7 +6,7 @@
   - [About](#about)
   - [Creating API Documentation](#creating-api-documentation)
     - [Installing docgen](#installing-docgen)
-    - [Generate the api documents pick markdown or html or both](#generate-the-api-documents-pick-markdown-or-html-or-both)
+    - [Generate the api documents (pick markdown or html or both)](#generate-the-api-documents-pick-markdown-or-html-or-both)
   - [Deploying](#deploying)
     - [Initial deployment](#initial-deployment)
   - [Adding new lambdas](#adding-new-lambdas)
@@ -43,6 +43,8 @@ curl https://raw.githubusercontent.com/thedevsaddam/docgen/v3/install.sh -o inst
 && sudo ./install.sh \
 && rm install.sh
 ```
+
+> See https://github.com/thedevsaddam/docgen for more details about docgen
 
 ### Generate the api documents (pick markdown or html or both)
 
