@@ -1,3 +1,58 @@
+# The Purple PiggyBank - Grand Central Station
+
+<!-- TOC -->
+
+- [The Purple PiggyBank - Grand Central Station](#the-purple-piggybank---grand-central-station)
+  - [About](#about)
+  - [Creating API Documentation](#creating-api-documentation)
+    - [Installing docgen](#installing-docgen)
+    - [Generate the api documents pick markdown or html or both](#generate-the-api-documents-pick-markdown-or-html-or-both)
+  - [Deploying](#deploying)
+    - [Initial deployment](#initial-deployment)
+  - [Adding new lambdas](#adding-new-lambdas)
+  - [Connecting to the database](#connecting-to-the-database)
+  - [Seeding the database](#seeding-the-database)
+    - [How to drop all tables from the database:](#how-to-drop-all-tables-from-the-database)
+  - [Precommit - Update the terraform docs below:](#precommit---update-the-terraform-docs-below)
+  - [Requirements](#requirements)
+  - [Providers](#providers)
+  - [Modules](#modules)
+  - [Resources](#resources)
+  - [Inputs](#inputs)
+  - [Outputs](#outputs)
+
+<!-- /TOC -->s](#resources)
+  - [Inputs](#inputs)
+  - [Outputs](#outputs)
+
+<!-- /TOC -->
+
+## About
+
+This repository is a "hub" for all things The purple Piggy Bank's (TPPB for short) backend and infrastructure. It's structured as a monorepo and most operations will happen in either the `src/` or `lambdas.tf` locations. 
+
+## Creating API Documentation
+
+### Installing docgen
+
+You must have docgen installed using the following commands:
+
+```bash
+curl https://raw.githubusercontent.com/thedevsaddam/docgen/v3/install.sh -o install.sh \
+&& sudo chmod +x install.sh \
+&& sudo ./install.sh \
+&& rm install.sh
+```
+
+### Generate the api documents (pick markdown or html or both)
+
+Download the collection and environment.
+
+```bash
+docgen build -s -i TPPB.postman_collection.json -o ./apidocs.html  
+docgen build -s -i TPPB.postman_collection.json -o ./apidocs.md -m
+```
+
 ## Deploying
 
 ```bash
@@ -15,6 +70,7 @@ terraform apply -var-file=./tfvars/dev.tfvars -auto-approve
 # Connect to database locally
 # update .env file to "local" temporarily
 ./prisma
+```
 
 ## Adding new lambdas
 
@@ -39,6 +95,7 @@ Run the command, it will open a tunnel from local through the bastion host to th
 ### How to drop all tables from the database:
 
 >❗️WARNING❗️**DO NOT** do this on tppbprod database!
+
 ```sql
 DO $$
 DECLARE
