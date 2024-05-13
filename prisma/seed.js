@@ -1,11 +1,11 @@
-const { PrismaClient } = require('@prisma/client');
+const { PrismaClient } = require("@prisma/client");
 const prisma = new PrismaClient();
 
 async function main() {
   // Seeding User Data
   const user = await prisma.user.create({
     data: {
-      uuid: "1",
+      uuid: "john_doe", // Using the same value for uuid and username
       username: "john_doe",
       firstName: "John",
       lastName: "Doe",
@@ -19,10 +19,33 @@ async function main() {
     },
   });
 
+  // Seeding SecurityLog Data
+  const securityLogs = [
+    {
+      logId: "log-001",
+      userUuid: user.uuid, // Using the same value for referencing
+      loginTime: new Date(),
+      ipAddress: "192.168.1.1",
+      deviceDetails: "Windows 10, Chrome 88",
+      locationDetails: "New York, USA",
+      actionType: "login",
+      createdAt: new Date(),
+    },
+    {
+      logId: "log-002",
+      userUuid: user.uuid,
+      loginTime: new Date(),
+      ipAddress: "192.168.1.2",
+      deviceDetails: "macOS, Safari 14",
+      locationDetails: "Los Angeles, USA",
+      actionType: "login",
+      createdAt: new Date(),
+    },
+  ];
   // Seeding Family Data
   const family = await prisma.family.create({
     data: {
-      familyId: "1",
+      familyId: "family-001",
       familyName: "Doe Family",
       creationDate: new Date(),
       customFamilyNameSuchAsCrew: "Doe Crew",
@@ -49,7 +72,7 @@ async function main() {
   // Seeding Incomes Data
   const income = await prisma.incomes.create({
     data: {
-      incomeId: "1",
+      incomeId: "income-001",
       familyId: family.familyId,
       name: "Doe's Main Income",
       amount: 5000,
@@ -61,9 +84,9 @@ async function main() {
   // Seeding TransactionLedger Data
   const transaction = await prisma.transactionLedger.create({
     data: {
-      transactionId: "1",
+      transactionId: "transaction-001",
       familyId: family.familyId,
-      amount: 150.50,
+      amount: 150.5,
       transactionType: "Grocery",
       transactionDate: new Date(),
       category: "Food",
@@ -90,11 +113,11 @@ async function main() {
   // Seeding BillTable Data
   const bill = await prisma.billTable.create({
     data: {
-      billId: "1",
+      billId: "bill-001",
       familyId: family.familyId,
       category: "Utilities",
       billName: "Electricity Bill",
-      amount: 200.00,
+      amount: 200.0,
       dayOfMonth: 15,
       frequency: "monthly",
       isDebt: false,
@@ -104,7 +127,7 @@ async function main() {
       status: "due",
       url: "http://utilityprovider.com",
       username: "john_doe",
-      password: "secure_password",
+      password: "secure_password", // Ensure you hash passwords in production
       createdAt: new Date(),
       updatedAt: new Date(),
     },
@@ -113,7 +136,7 @@ async function main() {
   // Seeding Preferences Data
   const preference = await prisma.preferences.create({
     data: {
-      preferenceId: "1",
+      preferenceId: "preference-001",
       familyId: family.familyId,
       preferenceType: "Theme",
       preferenceValue: "Dark",
@@ -122,11 +145,10 @@ async function main() {
     },
   });
 
-
   // Seeding Invitations Data
   const invitation = await prisma.invitations.create({
     data: {
-      invitationId: "1",
+      invitationId: "invitation-001",
       familyId: family.familyId,
       invitedUserUuid: user.uuid,
       invitationStatus: "pending",
@@ -139,7 +161,7 @@ async function main() {
   // Seeding AuditTrail Data
   const auditTrail = await prisma.auditTrail.create({
     data: {
-      auditId: "1",
+      auditId: "audit-001",
       tableAffected: "User",
       actionType: "Create",
       oldValue: "",
@@ -157,7 +179,7 @@ async function main() {
   // Seeding Attachments Data
   const attachment = await prisma.attachments.create({
     data: {
-      attachmentId: "1",
+      attachmentId: "attachment-001",
       transactionId: transaction.transactionId,
       fileType: "pdf",
       filePath: "/path/to/receipt.pdf",
@@ -170,7 +192,7 @@ async function main() {
   // Seeding Categories Data
   const category = await prisma.categories.create({
     data: {
-      category_id: "1",
+      category_id: "category-001",
       familyId: family.familyId,
       name: "Entertainment",
       budgetLimit: 300,
@@ -188,3 +210,24 @@ main()
   .finally(async () => {
     await prisma.$disconnect();
   });
+
+const notifications = [
+  {
+    notificationId: "notif-001",
+    userUuid: user.uuid,
+    title: "Upcoming Bill",
+    message: "Your electricity bill is due in 3 days.",
+    read: false,
+    createdAt: new Date(),
+    updatedAt: new Date(),
+  },
+  {
+    notificationId: "notif-002",
+    userUuid: user.uuid,
+    title: "Payment Confirmation",
+    message: "Your credit card payment was processed successfully.",
+    read: true,
+    createdAt: new Date(),
+    updatedAt: new Date(),
+  },
+];

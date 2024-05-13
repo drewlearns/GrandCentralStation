@@ -186,3 +186,29 @@ model Categories {
   updatedAt   DateTime
   family      Family   @relation(fields: [familyId], references: [familyId])
 }
+
+model SecurityLog {
+  logId          String   @id
+  userUuid       String
+  loginTime      DateTime
+  ipAddress      String
+  deviceDetails  String
+  locationDetails String
+  actionType     String
+  createdAt      DateTime
+  
+  // Relation to User model
+  user           User     @relation(fields: [userUuid], references: [uuid])
+}
+
+model Notification {
+  notificationId String   @id
+  userUuid       String
+  title          String
+  message        String
+  read           Boolean
+  createdAt      DateTime
+  updatedAt      DateTime
+
+  user           User     @relation(fields: [userUuid], references: [uuid])
+}

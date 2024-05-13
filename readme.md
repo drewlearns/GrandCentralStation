@@ -1,8 +1,61 @@
-Next steps:
-1. Set the DATABASE_URL in the .env file to point to your existing database. If your database has no tables yet, read https://pris.ly/d/getting-started
-2. Set the provider of the datasource block in schema.prisma to match your database: postgresql, mysql, sqlite, sqlserver, mongodb or cockroachdb.
-3. Run prisma db pull to turn your database schema into a Prisma schema.
-4. Run prisma generate to generate the Prisma Client. You can then start querying your database.
+## Deploying
+
+```bash
+./build
+terraform apply -var-file=./tfvars/dev.tfvars -auto-approve     
+```
+
+### Initial deployment
+
+```bash
+npm i
+npx prisma generate
+./build
+terraform apply -var-file=./tfvars/dev.tfvars -auto-approve
+# Connect to database locally
+# update .env file to "local" temporarily
+./prisma
+
+## Adding new lambdas
+
+Add new lambdas to lambdas.tf in the root directory. They should be post request and follow the same patterns as other lambdas for convention.
+TODO: automate the api gateway deployment whenever adding a new lambda or more specifically when adding a new method 
+
+## Connecting to the database
+
+If you'd like to connect to the database, use the output command from terraform apply or look in outputs.tf for how to construct it.
+
+Run the command, it will open a tunnel from local through the bastion host to the rds database. From there log in through pgadmin4. You can get the database credentials from secrets manager.
+
+## Seeding the database
+
+1. Open a connection to the database (see instructions in [Connecting to the database](#connecting-to-the-database))
+2. Update .env file to "localhost" instead of the tppbdev/tppbprod endpoint
+3. run `./prisma.sh`
+4. This will seed the database.
+
+> You may need to dump all tables first before seeding if the database already has been seeded. This is necessary when making development database schema.prisma changes.
+
+### How to drop all tables from the database:
+
+>❗️WARNING❗️**DO NOT** do this on tppbprod database!
+```sql
+DO $$
+DECLARE
+    r RECORD;
+BEGIN
+    -- This query fetches all table names in the 'public' schema of your database
+    FOR r IN SELECT tablename FROM pg_tables WHERE schemaname = 'public'
+    LOOP
+        -- Construct and execute a DROP TABLE statement for each table
+        EXECUTE 'DROP TABLE IF EXISTS ' || quote_ident(r.tablename) || ' CASCADE;';
+    END LOOP;
+END $$;
+```
+
+## Precommit - Update the terraform docs below:
+
+`pre-commit run -a`
 
 <!-- BEGIN_TF_DOCS -->
 ## Requirements
