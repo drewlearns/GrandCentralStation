@@ -5,8 +5,8 @@
 // Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
 
 generator client {
-  provider = "prisma-client-js"
-    binaryTargets = ["rhel-openssl-3.0.x", "darwin-arm64"]
+  provider      = "prisma-client-js"
+  binaryTargets = ["rhel-openssl-3.0.x", "darwin-arm64"]
 }
 
 datasource db {
@@ -30,7 +30,11 @@ model User {
   familyMembers   FamilyMembers[]
   invited         Invitations[]
   audits          AuditTrail[]
-  confirmedEmail Boolean
+  confirmedEmail  Boolean
+
+  // Add these relations to link back from SecurityLog and Notification
+  securityLogs  SecurityLog[] // Reverse relation for SecurityLog.user
+  notifications Notification[] // Reverse relation for Notification.user
 }
 
 model Family {
@@ -55,7 +59,7 @@ model Family {
 }
 
 model FamilyMembers {
-  familyId   String   @id
+  familyId   String
   memberUuid String
   role       String
   joinedDate DateTime
@@ -63,16 +67,20 @@ model FamilyMembers {
   updatedAt  DateTime
   family     Family   @relation(fields: [familyId], references: [familyId])
   user       User     @relation(fields: [memberUuid], references: [uuid])
+
+  @@id([familyId, memberUuid])
 }
 
 model Incomes {
-  incomeId    String @id
+  incomeId    String   @id
   familyId    String
   name        String
   amount      Int
   frequency   String
   firstPayDay String
-  family      Family @relation(fields: [familyId], references: [familyId])
+  createdAt   DateTime // Ensure these are present if manually setting them
+  updatedAt   DateTime
+  family      Family   @relation(fields: [familyId], references: [familyId])
 }
 
 model TransactionLedger {
@@ -188,17 +196,16 @@ model Categories {
 }
 
 model SecurityLog {
-  logId          String   @id
-  userUuid       String
-  loginTime      DateTime
-  ipAddress      String
-  deviceDetails  String
+  logId           String   @id
+  userUuid        String
+  loginTime       DateTime
+  ipAddress       String
+  deviceDetails   String
   locationDetails String
-  actionType     String
-  createdAt      DateTime
-  
-  // Relation to User model
-  user           User     @relation(fields: [userUuid], references: [uuid])
+  actionType      String
+  createdAt       DateTime
+
+  user User @relation(fields: [userUuid], references: [uuid])
 }
 
 model Notification {
@@ -210,5 +217,5 @@ model Notification {
   createdAt      DateTime
   updatedAt      DateTime
 
-  user           User     @relation(fields: [userUuid], references: [uuid])
+  user User @relation(fields: [userUuid], references: [uuid])
 }

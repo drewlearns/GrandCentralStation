@@ -7,6 +7,21 @@ exports.handler = async (event) => {
     const familyId = uuidv4();
 
     try {
+        // Check if the user with createdBy exists in the User table
+        const userExists = await prisma.user.findUnique({
+            where: { uuid: createdBy },
+        });
+
+        if (!userExists) {
+            console.log(`Error: User ${createdBy} does not exist`);
+            return {
+                statusCode: 404,
+                body: JSON.stringify({
+                    message: 'User not found',
+                }),
+            };
+        }
+
         const result = await prisma.$transaction(async (prisma) => {
             // Create the family record
             const family = await prisma.family.create({
