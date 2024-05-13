@@ -2,7 +2,6 @@
 set -vex
 set -o pipefail
 
-
 # Define the source and deploy directories
 SRC_DIR="./src"
 DEPLOY_DIR="./deploy"
@@ -10,6 +9,7 @@ DEPLOY_DIR="./deploy"
 # Clean and prepare the deploy directory
 rm -rf $DEPLOY_DIR
 mkdir -p $DEPLOY_DIR
+
 # Copy the schema.prisma and the .so.node file to the deploy directory
 cp "prisma/schema.prisma" "$DEPLOY_DIR"
 cp "node_modules/.prisma/client/libquery_engine-rhel-openssl-3.0.x.so.node" "$DEPLOY_DIR"
@@ -19,9 +19,16 @@ for entry in $(find "$SRC_DIR" -name "*.js"); do
   # Get the base name of the file without the extension
   base_name=$(basename "$entry" .js)
 
+  # Print the full path for debugging
+  echo "Full path of the file being processed: $entry"
+
+  # Determine the relative path from src to the file for Webpack
+  relative_path=${entry#"$SRC_DIR/"}  # This strips the SRC_DIR part to get the relative path
+  echo "Relative path passed to Webpack: $relative_path"
+
   # Run Webpack to bundle this file and log the process
-  echo "Bundling $entry using Webpack..."
-  webpack --config webpack.config.js --env entry=$base_name.js
+  echo "Bundling $relative_path using Webpack..."
+  webpack --config webpack.config.js --env entry=$relative_path
 
   # Check if the expected JS file is created
   if [ ! -f "$DEPLOY_DIR/$base_name.js" ]; then
@@ -39,6 +46,10 @@ for entry in $(find "$SRC_DIR" -name "*.js"); do
   mkdir -p "$DEPLOY_DIR/tmp/node_modules/@prisma"
   cp -r node_modules/@prisma/client "$DEPLOY_DIR/tmp/node_modules/@prisma/client"
   cp -r node_modules/.prisma "$DEPLOY_DIR/tmp/node_modules/.prisma"
+
+  # Include uuid and other necessary node_modules
+  mkdir -p "$DEPLOY_DIR/tmp/node_modules"
+  cp -r node_modules/uuid "$DEPLOY_DIR/tmp/node_modules/uuid"
 
   # Change directory to tmp and zip the contents directly at the root level
   echo "Zipping contents for $base_name..."

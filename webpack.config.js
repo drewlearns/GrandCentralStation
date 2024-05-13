@@ -8,7 +8,10 @@ module.exports = (env) => {
     mode: 'production',
     entry: path.resolve(__dirname, 'src', env.entry),
     target: 'node',
-    externals: [nodeExternals()],
+    // Exclude all modules in node_modules except 'uuid'
+    externals: [nodeExternals({
+      allowlist: ['uuid'] // This includes 'uuid' in the bundle
+    })],
     output: {
       path: path.resolve(__dirname, 'deploy'),
       filename: `${path.basename(env.entry, '.js')}.js`, // Ensure filename matches the basename of the entry file
