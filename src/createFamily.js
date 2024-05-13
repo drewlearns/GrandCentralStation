@@ -4,7 +4,7 @@ const { v4: uuidv4 } = require('uuid');
 
 exports.handler = async (event) => {
     const { familyName, createdBy, customFamilyName, account } = JSON.parse(event.body);
-    const familyId = uuidv4();
+    const familyId = uuidv4();  // Unique ID for the family
 
     try {
         // Check if the user with createdBy exists in the User table
@@ -37,11 +37,12 @@ exports.handler = async (event) => {
                     activeSubscription: false,
                     members: {
                         create: [{
+                            id: uuidv4(),  // Ensure a unique ID for FamilyMembers
                             memberUuid: createdBy,
                             role: 'creator',
-                            joinedDate: new Date(),  // Ensure joinedDate for FamilyMembers
-                            createdAt: new Date(),  // Set createdAt for FamilyMembers
-                            updatedAt: new Date(),  // Set updatedAt for FamilyMembers
+                            joinedDate: new Date(),
+                            createdAt: new Date(),
+                            updatedAt: new Date(),
                         }],
                     },
                 },

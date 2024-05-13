@@ -1,11 +1,12 @@
 const { PrismaClient } = require('@prisma/client');
 const prisma = new PrismaClient();
+const { v4: uuidv4 } = require('uuid'); // Ensure UUIDs are generated where needed
 
 exports.handler = async (event) => {
     const { familyId, memberUuid, role } = JSON.parse(event.body);
 
     try {
-        // Check if the familyId exists in the Family table
+        // Check if the family exists in the Family table
         const familyExists = await prisma.family.findUnique({
             where: { familyId: familyId },
         });
@@ -41,6 +42,7 @@ exports.handler = async (event) => {
         // Add the new family member
         const newMember = await prisma.familyMembers.create({
             data: {
+                id: uuidv4(),  // Generate a unique ID for the FamilyMembers record
                 familyId: familyId,
                 memberUuid: memberUuid,
                 role: role,
@@ -65,6 +67,7 @@ exports.handler = async (event) => {
             errorDetails: error
         });
 
+        // Handle specific errors related to unique constraints
         if (error.code === 'P2002') {
             return {
                 statusCode: 409,

@@ -32,9 +32,8 @@ model User {
   audits          AuditTrail[]
   confirmedEmail  Boolean
 
-  // Add these relations to link back from SecurityLog and Notification
-  securityLogs  SecurityLog[] // Reverse relation for SecurityLog.user
-  notifications Notification[] // Reverse relation for Notification.user
+  securityLogs  SecurityLog[]
+  notifications Notification[]
 }
 
 model Family {
@@ -46,7 +45,7 @@ model Family {
   updatedAt                  DateTime
   account                    String
   setupComplete              Boolean
-  members                    FamilyMembers[]
+  members                    FamilyMembers[]     // Direct connection to FamilyMembers
   incomes                    Incomes[]
   transactionLedgers         TransactionLedger[]
   calendars                  Calendar[]
@@ -59,6 +58,7 @@ model Family {
 }
 
 model FamilyMembers {
+  id         String   @id @default(uuid())  // Unique identifier for each family member
   familyId   String
   memberUuid String
   role       String
@@ -67,9 +67,9 @@ model FamilyMembers {
   updatedAt  DateTime
   family     Family   @relation(fields: [familyId], references: [familyId])
   user       User     @relation(fields: [memberUuid], references: [uuid])
-
-  @@id([familyId, memberUuid])
 }
+
+
 
 model Incomes {
   incomeId    String   @id
