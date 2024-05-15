@@ -18,3 +18,8 @@ variable "max_capacity" {
   type = number
   default = 1
 }
+
+variable "region" {
+  description = "The AWS region to create resources in."
+  default     = "us-east-1"
+}

@@ -69,8 +69,6 @@ model FamilyMembers {
   user       User     @relation(fields: [memberUuid], references: [uuid])
 }
 
-
-
 model Incomes {
   incomeId    String   @id
   familyId    String

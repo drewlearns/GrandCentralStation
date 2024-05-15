@@ -86,9 +86,19 @@ resource "aws_iam_policy" "lambda_s3_policy" {
     Statement = [
       {
         Action = [
-          "s3:GetObject",
+          "s3:*",
         ],
-        Resource = "arn:aws:s3:::your-bucket-name/*",
+        Resource = [
+          aws_s3_bucket.receipts_bucket.arn,
+          "${aws_s3_bucket.receipts_bucket.arn}/*",
+        ],
+        Effect   = "Allow"
+      },
+      {
+        Action = [
+          "s3:ListAllMyBuckets",
+        ],
+        Resource = "*",
         Effect   = "Allow"
       }
     ]

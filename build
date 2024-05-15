@@ -51,6 +51,28 @@ for entry in $(find "$SRC_DIR" -name "*.js"); do
   mkdir -p "$DEPLOY_DIR/tmp/node_modules"
   cp -r node_modules/uuid "$DEPLOY_DIR/tmp/node_modules/uuid"
 
+  # Include necessary AWS SDK modules
+  mkdir -p "$DEPLOY_DIR/tmp/node_modules/@aws-sdk/lib-storage"
+  cp -r node_modules/@aws-sdk/lib-storage/* "$DEPLOY_DIR/tmp/node_modules/@aws-sdk/lib-storage/"
+
+  mkdir -p "$DEPLOY_DIR/tmp/node_modules/@aws-sdk/s3-request-presigner"
+  cp -r node_modules/@aws-sdk/s3-request-presigner/* "$DEPLOY_DIR/tmp/node_modules/@aws-sdk/s3-request-presigner/"
+
+  # Include busboy and its nested dependencies
+  if [ -d "node_modules/busboy" ]; then
+    mkdir -p "$DEPLOY_DIR/tmp/node_modules/busboy"
+    cp -r node_modules/busboy/* "$DEPLOY_DIR/tmp/node_modules/busboy/"
+    # Also copy streamsearch and other dependencies used by busboy
+    if [ -d "node_modules/streamsearch" ]; then
+      mkdir -p "$DEPLOY_DIR/tmp/node_modules/streamsearch"
+      cp -r node_modules/streamsearch/* "$DEPLOY_DIR/tmp/node_modules/streamsearch/"
+    else
+      echo "streamsearch module not found in node_modules, ensure it's installed."
+    fi
+  else
+    echo "busboy module not found in node_modules, ensure it's installed."
+  fi
+
   # Change directory to tmp and zip the contents directly at the root level
   echo "Zipping contents for $base_name..."
   (cd "$DEPLOY_DIR/tmp" && zip -r "../$base_name.zip" ./*)
