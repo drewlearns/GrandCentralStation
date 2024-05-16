@@ -175,7 +175,7 @@ exports.handler = async (event) => {
         createdAt: new Date(),
         updatedAt: new Date(),
         updatedBy: updatedBy,
-        runningTotal: runningTotal,
+        runningTotal: transactionType.toLowerCase() === 'debit' ? runningTotal - parseFloat(amount) : runningTotal + parseFloat(amount),
         attachments: imageFile
           ? {
               create: {
@@ -250,5 +250,11 @@ async function getRunningTotal(familyId) {
     where: { familyId: familyId },
   });
 
-  return transactions.reduce((total, transaction) => total + transaction.amount, 0);
+  return transactions.reduce((total, transaction) => {
+    if (transaction.transactionType.toLowerCase() === 'debit') {
+      return total - transaction.amount;
+    } else {
+      return total + transaction.amount;
+    }
+  }, 0);
 }

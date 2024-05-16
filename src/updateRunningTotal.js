@@ -14,8 +14,6 @@ async function updateCalendar(familyId, startDate, endDate) {
     });
 
     for (const transaction of transactions) {
-        // This assumes you're using the cumulative total as per the individual transaction logic in the main handler
-        // You might need to maintain or pass the cumulative total differently depending on your full application logic
         const existingCalendar = await prisma.calendar.findFirst({
             where: {
                 familyId: familyId,
@@ -47,7 +45,7 @@ async function updateCalendar(familyId, startDate, endDate) {
 }
 
 exports.handler = async (event) => {
-    const { familyId } = JSON.parse(event.body);  // Expecting the familyId in the request body
+    const { familyId } = JSON.parse(event.body); // Expecting the familyId in the request body
 
     try {
         const transactions = await prisma.transactionLedger.findMany({
@@ -67,10 +65,10 @@ exports.handler = async (event) => {
                 lastDate = transaction.transactionDate;
             }
 
-            if (transaction.transactionType.toLowerCase() === 'income') {
-                cumulativeTotal += transaction.amount;
-            } else {
+            if (transaction.transactionType.toLowerCase() === 'debit') {
                 cumulativeTotal -= transaction.amount;
+            } else {
+                cumulativeTotal += transaction.amount;
             }
 
             await prisma.transactionLedger.update({
