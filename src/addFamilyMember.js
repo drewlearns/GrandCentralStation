@@ -1,13 +1,12 @@
 const { PrismaClient } = require('@prisma/client');
-const { v4: uuidv4 } = require('uuid');
-
 const prisma = new PrismaClient();
+const { v4: uuidv4 } = require('uuid'); // Ensure UUIDs are generated where needed
 
 exports.handler = async (event) => {
-    const { familyId, transactionData } = JSON.parse(event.body);
+    const { familyId, memberUuid, role } = JSON.parse(event.body);
 
     try {
-        // Check if the family exists
+        // Check if the family exists in the Family table
         const familyExists = await prisma.family.findUnique({
             where: { familyId: familyId },
         });
@@ -22,42 +21,59 @@ exports.handler = async (event) => {
             };
         }
 
-        // Create transaction in the ledger
-        const createdTransaction = await prisma.transactionLedger.create({
-            data: {
+        // Check if the user is already a member of the family
+        const existingMembers = await prisma.familyMembers.findMany({
+            where: {
                 familyId: familyId,
-                amount: transactionData.amount,
-                transactionType: transactionData.transactionType,
-                transactionDate: transactionData.transactionDate,
-                category: transactionData.category,
-                description: transactionData.description,
-                updatedBy: transactionData.updatedBy,
-                // Add any other relevant fields here
-            }
+                memberUuid: memberUuid,
+            },
         });
 
-        console.log(`Success: Ledger entry created for family ${familyId}`);
+        if (existingMembers.length > 0) {
+            console.log(`Conflict: User ${memberUuid} already exists in family ${familyId}`);
+            return {
+                statusCode: 409,
+                body: JSON.stringify({
+                    message: 'User already exists in the family',
+                }),
+            };
+        }
+
+        // Add the new family member
+        const newMember = await prisma.familyMembers.create({
+            data: {
+                id: uuidv4(),  // Generate a unique ID for the FamilyMembers record
+                familyId: familyId,
+                memberUuid: memberUuid,
+                role: role,
+                joinedDate: new Date(),
+                createdAt: new Date(),
+                updatedAt: new Date(),
+            },
+        });
+
+        console.log(`Success: Added member ${memberUuid} to family ${familyId}`);
         return {
             statusCode: 201,
             body: JSON.stringify({
-                message: 'Ledger entry created successfully',
-                transaction: createdTransaction,
+                message: 'Family member added successfully',
+                member: newMember,
             }),
         };
     } catch (error) {
-        console.error(`Error creating ledger: ${error.message}`, {
+        console.error(`Error adding family member: ${error.message}`, {
             familyId: familyId,
-            transactionData: transactionData,
-            errorDetails: error,
+            memberUuid: memberUuid,
+            errorDetails: error
         });
 
-        // Handle specific errors
+        // Handle specific errors related to unique constraints
         if (error.code === 'P2002') {
             return {
                 statusCode: 409,
                 body: JSON.stringify({
                     message: 'Unique constraint violation',
-                    detail: 'Cannot create duplicate transaction.',
+                    detail: 'Cannot add duplicate family member.',
                 }),
             };
         }
@@ -68,7 +84,7 @@ exports.handler = async (event) => {
                 statusCode: 400,
                 body: JSON.stringify({
                     message: 'Foreign key constraint failed',
-                    detail: 'Invalid familyId provided.',
+                    detail: 'Invalid familyId or memberUuid provided.',
                 }),
             };
         }
@@ -76,12 +92,10 @@ exports.handler = async (event) => {
         return {
             statusCode: 500,
             body: JSON.stringify({
-                message: 'Error creating ledger entry',
+                message: 'Error adding family member',
                 error: error.message,
                 details: error.meta && error.meta.target ? `Failed on fields: ${error.meta.target.join(', ')}` : 'No additional details',
             }),
         };
-    } finally {
-        await prisma.$disconnect();
     }
 };

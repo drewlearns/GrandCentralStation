@@ -1,5 +1,8 @@
 const { PrismaClient } = require('@prisma/client');
 const prisma = new PrismaClient();
+const axios = require('axios'); // Ensure axios is installed for making HTTP requests
+
+const UPDATE_RUNNING_TOTAL_URL = process.env.API_URL; // Ensure this is set in your environment
 
 exports.handler = async (event) => {
     const { billId, updates } = JSON.parse(event.body);  // Expecting the billId and updates in the request body
@@ -25,6 +28,9 @@ exports.handler = async (event) => {
             where: { billId: billId },
             data: updates,
         });
+
+        // Trigger updateRunningTotals after the bill is updated
+        await axios.post(`${UPDATE_RUNNING_TOTAL_URL}/updateRunningTotal`, { familyId: updatedBill.familyId });
 
         return {
             statusCode: 200,

@@ -3,7 +3,7 @@ const prisma = new PrismaClient();
 const { CognitoIdentityProviderClient, SignUpCommand } = require('@aws-sdk/client-cognito-identity-provider');
 const crypto = require('crypto');
 
-const cognitoClient = new CognitoIdentityProviderClient({ region: 'us-east-1' });
+const cognitoClient = new CognitoIdentityProviderClient({ region: process.env.AWS_REGION });
 
 exports.handler = async (event) => {
   const { username, email, password, mailOptIn, phoneNumber, firstName, lastName } = JSON.parse(event.body);

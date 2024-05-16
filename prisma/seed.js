@@ -1,56 +1,93 @@
 const { PrismaClient } = require('@prisma/client');
+const { v4: uuidv4 } = require('uuid');
+const updateCalendar = require('../src/updateCalendar');
 const prisma = new PrismaClient();
 
 async function main() {
-    // Create Users
-    const user1 = await prisma.user.create({
-        data: {
-            uuid: "user1-uuid",
-            username: "johndoe",
-            firstName: "John",
-            lastName: "Doe",
-            email: "johndoe@example.com",
-            phoneNumber: "123-456-7890",
-            signupDate: new Date(),
-            mailOptIn: true,
-            confirmedEmail: true,
-            createdAt: new Date(),
-            updatedAt: new Date(),
-        },
-    });
+    function getMonthlyDates() {
+        const dates = [];
+        for (let month = 0; month < 12; month++) {
+            dates.push(new Date(2024, month, 15));
+        }
+        return dates;
+    }
 
-    // Create Families
-    const family1 = await prisma.family.create({
-        data: {
-            familyId: "family1-uuid",
-            familyName: "Doe Family",
-            creationDate: new Date(),
-            customFamilyNameSuchAsCrew: "The Does",
-            createdAt: new Date(),
-            updatedAt: new Date(),
-            account: "DoeAccount",
-            setupComplete: true,
-            activeSubscription: true,
-        },
-    });
+    const users = [];
+    for (let i = 1; i <= 3; i++) {
+        users.push(await prisma.user.create({
+            data: {
+                uuid: uuidv4(),
+                username: `user${i}`,
+                firstName: `FirstName${i}`,
+                lastName: `LastName${i}`,
+                email: `user${i}@example.com`,
+                phoneNumber: `123-456-78${90 + i}`,
+                signupDate: new Date(),
+                mailOptIn: true,
+                confirmedEmail: true,
+                createdAt: new Date(),
+                updatedAt: new Date(),
+            },
+        }));
+    }
 
-    // Create FamilyMembers
-    const familyMember1 = await prisma.familyMembers.create({
-        data: {
-            familyId: family1.familyId,
-            memberUuid: user1.uuid,
-            role: "Parent",
-            joinedDate: new Date(),
-            createdAt: new Date(),
-            updatedAt: new Date(),
-        },
-    });
+    const families = [];
+    for (let i = 1; i <= 2; i++) {
+        families.push(await prisma.family.create({
+            data: {
+                familyId: uuidv4(),
+                familyName: `Family${i}`,
+                creationDate: new Date(),
+                customFamilyNameSuchAsCrew: `The Family${i}`,
+                createdAt: new Date(),
+                updatedAt: new Date(),
+                account: `Family${i}Account`,
+                setupComplete: true,
+                activeSubscription: true,
+            },
+        }));
+    }
 
-    // Create Incomes
-    const income1 = await prisma.incomes.create({
+    const familyMembers = [];
+    for (let i = 0; i < users.length; i++) {
+        familyMembers.push(await prisma.familyMembers.create({
+            data: {
+                familyId: families[i % families.length].familyId,
+                memberUuid: users[i].uuid,
+                role: "Parent",
+                joinedDate: new Date(),
+                createdAt: new Date(),
+                updatedAt: new Date(),
+            },
+        }));
+    }
+
+    const monthlyDates = getMonthlyDates();
+    const transactions = [];
+    for (let i = 0; i < monthlyDates.length; i++) {
+        for (let j = 0; j < families.length; j++) {
+            transactions.push(await prisma.transactionLedger.create({
+                data: {
+                    transactionId: uuidv4(),
+                    familyId: families[j].familyId,
+                    amount: 100 + (i * 10),
+                    transactionType: "Expense",
+                    transactionDate: monthlyDates[i],
+                    category: "Groceries",
+                    description: `Groceries for ${monthlyDates[i].toLocaleString('default', { month: 'long' })}`,
+                    createdAt: monthlyDates[i],
+                    updatedAt: monthlyDates[i],
+                    updatedBy: users[j % users.length].uuid,
+                    runningTotal: 0,
+                }
+            }));
+        }
+    }
+
+    const incomes = await prisma.incomes.create({
         data: {
-            incomeId: "income1-uuid",
-            familyId: family1.familyId,
+            incomeId: uuidv4(),
+            familyId: families[0].familyId,
             name: "Monthly Salary",
             amount: 5000,
             frequency: "monthly",
@@ -60,40 +97,10 @@ async function main() {
         },
     });
 
-    // Create TransactionLedger
-    const transaction1 = await prisma.transactionLedger.create({
+    const bills = await prisma.billTable.create({
         data: {
-            transactionId: "transaction1-uuid",
-            familyId: family1.familyId,
-            amount: 150.00,
-            transactionType: "Expense",
-            transactionDate: new Date(),
-            category: "Groceries",
-            description: "Weekly groceries",
-            createdAt: new Date(),
-            updatedAt: new Date(),
-            updatedBy: user1.uuid,
-        },
-    });
-
-    // Create Calendar Events
-    const calendar1 = await prisma.calendar.create({
-        data: {
-            dateId: 1,
-            familyId: family1.familyId,
-            eventName: "Family Reunion",
-            eventDate: new Date("2024-05-20"),
-            description: "Annual family reunion picnic",
-            createdAt: new Date(),
-            updatedAt: new Date(),
-        },
-    });
-
-    // Create BillTable Entries
-    const bill1 = await prisma.billTable.create({
-        data: {
-            billId: "bill1-uuid",
-            familyId: family1.familyId,
+            billId: uuidv4(),
+            familyId: families[0].familyId,
             category: "Utilities",
             billName: "Electric Bill",
             amount: 120.75,
@@ -112,11 +119,67 @@ async function main() {
         },
     });
 
-    // Create Preferences
-    const preference1 = await prisma.preferences.create({
+    // Create Calendar entries for each transaction, income, and bill
+    let dateIdCounter = 1;  // Counter for dateId
+    for (const transaction of transactions) {
+        await prisma.calendar.create({
+            data: {
+                eventName: 'Financial Update',
+                eventDate: transaction.transactionDate,
+                description: transaction.description,
+                transactionId: transaction.transactionId,
+                familyId: transaction.familyId,
+                dateId: dateIdCounter++,  // Use counter for unique integer dateId
+                createdAt: new Date(),
+                updatedAt: new Date(),
+            },
+        });
+    }
+
+    for (let i = 0; i < 12; i++) {
+        await prisma.calendar.create({
+            data: {
+                eventName: "Income - Monthly Salary",
+                eventDate: new Date(2024, i, 15),
+                description: "Monthly Salary Income",
+                familyId: incomes.familyId,
+                dateId: dateIdCounter++,  // Use counter for unique integer dateId
+                createdAt: new Date(),
+                updatedAt: new Date(),
+            },
+        });
+    }
+
+    for (let i = 0; i < 12; i++) {
+        await prisma.calendar.create({
+            data: {
+                eventName: "Bill - Electric Bill",
+                eventDate: new Date(2024, i, 15),
+                description: "Monthly Electric Bill",
+                familyId: bills.familyId,
+                dateId: dateIdCounter++,  // Use counter for unique integer dateId
+                createdAt: new Date(),
+                updatedAt: new Date(),
+            },
+        });
+    }
+
+    await prisma.calendar.create({
         data: {
-            preferenceId: "preference1-uuid",
-            familyId: family1.familyId,
+            eventName: "Family Reunion",
+            eventDate: new Date("2024-05-20"),
+            description: "Annual family reunion picnic",
+            familyId: families[0].familyId,
+            dateId: dateIdCounter++,  // Use counter for unique integer dateId
+            createdAt: new Date(),
+            updatedAt: new Date(),
+        },
+    });
+
+    await prisma.preferences.create({
+        data: {
+            preferenceId: uuidv4(),
+            familyId: families[0].familyId,
             preferenceType: "Theme",
             preferenceValue: "Dark Mode",
             createdAt: new Date(),
@@ -124,12 +187,11 @@ async function main() {
         },
     });
 
-    // Create Invitations
-    const invitation1 = await prisma.invitations.create({
+    await prisma.invitations.create({
         data: {
-            invitationId: "invitation1-uuid",
-            familyId: family1.familyId,
-            invitedUserUuid: user1.uuid,
+            invitationId: uuidv4(),
+            familyId: families[0].familyId,
+            invitedUserUuid: users[0].uuid,
             invitationStatus: "pending",
             sentDate: new Date(),
             createdAt: new Date(),
@@ -137,15 +199,14 @@ async function main() {
         },
     });
 
-    // Create AuditTrail
-    const audit1 = await prisma.auditTrail.create({
+    await prisma.auditTrail.create({
         data: {
-            auditId: "audit1-uuid",
+            auditId: uuidv4(),
             tableAffected: "User",
             actionType: "Update",
             oldValue: "",
             newValue: "Updated email",
-            changedBy: user1.uuid,
+            changedBy: users[0].uuid,
             changeDate: new Date(),
             timestamp: new Date(),
             device: "Laptop",
@@ -155,11 +216,10 @@ async function main() {
         },
     });
 
-    // Create Attachments
-    const attachment1 = await prisma.attachments.create({
+    await prisma.attachments.create({
         data: {
-            attachmentId: "attachment1-uuid",
-            transactionId: transaction1.transactionId,
+            attachmentId: uuidv4(),
+            transactionId: transactions[0].transactionId,
             fileType: "pdf",
             filePath: "invoice-may.pdf",
             uploadDate: new Date(),
@@ -168,11 +228,10 @@ async function main() {
         },
     });
 
-    // Create Categories
-    const category1 = await prisma.categories.create({
+    await prisma.categories.create({
         data: {
-            category_id: "category1-uuid",
-            familyId: family1.familyId,
+            category_id: uuidv4(),
+            familyId: families[0].familyId,
             name: "Household",
             budgetLimit: 1000,
             createdAt: new Date(),
@@ -180,11 +239,10 @@ async function main() {
         },
     });
 
-    // Create SecurityLog
-    const securityLog1 = await prisma.securityLog.create({
+    await prisma.securityLog.create({
         data: {
-            logId: "securityLog1-uuid",
-            userUuid: user1.uuid,
+            logId: uuidv4(),
+            userUuid: users[0].uuid,
             loginTime: new Date(),
             ipAddress: "192.168.1.100",
             deviceDetails: "MacBook Pro",
@@ -194,11 +252,10 @@ async function main() {
         },
     });
 
-    // Create Notification
-    const notification1 = await prisma.notification.create({
+    await prisma.notification.create({
         data: {
-            notificationId: "notification1-uuid",
-            userUuid: user1.uuid,
+            notificationId: uuidv4(),
+            userUuid: users[0].uuid,
             title: "Welcome to the Family App",
             message: "You have been successfully added to the Doe Family.",
             read: true,
@@ -211,7 +268,7 @@ async function main() {
 main()
     .then(async () => {
         await prisma.$disconnect();
-        console.log('Seeding completed.');
+        console.log('Seeding and calendar update completed.');
     })
     .catch(async (e) => {
         console.error('Error during seeding:', e);

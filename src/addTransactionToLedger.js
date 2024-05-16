@@ -6,6 +6,7 @@ const {
   PutObjectCommand,
   HeadBucketCommand,
 } = require("@aws-sdk/client-s3");
+const axios = require('axios');
 const fs = require("fs");
 const path = require("path");
 const os = require("os");
@@ -14,6 +15,7 @@ const prisma = new PrismaClient();
 
 const REGION = process.env.AWS_REGION;
 const BUCKET = process.env.BUCKET;
+const UPDATE_RUNNING_TOTAL_URL = process.env.API_URL; // Ensure this is set in your environment
 
 console.log(`AWS_REGION: ${REGION}`);
 console.log(`BUCKET: ${BUCKET}`);
@@ -131,7 +133,6 @@ exports.handler = async (event) => {
       description,
       updatedBy,
     } = fields;
-    const imageFile = files.find((file) => file.fieldname === "image");
 
     const familyExists = await prisma.family.findUnique({
       where: { familyId: familyId },
@@ -145,6 +146,7 @@ exports.handler = async (event) => {
       };
     }
 
+    const imageFile = files.find((file) => file.fieldname === "image");
     let filePath = null;
 
     if (imageFile) {
@@ -184,7 +186,9 @@ exports.handler = async (event) => {
           : undefined,
       },
     });
-    
+
+    // Trigger updateRunningTotals after the transaction is added
+    await axios.post(`${UPDATE_RUNNING_TOTAL_URL}/updateRunningTotal`, { familyId: familyId });
 
     console.log(`Success: Transaction added to ledger for family ${familyId}`);
     return {

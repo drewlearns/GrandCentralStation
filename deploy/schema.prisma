@@ -95,6 +95,7 @@ model TransactionLedger {
   attachments     Attachments[]
   family          Family        @relation(fields: [familyId], references: [familyId])
   Calendar        Calendar[]
+  runningTotal    Float        
 }
 
 model Calendar {

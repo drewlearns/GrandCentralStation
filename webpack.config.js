@@ -6,7 +6,7 @@ module.exports = (env) => {
   return {
     mode: "production",
     entry: path.resolve(__dirname, "src", env.entry),
-    target: "node",
+    target: "node", // Continue targeting Node.js
     output: {
       path: path.resolve(__dirname, "deploy"),
       filename: `${path.basename(env.entry, ".js")}.js`,
@@ -32,12 +32,23 @@ module.exports = (env) => {
       }),
     ],
     optimization: {
-      minimize: true,
+      minimize: false,
     },
     externals: [nodeExternals()], // Exclude all node_modules
     node: {
       __dirname: false,
       __filename: false,
+      global: true,
+    },
+    resolve: {
+      fallback: {
+        "crypto": require.resolve("crypto"),
+        "stream": require.resolve("stream"),
+        "buffer": require.resolve("buffer"),
+        "process": require.resolve("process"), 
+        "@smithy/config-resolver": require.resolve("@smithy/config-resolver"), 
+        "@smithy/util-endpoints": require.resolve("@smithy/util-endpoints"), 
+      }
     },
   };
 };

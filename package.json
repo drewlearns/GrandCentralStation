@@ -14,10 +14,20 @@
   "dependencies": {
     "@aws-sdk/client-s3": "^3.576.0",
     "@aws-sdk/lib-storage": "^3.575.0",
-    "@aws-sdk/s3-request-presigner": "^3.575.0",
+    "@aws-sdk/s3-request-presigner": "^3.577.0",
     "@prisma/client": "^5.13.0",
-    "body-parser": "^1.20.2",
+    "@smithy/util-middleware": "^3.0.0",
+    "axios": "^1.6.8",
+    "buffer": "^6.0.3",
     "busboy": "^1.6.0",
+    "crypto": "^1.0.1",
+    "crypto-browserify": "^3.12.0",
+    "follow-redirects": "^1.15.6",
+    "form-data": "^4.0.0",
+    "process": "^0.11.10",
+    "proxy-from-env": "^1.1.0",
+    "stream": "^0.0.2",
+    "stream-browserify": "^3.0.0",
     "uuid": "^9.0.1"
   },
   "devDependencies": {

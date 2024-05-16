@@ -1,5 +1,8 @@
 const { PrismaClient } = require('@prisma/client');
 const prisma = new PrismaClient();
+const axios = require('axios'); // Ensure axios is installed for making HTTP requests
+
+const UPDATE_RUNNING_TOTAL_URL = process.env.API_URL; // Ensure this is set in your environment
 
 exports.handler = async (event) => {
     const { billId } = JSON.parse(event.body);  // Expecting the billId in the request body
@@ -20,10 +23,16 @@ exports.handler = async (event) => {
             };
         }
 
+        // Store the familyId before deleting the bill
+        const familyId = billExists.familyId;
+
         // Delete the bill from the BillTable
         await prisma.billTable.delete({
             where: { billId: billId },
         });
+
+        // Trigger updateRunningTotals after the bill is deleted
+        await axios.post(`${UPDATE_RUNNING_TOTAL_URL}/updateRunningTotal`, { familyId: familyId });
 
         return {
             statusCode: 200,
