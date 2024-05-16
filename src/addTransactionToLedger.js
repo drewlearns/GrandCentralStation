@@ -1,3 +1,4 @@
+const { LambdaClient, InvokeCommand } = require("@aws-sdk/client-lambda");
 const Busboy = require("busboy");
 const { PrismaClient } = require("@prisma/client");
 const { v4: uuidv4 } = require("uuid");
@@ -6,21 +7,21 @@ const {
   PutObjectCommand,
   HeadBucketCommand,
 } = require("@aws-sdk/client-s3");
-const axios = require('axios');
 const fs = require("fs");
 const path = require("path");
 const os = require("os");
 
 const prisma = new PrismaClient();
+const lambdaClient = new LambdaClient({ region: process.env.AWS_REGION });
+const s3Client = new S3Client({ region: process.env.AWS_REGION });
 
 const REGION = process.env.AWS_REGION;
 const BUCKET = process.env.BUCKET;
-const UPDATE_RUNNING_TOTAL_URL = process.env.API_URL; // Ensure this is set in your environment
+const UPDATE_RUNNING_TOTAL_LAMBDA = 'updateRunningTotal';
 
 console.log(`AWS_REGION: ${REGION}`);
 console.log(`BUCKET: ${BUCKET}`);
-
-const s3Client = new S3Client({ region: REGION });
+console.log(`UPDATE_RUNNING_TOTAL_LAMBDA: ${UPDATE_RUNNING_TOTAL_LAMBDA}`);
 
 const uploadToS3 = async (bucket, key, body) => {
   try {
@@ -160,6 +161,8 @@ exports.handler = async (event) => {
       filePath = imageKey;
     }
 
+    const runningTotal = await getRunningTotal(familyId); // Assuming you have a function to calculate running total
+
     const newTransaction = await prisma.transactionLedger.create({
       data: {
         transactionId: uuidv4(),
@@ -172,6 +175,7 @@ exports.handler = async (event) => {
         createdAt: new Date(),
         updatedAt: new Date(),
         updatedBy: updatedBy,
+        runningTotal: runningTotal,
         attachments: imageFile
           ? {
               create: {
@@ -179,16 +183,29 @@ exports.handler = async (event) => {
                 fileType: "receipt",
                 filePath: filePath,
                 uploadDate: new Date(),
-                createdAt: new Date(), // Add createdAt here
-                updatedAt: new Date(), // Add updatedAt here
+                createdAt: new Date(),
+                updatedAt: new Date(),
               },
             }
           : undefined,
       },
     });
 
-    // Trigger updateRunningTotals after the transaction is added
-    await axios.post(`${UPDATE_RUNNING_TOTAL_URL}/updateRunningTotal`, { familyId: familyId });
+    // Invoke the updateRunningTotal Lambda function using AWS SDK v3
+    const params = {
+      FunctionName: UPDATE_RUNNING_TOTAL_LAMBDA,
+      InvocationType: "Event", // Use "RequestResponse" for synchronous invocation
+      Payload: JSON.stringify({ familyId: familyId }),
+    };
+
+    try {
+      const command = new InvokeCommand(params);
+      const data = await lambdaClient.send(command);
+      console.log(`Update running total Lambda invoked successfully: ${data}`);
+    } catch (error) {
+      console.error(`Error invoking updateRunningTotal Lambda: ${error.message}`);
+      throw new Error("Failed to update running total");
+    }
 
     console.log(`Success: Transaction added to ledger for family ${familyId}`);
     return {
@@ -225,3 +242,13 @@ exports.handler = async (event) => {
     });
   }
 };
+
+async function getRunningTotal(familyId) {
+  // Implement this function based on your business logic to calculate the running total
+  // Example:
+  const transactions = await prisma.transactionLedger.findMany({
+    where: { familyId: familyId },
+  });
+
+  return transactions.reduce((total, transaction) => total + transaction.amount, 0);
+}

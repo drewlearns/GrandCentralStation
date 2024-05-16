@@ -105,6 +105,23 @@ resource "aws_iam_policy" "lambda_s3_policy" {
   })
 }
 
+resource "aws_iam_policy" "lambda_invoke_policy" {
+  name        = "LambdaInvokePolicy"
+  description = "Policy to allow invoking another Lambda function"
+  policy = jsonencode({
+    Version = "2012-10-17",
+    Statement = [
+      {
+        Effect   = "Allow",
+        Action   = "lambda:InvokeFunction",
+        Resource = [
+          "arn:aws:lambda:us-east-1:${data.aws_caller_identity.current.account_id}:function:*",
+        ]
+      },
+    ],
+  })
+}
+
 resource "aws_iam_policy" "lambda_textract_policy" {
   name        = "lambda_textract_policy"
   path        = "/"

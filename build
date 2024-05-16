@@ -79,6 +79,30 @@ process_file() {
   mkdir -p "$TMP_DIR/node_modules/proxy-from-env"
   cp -r node_modules/proxy-from-env/* "$TMP_DIR/node_modules/proxy-from-env/"
 
+  # Include combined-stream module
+  mkdir -p "$TMP_DIR/node_modules/combined-stream"
+  cp -r node_modules/combined-stream/* "$TMP_DIR/node_modules/combined-stream/"
+
+  # Include delayed-stream module
+  mkdir -p "$TMP_DIR/node_modules/delayed-stream"
+  cp -r node_modules/delayed-stream/* "$TMP_DIR/node_modules/delayed-stream/"
+
+  # Include mime-types module
+  mkdir -p "$TMP_DIR/node_modules/mime-types"
+  cp -r node_modules/mime-types/* "$TMP_DIR/node_modules/mime-types/"
+
+  # Include mime-db module
+  mkdir -p "$TMP_DIR/node_modules/mime-db"
+  cp -r node_modules/mime-db/* "$TMP_DIR/node_modules/mime-db/"
+
+  # Include asynckit module
+  mkdir -p "$TMP_DIR/node_modules/asynckit"
+  cp -r node_modules/asynckit/* "$TMP_DIR/node_modules/asynckit/"
+
+  # Include @aws-crypto module
+  mkdir -p "$TMP_DIR/node_modules/@aws-crypto/"
+  cp -r node_modules/@aws-crypto/* "$TMP_DIR/node_modules/@aws-crypto/"
+
   if [ -d "node_modules/busboy" ]; then
     mkdir -p "$TMP_DIR/node_modules/busboy"
     cp -r node_modules/busboy/* "$TMP_DIR/node_modules/busboy/"
@@ -96,9 +120,6 @@ process_file() {
   (cd "$TMP_DIR" && zip -r "../$base_name.zip" ./*)
 
   rm -rf "$TMP_DIR"
-
-  echo "Contents of the zip file for $base_name:"
-  unzip -l "$DEPLOY_DIR/$base_name.zip"
 }
 
 # Process either all files in src or a specific file passed as an argument

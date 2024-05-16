@@ -10,6 +10,13 @@ resource "aws_security_group" "bastion_sg" {
     cidr_blocks = ["142.252.199.153/32"] # Replace with your actual IP for SSH access
   }
 
+  ingress {
+    from_port   = 5432
+    to_port     = 5432
+    protocol    = "tcp"
+    cidr_blocks = ["142.252.199.153/32"] # Replace with your actual IP for SSH access
+  }
+
   egress {
     from_port   = 0
     to_port     = 0
@@ -55,5 +62,25 @@ resource "aws_security_group_rule" "lambda_to_aurora" {
   to_port                  = 5432
   protocol                 = "tcp"
   security_group_id        = aws_security_group.lambda_sg.id
+  source_security_group_id = aws_security_group.aurora_sg.id
+}
+
+# Ingress rule to allow Bastion to connect to Aurora
+resource "aws_security_group_rule" "aurora_from_bastion" {
+  type                     = "ingress"
+  from_port                = 5432
+  to_port                  = 5432
+  protocol                 = "tcp"
+  security_group_id        = aws_security_group.aurora_sg.id
+  source_security_group_id = aws_security_group.bastion_sg.id
+}
+
+# Outbound rule to allow Bastion to access Aurora
+resource "aws_security_group_rule" "bastion_to_aurora" {
+  type                     = "egress"
+  from_port                = 5432
+  to_port                  = 5432
+  protocol                 = "tcp"
+  security_group_id        = aws_security_group.bastion_sg.id
   source_security_group_id = aws_security_group.aurora_sg.id
 }
