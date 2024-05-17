@@ -10,39 +10,25 @@ module "lambdas" {
   db_username                   = "root"
   db_name                       = "tppb${var.environment}"
   lambdas = {
-    "addFamily" = {
-      runtime       = "nodejs20.x"
-      method        = "POST" # CAN ONLY BE POST
-      authorization = "NONE" # "NONE" OR "COGNITO_USER_POOLS"
-      policy_arns   = []
-      environment = {
-        DATABASE_URL = "postgresql://root:${aws_secretsmanager_secret_version.db_master_password_version.secret_string}@${aws_rds_cluster_instance.aurora_instance.endpoint}:5432/tppb${var.environment}?schema=public"
-        API_URL      = var.domain_name
-      }
-    },
-    "getFamilyByUuid" = {
-      runtime       = "nodejs20.x"
-      method        = "POST" # CAN ONLY BE POST
-      authorization = "NONE" # "NONE" OR "COGNITO_USER_POOLS"
-      policy_arns   = []
-      environment = {
-        DATABASE_URL = "postgresql://root:${aws_secretsmanager_secret_version.db_master_password_version.secret_string}@${aws_rds_cluster_instance.aurora_instance.endpoint}:5432/tppb${var.environment}?schema=public"
-      }
-    },
-    "addFamilyMember" = {
-      runtime       = "nodejs20.x"
-      method        = "POST" # CAN ONLY BE POST
-      authorization = "NONE" # "NONE" OR "COGNITO_USER_POOLS"
-      policy_arns   = []
-      environment = {
-        DATABASE_URL = "postgresql://root:${aws_secretsmanager_secret_version.db_master_password_version.secret_string}@${aws_rds_cluster_instance.aurora_instance.endpoint}:5432/tppb${var.environment}?schema=public"
-      }
-    },
+    ################
+    # AUTH
+    ################
     "addUser" = {
       runtime       = "nodejs20.x"
       method        = "POST" # CAN ONLY BE POST
       authorization = "NONE" # "NONE" OR "COGNITO_USER_POOLS"
       policy_arns   = [aws_iam_policy.lambda_cognito_create_user_policy.arn]
+      environment = {
+        USER_POOL_CLIENT_ID     = aws_cognito_user_pool_client.cognito_user_pool_client.id
+        USER_POOL_CLIENT_SECRET = aws_cognito_user_pool_client.cognito_user_pool_client.client_secret
+        DATABASE_URL            = "postgresql://root:${aws_secretsmanager_secret_version.db_master_password_version.secret_string}@${aws_rds_cluster_instance.aurora_instance.endpoint}:5432/tppb${var.environment}?schema=public"
+      }
+    },
+    "login" = {
+      runtime       = "nodejs20.x"
+      method        = "POST" # CAN ONLY BE POST
+      authorization = "NONE" # MUST BE NONE
+      policy_arns   = [aws_iam_policy.lambda_cognito_login_policy.arn]
       environment = {
         USER_POOL_CLIENT_ID     = aws_cognito_user_pool_client.cognito_user_pool_client.id
         USER_POOL_CLIENT_SECRET = aws_cognito_user_pool_client.cognito_user_pool_client.client_secret
@@ -60,17 +46,17 @@ module "lambdas" {
         DATABASE_URL            = "postgresql://root:${aws_secretsmanager_secret_version.db_master_password_version.secret_string}@${aws_rds_cluster_instance.aurora_instance.endpoint}:5432/tppb${var.environment}?schema=public"
       }
     },
-    "loginUser" = {
+    "confirmPasswordResetCode" = {
       runtime       = "nodejs20.x"
       method        = "POST" # CAN ONLY BE POST
       authorization = "NONE" # MUST BE NONE
-      policy_arns   = [aws_iam_policy.lambda_cognito_login_policy.arn]
+      policy_arns   = [aws_iam_policy.forgot_password_policy.arn]
       environment = {
         USER_POOL_CLIENT_ID     = aws_cognito_user_pool_client.cognito_user_pool_client.id
         USER_POOL_CLIENT_SECRET = aws_cognito_user_pool_client.cognito_user_pool_client.client_secret
       }
-    },
-    "forgotPassword" = {
+    }
+        "forgotPassword" = {
       runtime       = "nodejs20.x"
       method        = "POST" # CAN ONLY BE POST
       authorization = "NONE" # MUST BE NONE
@@ -90,91 +76,10 @@ module "lambdas" {
         USER_POOL_CLIENT_SECRET = aws_cognito_user_pool_client.cognito_user_pool_client.client_secret
       }
     }
-    "addIncome" = {
-      runtime       = "nodejs20.x"
-      method        = "POST" # CAN ONLY BE POST
-      authorization = "NONE" # "NONE" OR "COGNITO_USER_POOLS"
-      policy_arns   = []
-      environment = {
-        DATABASE_URL = "postgresql://root:${aws_secretsmanager_secret_version.db_master_password_version.secret_string}@${aws_rds_cluster_instance.aurora_instance.endpoint}:5432/tppb${var.environment}?schema=public"
-      }
-    }
-    "editIncome" = {
-      runtime       = "nodejs20.x"
-      method        = "POST" # CAN ONLY BE POST
-      authorization = "NONE" # "NONE" OR "COGNITO_USER_POOLS"
-      policy_arns   = []
-      environment = {
-        DATABASE_URL = "postgresql://root:${aws_secretsmanager_secret_version.db_master_password_version.secret_string}@${aws_rds_cluster_instance.aurora_instance.endpoint}:5432/tppb${var.environment}?schema=public"
-        API_URL      = var.domain_name
-      }
-    }
-    "editFamily" = {
-      runtime       = "nodejs20.x"
-      method        = "POST" # CAN ONLY BE POST
-      authorization = "NONE" # "NONE" OR "COGNITO_USER_POOLS"
-      policy_arns   = []
-      environment = {
-        DATABASE_URL = "postgresql://root:${aws_secretsmanager_secret_version.db_master_password_version.secret_string}@${aws_rds_cluster_instance.aurora_instance.endpoint}:5432/tppb${var.environment}?schema=public"
-      }
-    }
-    "getIncomes" = {
-      runtime       = "nodejs20.x"
-      method        = "POST" # CAN ONLY BE POST
-      authorization = "NONE" # "NONE" OR "COGNITO_USER_POOLS"
-      policy_arns   = []
-      environment = {
-        DATABASE_URL = "postgresql://root:${aws_secretsmanager_secret_version.db_master_password_version.secret_string}@${aws_rds_cluster_instance.aurora_instance.endpoint}:5432/tppb${var.environment}?schema=public"
-      }
-    }
-    "addTransactionToLedger" = {
-      runtime       = "nodejs20.x"
-      method        = "POST" # CAN ONLY BE POST
-      authorization = "NONE" # "NONE" OR "COGNITO_USER_POOLS"
-      policy_arns   = [aws_iam_policy.lambda_s3_policy.arn, aws_iam_policy.lambda_invoke_policy.arn]
-      environment = {
-        DATABASE_URL = "postgresql://root:${aws_secretsmanager_secret_version.db_master_password_version.secret_string}@${aws_rds_cluster_instance.aurora_instance.endpoint}:5432/tppb${var.environment}?schema=public"
-        BUCKET       = "tppb-receipts-${data.aws_caller_identity.current.account_id}"
-      }
-    }
-    "getFamilyTransactionsThisMonth" = {
-      runtime       = "nodejs20.x"
-      method        = "POST" # CAN ONLY BE POST
-      authorization = "NONE" # "NONE" OR "COGNITO_USER_POOLS"
-      policy_arns   = [aws_iam_policy.lambda_s3_policy.arn]
-      environment = {
-        DATABASE_URL = "postgresql://root:${aws_secretsmanager_secret_version.db_master_password_version.secret_string}@${aws_rds_cluster_instance.aurora_instance.endpoint}:5432/tppb${var.environment}?schema=public"
-      }
-    }
-    "searchTransactions" = {
-      runtime       = "nodejs20.x"
-      method        = "POST" # CAN ONLY BE POST
-      authorization = "NONE" # "NONE" OR "COGNITO_USER_POOLS"
-      policy_arns   = [aws_iam_policy.lambda_s3_policy.arn]
-      environment = {
-        DATABASE_URL = "postgresql://root:${aws_secretsmanager_secret_version.db_master_password_version.secret_string}@${aws_rds_cluster_instance.aurora_instance.endpoint}:5432/tppb${var.environment}?schema=public"
-      }
-    }
-    "getAllTransactionsForFamily" = {
-      runtime       = "nodejs20.x"
-      method        = "POST" # CAN ONLY BE POST
-      authorization = "NONE" # "NONE" OR "COGNITO_USER_POOLS"
-      policy_arns   = [aws_iam_policy.lambda_s3_policy.arn]
-      environment = {
-        DATABASE_URL = "postgresql://root:${aws_secretsmanager_secret_version.db_master_password_version.secret_string}@${aws_rds_cluster_instance.aurora_instance.endpoint}:5432/tppb${var.environment}?schema=public"
-      }
-    }
-    "editTransaction" = {
-      runtime       = "nodejs20.x"
-      method        = "POST" # CAN ONLY BE POST
-      authorization = "NONE" # "NONE" OR "COGNITO_USER_POOLS"
-      policy_arns   = [aws_iam_policy.lambda_s3_policy.arn]
-      environment = {
-        DATABASE_URL = "postgresql://root:${aws_secretsmanager_secret_version.db_master_password_version.secret_string}@${aws_rds_cluster_instance.aurora_instance.endpoint}:5432/tppb${var.environment}?schema=public"
-        API_URL      = var.domain_name
-      }
-    }
-    "getFamilyById" = {
+    ######################
+    # HOUSEHOLD
+    ######################
+    "addHousehold" = {
       runtime       = "nodejs20.x"
       method        = "POST" # CAN ONLY BE POST
       authorization = "NONE" # "NONE" OR "COGNITO_USER_POOLS"
@@ -183,7 +88,26 @@ module "lambdas" {
         DATABASE_URL = "postgresql://root:${aws_secretsmanager_secret_version.db_master_password_version.secret_string}@${aws_rds_cluster_instance.aurora_instance.endpoint}:5432/tppb${var.environment}?schema=public"
       }
     },
-    "deleteFamilyMember" = {
+    "addInvite" = {
+      runtime       = "nodejs20.x"
+      method        = "POST" # CAN ONLY BE POST
+      authorization = "NONE" # "NONE" OR "COGNITO_USER_POOLS"
+      policy_arns   = [aws_iam_policy.ses_send_email_policy.arn]
+      environment = {
+        DATABASE_URL = "postgresql://root:${aws_secretsmanager_secret_version.db_master_password_version.secret_string}@${aws_rds_cluster_instance.aurora_instance.endpoint}:5432/tppb${var.environment}?schema=public"
+        TTPB_DOMAIN  = var.domain_name
+      }
+    },
+    "acceptInvite" = {
+      runtime       = "nodejs20.x"
+      method        = "POST" # CAN ONLY BE POST
+      authorization = "NONE" # "NONE" OR "COGNITO_USER_POOLS"
+      policy_arns   = [aws_iam_policy.ses_send_email_policy.arn]
+      environment = {
+        DATABASE_URL = "postgresql://root:${aws_secretsmanager_secret_version.db_master_password_version.secret_string}@${aws_rds_cluster_instance.aurora_instance.endpoint}:5432/tppb${var.environment}?schema=public"
+      }
+    },
+    "deleteMemberFromHousehold" = {
       runtime       = "nodejs20.x"
       method        = "POST" # CAN ONLY BE POST
       authorization = "NONE" # "NONE" OR "COGNITO_USER_POOLS"
@@ -192,26 +116,17 @@ module "lambdas" {
         DATABASE_URL = "postgresql://root:${aws_secretsmanager_secret_version.db_master_password_version.secret_string}@${aws_rds_cluster_instance.aurora_instance.endpoint}:5432/tppb${var.environment}?schema=public"
       }
     },
-    "addBill" = {
+    "editHousehold" = {
       runtime       = "nodejs20.x"
       method        = "POST" # CAN ONLY BE POST
       authorization = "NONE" # "NONE" OR "COGNITO_USER_POOLS"
       policy_arns   = []
       environment = {
         DATABASE_URL = "postgresql://root:${aws_secretsmanager_secret_version.db_master_password_version.secret_string}@${aws_rds_cluster_instance.aurora_instance.endpoint}:5432/tppb${var.environment}?schema=public"
-        API_URL      = var.domain_name
+        TTPB_DOMAIN  = var.domain_name
       }
     },
-    "editBill" = {
-      runtime       = "nodejs20.x"
-      method        = "POST" # CAN ONLY BE POST
-      authorization = "NONE" # "NONE" OR "COGNITO_USER_POOLS"
-      policy_arns   = []
-      environment = {
-        DATABASE_URL = "postgresql://root:${aws_secretsmanager_secret_version.db_master_password_version.secret_string}@${aws_rds_cluster_instance.aurora_instance.endpoint}:5432/tppb${var.environment}?schema=public"
-      }
-    },
-    "getBillsByFamilyId" = {
+    "resendInvitation" = {
       runtime       = "nodejs20.x"
       method        = "POST" # CAN ONLY BE POST
       authorization = "NONE" # "NONE" OR "COGNITO_USER_POOLS"
@@ -220,68 +135,212 @@ module "lambdas" {
         DATABASE_URL = "postgresql://root:${aws_secretsmanager_secret_version.db_master_password_version.secret_string}@${aws_rds_cluster_instance.aurora_instance.endpoint}:5432/tppb${var.environment}?schema=public"
       }
     },
-    "deleteBill" = {
-      runtime       = "nodejs20.x"
-      method        = "POST" # CAN ONLY BE POST
-      authorization = "NONE" # "NONE" OR "COGNITO_USER_POOLS"
-      policy_arns   = []
-      environment = {
-        DATABASE_URL = "postgresql://root:${aws_secretsmanager_secret_version.db_master_password_version.secret_string}@${aws_rds_cluster_instance.aurora_instance.endpoint}:5432/tppb${var.environment}?schema=public"
-      }
-    },
-    "deleteFamily" = {
-      runtime       = "nodejs20.x"
-      method        = "POST" # CAN ONLY BE POST
-      authorization = "NONE" # "NONE" OR "COGNITO_USER_POOLS"
-      policy_arns   = []
-      environment = {
-        DATABASE_URL = "postgresql://root:${aws_secretsmanager_secret_version.db_master_password_version.secret_string}@${aws_rds_cluster_instance.aurora_instance.endpoint}:5432/tppb${var.environment}?schema=public"
-      }
-    },
-    "deleteIncome" = {
-      runtime       = "nodejs20.x"
-      method        = "POST" # CAN ONLY BE POST
-      authorization = "NONE" # "NONE" OR "COGNITO_USER_POOLS"
-      policy_arns   = []
-      environment = {
-        DATABASE_URL = "postgresql://root:${aws_secretsmanager_secret_version.db_master_password_version.secret_string}@${aws_rds_cluster_instance.aurora_instance.endpoint}:5432/tppb${var.environment}?schema=public"
-      }
-    },
-    "updateRunningTotal" = {
-      runtime       = "nodejs20.x"
-      method        = "POST" # CAN ONLY BE POST
-      authorization = "NONE" # MUST BE NONE
-      policy_arns   = []
-      environment = {
-        DATABASE_URL = "postgresql://root:${aws_secretsmanager_secret_version.db_master_password_version.secret_string}@${aws_rds_cluster_instance.aurora_instance.endpoint}:5432/tppb${var.environment}?schema=public"
-      }
-    },
-    "updateCalendar" = {
-      runtime       = "nodejs20.x"
-      method        = "POST" # CAN ONLY BE POST
-      authorization = "NONE" # MUST BE NONE
-      policy_arns   = []
-      environment = {
-        DATABASE_URL = "postgresql://root:${aws_secretsmanager_secret_version.db_master_password_version.secret_string}@${aws_rds_cluster_instance.aurora_instance.endpoint}:5432/tppb${var.environment}?schema=public"
-      }
-    },
-    "getTransactionById" = {
-      runtime       = "nodejs20.x"
-      method        = "POST" # CAN ONLY BE POST
-      authorization = "NONE" # "NONE" OR "COGNITO_USER_POOLS"
-      policy_arns   = []
-      environment = {
-        DATABASE_URL = "postgresql://root:${aws_secretsmanager_secret_version.db_master_password_version.secret_string}@${aws_rds_cluster_instance.aurora_instance.endpoint}:5432/tppb${var.environment}?schema=public"
-      }
-    },
-    "deleteTransaction" = {
-      runtime       = "nodejs20.x"
-      method        = "POST" # CAN ONLY BE POST
-      authorization = "NONE" # "NONE" OR "COGNITO_USER_POOLS"
-      policy_arns   = []
-      environment = {
-        DATABASE_URL = "postgresql://root:${aws_secretsmanager_secret_version.db_master_password_version.secret_string}@${aws_rds_cluster_instance.aurora_instance.endpoint}:5432/tppb${var.environment}?schema=public"
-      }
-    },
+    # "getFamilyByUuid" = {
+    #   runtime       = "nodejs20.x"
+    #   method        = "POST" # CAN ONLY BE POST
+    #   authorization = "NONE" # "NONE" OR "COGNITO_USER_POOLS"
+    #   policy_arns   = []
+    #   environment = {
+    #     DATABASE_URL = "postgresql://root:${aws_secretsmanager_secret_version.db_master_password_version.secret_string}@${aws_rds_cluster_instance.aurora_instance.endpoint}:5432/tppb${var.environment}?schema=public"
+    #   }
+    # },
+
+
+
+
+
+    # "addIncome" = {
+    #   runtime       = "nodejs20.x"
+    #   method        = "POST" # CAN ONLY BE POST
+    #   authorization = "NONE" # "NONE" OR "COGNITO_USER_POOLS"
+    #   policy_arns   = []
+    #   environment = {
+    #     DATABASE_URL = "postgresql://root:${aws_secretsmanager_secret_version.db_master_password_version.secret_string}@${aws_rds_cluster_instance.aurora_instance.endpoint}:5432/tppb${var.environment}?schema=public"
+    #   }
+    # }
+    # "editIncome" = {
+    #   runtime       = "nodejs20.x"
+    #   method        = "POST" # CAN ONLY BE POST
+    #   authorization = "NONE" # "NONE" OR "COGNITO_USER_POOLS"
+    #   policy_arns   = []
+    #   environment = {
+    #     DATABASE_URL = "postgresql://root:${aws_secretsmanager_secret_version.db_master_password_version.secret_string}@${aws_rds_cluster_instance.aurora_instance.endpoint}:5432/tppb${var.environment}?schema=public"
+    #     API_URL      = var.domain_name
+    #   }
+    # }
+    # "editFamily" = {
+    #   runtime       = "nodejs20.x"
+    #   method        = "POST" # CAN ONLY BE POST
+    #   authorization = "NONE" # "NONE" OR "COGNITO_USER_POOLS"
+    #   policy_arns   = []
+    #   environment = {
+    #     DATABASE_URL = "postgresql://root:${aws_secretsmanager_secret_version.db_master_password_version.secret_string}@${aws_rds_cluster_instance.aurora_instance.endpoint}:5432/tppb${var.environment}?schema=public"
+    #   }
+    # }
+    # "getIncomes" = {
+    #   runtime       = "nodejs20.x"
+    #   method        = "POST" # CAN ONLY BE POST
+    #   authorization = "NONE" # "NONE" OR "COGNITO_USER_POOLS"
+    #   policy_arns   = []
+    #   environment = {
+    #     DATABASE_URL = "postgresql://root:${aws_secretsmanager_secret_version.db_master_password_version.secret_string}@${aws_rds_cluster_instance.aurora_instance.endpoint}:5432/tppb${var.environment}?schema=public"
+    #   }
+    # }
+    # "addTransactionToLedger" = {
+    #   runtime       = "nodejs20.x"
+    #   method        = "POST" # CAN ONLY BE POST
+    #   authorization = "NONE" # "NONE" OR "COGNITO_USER_POOLS"
+    #   policy_arns   = [aws_iam_policy.lambda_s3_policy.arn, aws_iam_policy.lambda_invoke_policy.arn]
+    #   environment = {
+    #     DATABASE_URL = "postgresql://root:${aws_secretsmanager_secret_version.db_master_password_version.secret_string}@${aws_rds_cluster_instance.aurora_instance.endpoint}:5432/tppb${var.environment}?schema=public"
+    #     BUCKET       = "tppb-receipts-${data.aws_caller_identity.current.account_id}"
+    #   }
+    # }
+    # "getFamilyTransactionsThisMonth" = {
+    #   runtime       = "nodejs20.x"
+    #   method        = "POST" # CAN ONLY BE POST
+    #   authorization = "NONE" # "NONE" OR "COGNITO_USER_POOLS"
+    #   policy_arns   = [aws_iam_policy.lambda_s3_policy.arn]
+    #   environment = {
+    #     DATABASE_URL = "postgresql://root:${aws_secretsmanager_secret_version.db_master_password_version.secret_string}@${aws_rds_cluster_instance.aurora_instance.endpoint}:5432/tppb${var.environment}?schema=public"
+    #   }
+    # }
+    # "searchTransactions" = {
+    #   runtime       = "nodejs20.x"
+    #   method        = "POST" # CAN ONLY BE POST
+    #   authorization = "NONE" # "NONE" OR "COGNITO_USER_POOLS"
+    #   policy_arns   = [aws_iam_policy.lambda_s3_policy.arn]
+    #   environment = {
+    #     DATABASE_URL = "postgresql://root:${aws_secretsmanager_secret_version.db_master_password_version.secret_string}@${aws_rds_cluster_instance.aurora_instance.endpoint}:5432/tppb${var.environment}?schema=public"
+    #   }
+    # }
+    # "getAllTransactionsForFamily" = {
+    #   runtime       = "nodejs20.x"
+    #   method        = "POST" # CAN ONLY BE POST
+    #   authorization = "NONE" # "NONE" OR "COGNITO_USER_POOLS"
+    #   policy_arns   = [aws_iam_policy.lambda_s3_policy.arn]
+    #   environment = {
+    #     DATABASE_URL = "postgresql://root:${aws_secretsmanager_secret_version.db_master_password_version.secret_string}@${aws_rds_cluster_instance.aurora_instance.endpoint}:5432/tppb${var.environment}?schema=public"
+    #   }
+    # }
+    # "editTransaction" = {
+    #   runtime       = "nodejs20.x"
+    #   method        = "POST" # CAN ONLY BE POST
+    #   authorization = "NONE" # "NONE" OR "COGNITO_USER_POOLS"
+    #   policy_arns   = [aws_iam_policy.lambda_s3_policy.arn]
+    #   environment = {
+    #     DATABASE_URL = "postgresql://root:${aws_secretsmanager_secret_version.db_master_password_version.secret_string}@${aws_rds_cluster_instance.aurora_instance.endpoint}:5432/tppb${var.environment}?schema=public"
+    #     API_URL      = var.domain_name
+    #   }
+    # }
+    # "getFamilyById" = {
+    #   runtime       = "nodejs20.x"
+    #   method        = "POST" # CAN ONLY BE POST
+    #   authorization = "NONE" # "NONE" OR "COGNITO_USER_POOLS"
+    #   policy_arns   = []
+    #   environment = {
+    #     DATABASE_URL = "postgresql://root:${aws_secretsmanager_secret_version.db_master_password_version.secret_string}@${aws_rds_cluster_instance.aurora_instance.endpoint}:5432/tppb${var.environment}?schema=public"
+    #   }
+    # },
+    # "deleteFamilyMember" = {
+    #   runtime       = "nodejs20.x"
+    #   method        = "POST" # CAN ONLY BE POST
+    #   authorization = "NONE" # "NONE" OR "COGNITO_USER_POOLS"
+    #   policy_arns   = []
+    #   environment = {
+    #     DATABASE_URL = "postgresql://root:${aws_secretsmanager_secret_version.db_master_password_version.secret_string}@${aws_rds_cluster_instance.aurora_instance.endpoint}:5432/tppb${var.environment}?schema=public"
+    #   }
+    # },
+    # "addBill" = {
+    #   runtime       = "nodejs20.x"
+    #   method        = "POST" # CAN ONLY BE POST
+    #   authorization = "NONE" # "NONE" OR "COGNITO_USER_POOLS"
+    #   policy_arns   = [aws_iam_policy.lambda_invoke_policy.arn]
+    #   environment = {
+    #     DATABASE_URL = "postgresql://root:${aws_secretsmanager_secret_version.db_master_password_version.secret_string}@${aws_rds_cluster_instance.aurora_instance.endpoint}:5432/tppb${var.environment}?schema=public"
+    #     API_URL      = var.domain_name
+    #   }
+    # },
+    # "editBill" = {
+    #   runtime       = "nodejs20.x"
+    #   method        = "POST" # CAN ONLY BE POST
+    #   authorization = "NONE" # "NONE" OR "COGNITO_USER_POOLS"
+    #   policy_arns   = []
+    #   environment = {
+    #     DATABASE_URL = "postgresql://root:${aws_secretsmanager_secret_version.db_master_password_version.secret_string}@${aws_rds_cluster_instance.aurora_instance.endpoint}:5432/tppb${var.environment}?schema=public"
+    #   }
+    # },
+    # "getBillsByFamilyId" = {
+    #   runtime       = "nodejs20.x"
+    #   method        = "POST" # CAN ONLY BE POST
+    #   authorization = "NONE" # "NONE" OR "COGNITO_USER_POOLS"
+    #   policy_arns   = []
+    #   environment = {
+    #     DATABASE_URL = "postgresql://root:${aws_secretsmanager_secret_version.db_master_password_version.secret_string}@${aws_rds_cluster_instance.aurora_instance.endpoint}:5432/tppb${var.environment}?schema=public"
+    #   }
+    # },
+    # "deleteBill" = {
+    #   runtime       = "nodejs20.x"
+    #   method        = "POST" # CAN ONLY BE POST
+    #   authorization = "NONE" # "NONE" OR "COGNITO_USER_POOLS"
+    #   policy_arns   = []
+    #   environment = {
+    #     DATABASE_URL = "postgresql://root:${aws_secretsmanager_secret_version.db_master_password_version.secret_string}@${aws_rds_cluster_instance.aurora_instance.endpoint}:5432/tppb${var.environment}?schema=public"
+    #   }
+    # },
+    # "deleteFamily" = {
+    #   runtime       = "nodejs20.x"
+    #   method        = "POST" # CAN ONLY BE POST
+    #   authorization = "NONE" # "NONE" OR "COGNITO_USER_POOLS"
+    #   policy_arns   = []
+    #   environment = {
+    #     DATABASE_URL = "postgresql://root:${aws_secretsmanager_secret_version.db_master_password_version.secret_string}@${aws_rds_cluster_instance.aurora_instance.endpoint}:5432/tppb${var.environment}?schema=public"
+    #   }
+    # },
+    # "deleteIncome" = {
+    #   runtime       = "nodejs20.x"
+    #   method        = "POST" # CAN ONLY BE POST
+    #   authorization = "NONE" # "NONE" OR "COGNITO_USER_POOLS"
+    #   policy_arns   = []
+    #   environment = {
+    #     DATABASE_URL = "postgresql://root:${aws_secretsmanager_secret_version.db_master_password_version.secret_string}@${aws_rds_cluster_instance.aurora_instance.endpoint}:5432/tppb${var.environment}?schema=public"
+    #   }
+    # },
+    # "updateRunningTotal" = {
+    #   runtime       = "nodejs20.x"
+    #   method        = "POST" # CAN ONLY BE POST
+    #   authorization = "NONE" # MUST BE NONE
+    #   policy_arns   = []
+    #   environment = {
+    #     DATABASE_URL = "postgresql://root:${aws_secretsmanager_secret_version.db_master_password_version.secret_string}@${aws_rds_cluster_instance.aurora_instance.endpoint}:5432/tppb${var.environment}?schema=public"
+    #   }
+    # },
+    # "updateCalendar" = {
+    #   runtime       = "nodejs20.x"
+    #   method        = "POST" # CAN ONLY BE POST
+    #   authorization = "NONE" # MUST BE NONE
+    #   policy_arns   = []
+    #   environment = {
+    #     DATABASE_URL = "postgresql://root:${aws_secretsmanager_secret_version.db_master_password_version.secret_string}@${aws_rds_cluster_instance.aurora_instance.endpoint}:5432/tppb${var.environment}?schema=public"
+    #   }
+    # },
+    # "getTransactionById" = {
+    #   runtime       = "nodejs20.x"
+    #   method        = "POST" # CAN ONLY BE POST
+    #   authorization = "NONE" # "NONE" OR "COGNITO_USER_POOLS"
+    #   policy_arns   = []
+    #   environment = {
+    #     DATABASE_URL = "postgresql://root:${aws_secretsmanager_secret_version.db_master_password_version.secret_string}@${aws_rds_cluster_instance.aurora_instance.endpoint}:5432/tppb${var.environment}?schema=public"
+    #   }
+    # },
+    # "deleteTransaction" = {
+    #   runtime       = "nodejs20.x"
+    #   method        = "POST" # CAN ONLY BE POST
+    #   authorization = "NONE" # "NONE" OR "COGNITO_USER_POOLS"
+    #   policy_arns   = []
+    #   environment = {
+    #     DATABASE_URL = "postgresql://root:${aws_secretsmanager_secret_version.db_master_password_version.secret_string}@${aws_rds_cluster_instance.aurora_instance.endpoint}:5432/tppb${var.environment}?schema=public"
+    #   }
+    # },
   }
 }

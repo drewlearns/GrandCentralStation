@@ -115,7 +115,7 @@ resource "aws_iam_policy" "lambda_invoke_policy" {
         Effect   = "Allow",
         Action   = "lambda:InvokeFunction",
         Resource = [
-          "arn:aws:lambda:us-east-1:${data.aws_caller_identity.current.account_id}:function:*",
+          "arn:aws:lambda:${var.region}:${data.aws_caller_identity.current.account_id}:function:*",
         ]
       },
     ],
@@ -187,6 +187,25 @@ resource "aws_iam_policy" "confirm_user_policy" {
         Resource = [
           aws_cognito_user_pool.cognito_user_pool.arn
         ]
+      }
+    ]
+  })
+}
+
+resource "aws_iam_policy" "ses_send_email_policy" {
+  name        = "ses_send_email_policy"
+  description = "Allow Lambda to send email via SES"
+
+  policy = jsonencode({
+    Version = "2012-10-17",
+    Statement = [
+      {
+        Action = [
+          "ses:SendEmail",
+          "ses:SendRawEmail"
+        ],
+        Effect   = "Allow",
+        Resource = "*"
       }
     ]
   })

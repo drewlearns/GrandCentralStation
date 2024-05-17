@@ -18,6 +18,7 @@ const generateDates = (firstPayDay, frequency, durationMonths) => {
   while (currentDate <= endDate) {
     dates.push(new Date(currentDate));
     switch (frequency) {
+      case 'once': currentDate = currentDate; break;
       case 'monthly': currentDate = addMonths(currentDate, 1); break;
       case 'weekly': currentDate.setDate(currentDate.getDate() + 7); break;
       case 'biweekly': currentDate.setDate(currentDate.getDate() + 14); break;

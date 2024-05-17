@@ -17,6 +17,14 @@ resource "aws_cognito_user_pool" "cognito_user_pool" {
       priority = 1
     }
   }
+
+  email_configuration {
+    email_sending_account  = "DEVELOPER"
+    source_arn             = "arn:aws:ses:${var.region}:${data.aws_caller_identity.current.account_id}:identity/${var.verified_email_address}"
+    from_email_address     = var.verified_email_address
+    reply_to_email_address = var.reply_to_email_address # Optional, but recommended
+
+  }
 }
 
 resource "aws_cognito_user_pool_client" "cognito_user_pool_client" {

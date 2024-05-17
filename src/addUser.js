@@ -6,7 +6,7 @@ const crypto = require('crypto');
 const cognitoClient = new CognitoIdentityProviderClient({ region: process.env.AWS_REGION });
 
 exports.handler = async (event) => {
-  const { username, email, password, mailOptIn, phoneNumber, firstName, lastName } = JSON.parse(event.body);
+  const { username, email, password, mailOptIn, phoneNumber, firstName, lastName, ipAddress, deviceDetails } = JSON.parse(event.body);
   const mailOptInValue = mailOptIn === 'true';
   const clientId = process.env.USER_POOL_CLIENT_ID;
   const clientSecret = process.env.USER_POOL_CLIENT_SECRET;
@@ -38,11 +38,11 @@ exports.handler = async (event) => {
       UserAttributes: [
         { Name: 'email', Value: email },
         { Name: 'phone_number', Value: phoneNumber },
-        // Include any other required attributes here
       ],
     };
 
     const signUpResponse = await cognitoClient.send(new SignUpCommand(signUpParams));
+
     const newUser = await prisma.user.create({
       data: {
         uuid: username,
@@ -56,6 +56,36 @@ exports.handler = async (event) => {
         updatedAt: new Date(),
         confirmedEmail: false,
         mailOptIn: mailOptInValue,
+      },
+    });
+
+    await prisma.auditTrail.create({
+      data: {
+        auditId: crypto.randomUUID(),
+        tableAffected: 'User',
+        actionType: 'Create',
+        oldValue: '',
+        newValue: JSON.stringify(newUser),
+        changedBy: username,
+        changeDate: new Date(),
+        timestamp: new Date(),
+        device: deviceDetails,
+        ipAddress,
+        deviceType: '',
+        ssoEnabled: 'false',
+      },
+    });
+
+    await prisma.securityLog.create({
+      data: {
+        logId: crypto.randomUUID(),
+        userUuid: username,
+        loginTime: new Date(),
+        ipAddress,
+        deviceDetails,
+        locationDetails: '',
+        actionType: 'User Signup',
+        createdAt: new Date(),
       },
     });
 

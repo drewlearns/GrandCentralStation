@@ -1,6 +1,9 @@
-const { CognitoIdentityProviderClient, ForgotPasswordCommand } = require("@aws-sdk/client-cognito-identity-provider");
+const { PrismaClient } = require('@prisma/client');
+const prisma = new PrismaClient();
+const { CognitoIdentityProviderClient, ForgotPasswordCommand } = require('@aws-sdk/client-cognito-identity-provider');
 const crypto = require('crypto');
-const client = new CognitoIdentityProviderClient({ region: "us-east-1" });
+
+const client = new CognitoIdentityProviderClient({ region: process.env.AWS_REGION });
 
 function generateSecretHash(username, clientId, clientSecret) {
     return crypto.createHmac('SHA256', clientSecret)
@@ -9,7 +12,7 @@ function generateSecretHash(username, clientId, clientSecret) {
 }
 
 exports.handler = async (event) => {
-    const { username } = JSON.parse(event.body);
+    const { username, ipAddress, deviceDetails } = JSON.parse(event.body);
     const clientId = process.env.USER_POOL_CLIENT_ID;
     const clientSecret = process.env.USER_POOL_CLIENT_SECRET;
 
@@ -19,30 +22,48 @@ exports.handler = async (event) => {
         const params = {
             ClientId: clientId,
             Username: username,
-            SecretHash: secretHash
+            SecretHash: secretHash,
         };
 
         await client.send(new ForgotPasswordCommand(params));
 
+        // Log an entry in the AuditTrail
+        await prisma.auditTrail.create({
+            data: {
+                auditId: crypto.randomUUID(),
+                tableAffected: 'User',
+                actionType: 'ForgotPassword',
+                oldValue: '',
+                newValue: JSON.stringify({ username }),
+                changedBy: username,
+                changeDate: new Date(),
+                timestamp: new Date(),
+                device: deviceDetails,
+                ipAddress,
+                deviceType: '',
+                ssoEnabled: 'false',
+            },
+        });
+
         return {
             statusCode: 200,
             body: JSON.stringify({
-                message: "Password reset code sent successfully. Check your registered email or SMS."
+                message: 'Password reset code sent successfully. Check your registered email or SMS.'
             }),
             headers: {
-                "Content-Type": "application/json"
+                'Content-Type': 'application/json'
             }
         };
     } catch (error) {
-        console.error("Error in forgot password process:", error);
+        console.error('Error in forgot password process:', error);
         return {
             statusCode: 400,
             body: JSON.stringify({
-                message: "Failed to send password reset code",
+                message: 'Failed to send password reset code',
                 errorDetails: error.message
             }),
             headers: {
-                "Content-Type": "application/json"
+                'Content-Type': 'application/json'
             }
         };
     }
