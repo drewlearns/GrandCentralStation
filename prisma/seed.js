@@ -23,6 +23,7 @@ async function main() {
   // Create Users
   const users = [];
   for (let i = 1; i <= 4; i++) {
+    const signupDate = new Date();
     const user = await prisma.user.create({
       data: {
         uuid: uuidv4(),
@@ -31,11 +32,16 @@ async function main() {
         lastName: `Last${i}`,
         email: `user${i}@example.com`,
         phoneNumber: `123-456-789${i}`,
-        signupDate: new Date(),
+        signupDate: signupDate,
         mailOptIn: i % 2 === 0,
-        createdAt: new Date(),
-        updatedAt: new Date(),
-        confirmedEmail: i % 2 === 0
+        createdAt: signupDate,
+        updatedAt: signupDate,
+        confirmedEmail: i % 2 === 0,
+        subscriptionEndDate: new Date(signupDate.getTime() + 14 * 24 * 60 * 60 * 1000), // 14 days later
+        subscriptionStatus: 'trial', // Set to trial initially
+        subscriptionId: `sub_${uuidv4()}`, // Placeholder for subscription ID
+        purchaseToken: `token_${uuidv4()}`, // Placeholder for purchase token
+        receiptData: `receipt_${uuidv4()}`, // Placeholder for receipt data
       }
     });
     users.push(user);
@@ -118,7 +124,7 @@ async function main() {
           password: `password${i}`,
           createdAt: new Date(),
           updatedAt: new Date(),
-          notificationId: null
+          notificationNotificationId: null
         }
       });
       bills.push(bill);
@@ -126,9 +132,10 @@ async function main() {
   }
 
   // Create Payment Sources
+  const paymentSources = [];
   for (const household of households) {
     for (let i = 1; i <= 2; i++) {
-      await prisma.paymentSource.create({
+      const paymentSource = await prisma.paymentSource.create({
         data: {
           sourceId: uuidv4(),
           householdId: household.householdId,
@@ -139,6 +146,7 @@ async function main() {
           updatedAt: new Date()
         }
       });
+      paymentSources.push(paymentSource);
     }
   }
 
@@ -158,7 +166,7 @@ async function main() {
           createdAt: new Date(),
           updatedAt: new Date(),
           updatedBy: users[i % 4].uuid,
-          billId: null,
+          billId: bills[i % bills.length].billId,
           incomeId: null,
           runningTotal: 1000 - (100 * i),
           interestRate: null,
@@ -172,7 +180,7 @@ async function main() {
           data: {
             transactionId: uuidv4(),
             ledgerId: ledger.ledgerId,
-            sourceId: household.paymentSources[j % 2].sourceId,
+            sourceId: paymentSources[j % paymentSources.length].sourceId,
             amount: 100 * i,
             transactionDate: new Date(2023, i - 1, j),
             description: `Description for Transaction${j} of Ledger${i}`,
@@ -199,10 +207,27 @@ async function main() {
       }
     });
 
-    // Update bill with notificationId
+    // Update bill with notificationNotificationId
     await prisma.bill.update({
       where: { billId: bill.billId },
-      data: { notificationId: notification.notificationId }
+      data: { notificationNotificationId: notification.notificationId }
+    });
+  }
+
+  // Create Tokens for Users (for example purposes)
+  for (const user of users) {
+    await prisma.token.create({
+      data: {
+        tokenId: uuidv4(),
+        userUuid: user.uuid,
+        accessToken: `access_token_${uuidv4()}`,
+        refreshToken: `refresh_token_${uuidv4()}`,
+        idToken: `id_token_${uuidv4()}`,
+        issuedAt: new Date(),
+        expiresIn: 3600, // Example expiry time
+        token: `id_token_${uuidv4()}`, // Example token
+        type: 'access', // Example type
+      }
     });
   }
 }

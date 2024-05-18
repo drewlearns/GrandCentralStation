@@ -1,0 +1,4 @@
+- NEED SMS approved through pinpoint
+- NEED SES approved to get out of sandbox through SES portal, requires a ticket and 24 hours.
+- turn on and test 2fa for cognito
+- turn on and test ses for cognito

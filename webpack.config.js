@@ -45,9 +45,9 @@ module.exports = (env) => {
         "crypto": require.resolve("crypto"),
         "stream": require.resolve("stream"),
         "buffer": require.resolve("buffer"),
-        "process": require.resolve("process"), 
-        "@smithy/config-resolver": require.resolve("@smithy/config-resolver"), 
-        "@smithy/util-endpoints": require.resolve("@smithy/util-endpoints"), 
+        "process": require.resolve("process"),
+        "@smithy/config-resolver": require.resolve("@smithy/config-resolver"),
+        "@smithy/util-endpoints": require.resolve("@smithy/util-endpoints"),
       }
     },
   };

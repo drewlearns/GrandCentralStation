@@ -36,26 +36,26 @@
 # # Lambda function
 # resource "aws_lambda_function" "disable_access" {
 #   function_name = "DisableFamilyAccessIfNotSubscribed"
-#   handler       = "didNotSubscribe.handler"
+#   handler       = "checkStripeSubscriptionStatus.handler"
 #   role          = aws_iam_role.lambda_role.arn
 #   runtime       = "nodejs20.x"
 
-#   filename = "./deploy/didNotSubscribe.zip"
+#   filename = "./deploy/checkStripeSubscriptionStatus.zip"
 
 #   environment {
 #     variables = {
-#       PGUSER     = "root"
-#       PGHOST     = var.aurora_endpoint
-#       PGDATABASE = "tppb"
-#       PGPASSWORD = "root"
-#       PGPORT     = "rootroot" # TODO: Make this more secure
+#       USER_POOL_CLIENT_ID     = aws_cognito_user_pool_client.cognito_user_pool_client.id
+#       USER_POOL_CLIENT_SECRET = aws_cognito_user_pool_client.cognito_user_pool_client.client_secret
+#       DATABASE_URL            = var.database_url
+#       ZOHO_CREDENTIALS        = data.aws_secretsmanager_secret_version.zoho_version.secret_string
+
 #     }
 #   }
 #   vpc_config {
 #     subnet_ids         = var.lambda_vpc_subnet_ids
 #     security_group_ids = [var.lambda_vpc_security_group_ids]
 #   }
-#   depends_on = [ null_resource.run_build_script ]
+#   depends_on = [null_resource.run_build_script]
 # }
 
 # # EventBridge rule to trigger Lambda daily

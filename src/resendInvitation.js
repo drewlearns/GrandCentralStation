@@ -1,9 +1,9 @@
 const { PrismaClient } = require('@prisma/client');
 const { v4: uuidv4 } = require('uuid');
-const AWS = require('aws-sdk');
+const { SESClient, SendEmailCommand } = require('@aws-sdk/client-ses');
 
 const prisma = new PrismaClient();
-const ses = new AWS.SES({ region: process.env.AWS_REGION });
+const sesClient = new SESClient({ region: process.env.AWS_REGION });
 
 exports.handler = async (event) => {
     const { invitationId, ipAddress, deviceDetails } = JSON.parse(event.body);
@@ -68,22 +68,22 @@ exports.handler = async (event) => {
 
         // Resend the invitation email using AWS SES
         const emailParams = {
-          Source: `noReply@process.env.TTPB_DOMAIN`,
-          Destination: {
-              ToAddresses: [invitedUserEmail],
-          },
-          Message: {
-              Subject: {
-                  Data: 'You are invited to join someone at The Purple Piggy Bank!',
-              },
-              Body: {
-                  Text: {
-                      Data: `You have been invited to budget and track expenses using The Purple Piggy Bank with "${householdExists.householdName}". Please accept the invitation code: ${invitation.invitationId}`,
-                  },
-              },
-          },
-      };
-        await ses.sendEmail(emailParams).promise();
+            Source: `noReply@${process.env.TTPB_DOMAIN}`,
+            Destination: {
+                ToAddresses: [invitedUserEmail],
+            },
+            Message: {
+                Subject: {
+                    Data: 'You are invited to join someone at The Purple Piggy Bank!',
+                },
+                Body: {
+                    Text: {
+                        Data: `You have been invited to budget and track expenses using The Purple Piggy Bank with "${household.householdName}". Please accept the invitation code: ${invitation.invitationId}`,
+                    },
+                },
+            },
+        };
+        await sesClient.send(new SendEmailCommand(emailParams));
 
         // Log an entry in the AuditTrail
         await prisma.auditTrail.create({

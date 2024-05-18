@@ -1,55 +1,13 @@
 const { PrismaClient } = require('@prisma/client');
 const { v4: uuidv4 } = require('uuid');
-const { LambdaClient, InvokeCommand } = require('@aws-sdk/client-lambda');
 
 const prisma = new PrismaClient();
-const lambdaClient = new LambdaClient({ region: process.env.AWS_REGION });
 
 exports.handler = async (event) => {
-    const { authorizationToken, householdId, memberUuid, ipAddress, deviceDetails } = JSON.parse(event.body);
-
-    if (!authorizationToken) {
-        return {
-            statusCode: 401,
-            body: JSON.stringify({
-                message: 'Access denied. No token provided.'
-            })
-        };
-    }
-
-    let removingUserUuid;
+    const { householdId, memberUuid, removingUserUuid, ipAddress, deviceDetails } = JSON.parse(event.body);
 
     try {
-        // Invoke verifyToken Lambda function
-        const verifyTokenCommand = new InvokeCommand({
-            FunctionName: 'verifyToken', // Replace with the actual function name
-            Payload: JSON.stringify({ authorizationToken })
-        });
-
-        const verifyTokenResponse = await lambdaClient.send(verifyTokenCommand);
-        const payload = JSON.parse(new TextDecoder('utf-8').decode(verifyTokenResponse.Payload));
-        
-        if (verifyTokenResponse.FunctionError) {
-            throw new Error(payload.errorMessage || 'Token verification failed.');
-        }
-
-        removingUserUuid = payload.username;
-        if (!removingUserUuid) {
-            throw new Error('Token verification did not return a valid UUID.');
-        }
-    } catch (error) {
-        console.error('Token verification failed:', error);
-        return {
-            statusCode: 401,
-            body: JSON.stringify({
-                message: 'Invalid token.',
-                error: error.message,
-            }),
-        };
-    }
-
-    try {
-        // Check if the household exists
+        // Check if the household exists and get the creator's UUID
         const household = await prisma.household.findUnique({
             where: { householdId: householdId },
         });
@@ -64,17 +22,9 @@ exports.handler = async (event) => {
             };
         }
 
-        // Check if the removing user is a member of the household with role 'Owner'
-        const removingUserMembership = await prisma.householdMembers.findFirst({
-            where: {
-                householdId: householdId,
-                memberUuid: removingUserUuid,
-                role: 'Owner',
-            },
-        });
-
-        if (!removingUserMembership) {
-            console.log(`Error: User ${removingUserUuid} is not an owner of household ${householdId}`);
+        // Check if the removing user is the creator of the household
+        if (household.createdBy !== removingUserUuid) {
+            console.log(`Error: User ${removingUserUuid} is not the creator of household ${householdId}`);
             return {
                 statusCode: 403,
                 body: JSON.stringify({

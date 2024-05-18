@@ -10,9 +10,9 @@ resource "aws_s3_bucket" "receipts_bucket" {
 resource "aws_s3_bucket_public_access_block" "receipts_bucket_public_access_block" {
   bucket = aws_s3_bucket.receipts_bucket.bucket
 
-  block_public_acls   = true
-  block_public_policy = true
-  ignore_public_acls  = true
+  block_public_acls       = true
+  block_public_policy     = true
+  ignore_public_acls      = true
   restrict_public_buckets = true
 }
 
@@ -26,4 +26,3 @@ resource "aws_vpc_endpoint" "s3_endpoint" {
     Name = "s3-vpc-endpoint"
   }
 }
-

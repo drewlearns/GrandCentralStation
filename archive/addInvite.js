@@ -1,9 +1,9 @@
 const { PrismaClient } = require('@prisma/client');
 const { v4: uuidv4 } = require('uuid');
-const { SESClient, SendEmailCommand } = require('@aws-sdk/client-ses');
+const AWS = require('aws-sdk');
 
 const prisma = new PrismaClient();
-const sesClient = new SESClient({ region: process.env.AWS_REGION });
+const ses = new AWS.SES({ region: process.env.AWS_REGION });
 
 exports.handler = async (event) => {
     const { householdId, invitedUserEmail, invitingUserUuid, role, ipAddress, deviceDetails } = JSON.parse(event.body);
@@ -89,23 +89,26 @@ exports.handler = async (event) => {
 
         // Send invitation email using AWS SES
         const emailParams = {
-            Source: `noReply@${process.env.TTPB_DOMAIN}`,
-            Destination: {
-                ToAddresses: [invitedUserEmail],
-            },
-            Message: {
-                Subject: {
-                    Data: 'You are invited to join someone at The Purple Piggy Bank!',
-                },
-                Body: {
-                    Text: {
-                        Data: `You have been invited to budget and track expenses using The Purple Piggy Bank with "${householdExists.householdName}". Please accept the invitation code: ${invitation.invitationId}`,
-                    },
-                },
-            },
-        };
+          Source: `noReply@process.env.TTPB_DOMAIN`,
+          Destination: {
+              ToAddresses: [invitedUserEmail],
+          },
+          Message: {
+              Subject: {
+                  Data: 'You are invited to join someone at The Purple Piggy Bank!',
+              },
+              Body: {
+                  Text: {
+                      Data: `You have been invited to budget and track expenses using The Purple Piggy Bank with "${householdExists.householdName}". Please accept the invitation code: ${invitation.invitationId}`,
+                  },
+              },
+          },
+      };
 
-        await sesClient.send(new SendEmailCommand(emailParams));
+      await ses.sendEmail(emailParams).promise();
+
+
+        await ses.sendEmail(emailParams).promise();
 
         // Log an entry in the AuditTrail
         await prisma.auditTrail.create({

@@ -1,15 +1,10 @@
 const { PrismaClient } = require('@prisma/client');
+const prisma = new PrismaClient();
 const { CognitoIdentityProviderClient, SignUpCommand } = require('@aws-sdk/client-cognito-identity-provider');
 const crypto = require('crypto');
-const { v4: uuidv4 } = require('uuid');
 const stripe = require('stripe')(process.env.STRIPE_SECRET_KEY);
 
-const prisma = new PrismaClient();
 const cognitoClient = new CognitoIdentityProviderClient({ region: process.env.AWS_REGION });
-
-const generateSecretHash = (username, clientId, clientSecret) => {
-  return crypto.createHmac('SHA256', clientSecret).update(username + clientId).digest('base64');
-};
 
 exports.handler = async (event) => {
   const { username, email, password, mailOptIn, phoneNumber, firstName, lastName, ipAddress, deviceDetails } = JSON.parse(event.body);
@@ -51,6 +46,29 @@ exports.handler = async (event) => {
     const signupDate = new Date();
     const subscriptionEndDate = new Date(signupDate.getTime() + 14 * 24 * 60 * 60 * 1000); // 14 days later
 
+    let subscriptionId = null;
+    let stripeCustomerId = null;
+
+    // Create Stripe Customer and Subscribe to Trial Plan
+    try {
+      const customer = await stripe.customers.create({
+        email: email,
+        name: `${firstName} ${lastName}`,
+      });
+
+      stripeCustomerId = customer.id;
+
+      const subscription = await stripe.subscriptions.create({
+        customer: customer.id,
+        items: [{ price: 'price_yourTrialPriceId' }], // replace with your trial price ID
+        trial_period_days: 14,
+      });
+
+      subscriptionId = subscription.id;
+    } catch (stripeError) {
+      console.error('Error creating Stripe Subscription:', stripeError);
+    }
+
     // Create new user in the database
     const newUser = await prisma.user.create({
       data: {
@@ -67,13 +85,15 @@ exports.handler = async (event) => {
         mailOptIn: mailOptInValue,
         subscriptionEndDate: subscriptionEndDate,
         subscriptionStatus: 'trial',
+        subscriptionId: subscriptionId,
+        stripeCustomerId: stripeCustomerId,
       },
     });
 
     // Log the creation in the audit trail
     await prisma.auditTrail.create({
       data: {
-        auditId: uuidv4(),
+        auditId: crypto.randomUUID(),
         tableAffected: 'User',
         actionType: 'Create',
         oldValue: '',
@@ -91,7 +111,7 @@ exports.handler = async (event) => {
     // Log the security event
     await prisma.securityLog.create({
       data: {
-        logId: uuidv4(),
+        logId: crypto.randomUUID(),
         userUuid: username,
         loginTime: new Date(),
         ipAddress,
@@ -104,11 +124,7 @@ exports.handler = async (event) => {
 
     return {
       statusCode: 200,
-      body: JSON.stringify({
-        message: 'User registered successfully',
-        user: newUser,
-        details: signUpResponse,
-      }),
+      body: JSON.stringify({ message: 'User registered successfully', user: newUser, details: signUpResponse }),
       headers: { 'Content-Type': 'application/json' },
     };
   } catch (error) {
@@ -119,7 +135,9 @@ exports.handler = async (event) => {
       body: JSON.stringify({ message: 'Failed to register user', errorDetails: error.message }),
       headers: { 'Content-Type': 'application/json' },
     };
-  } finally {
-    await prisma.$disconnect();
   }
 };
+
+function generateSecretHash(username, clientId, clientSecret) {
+  return crypto.createHmac('SHA256', clientSecret).update(username + clientId).digest('base64');
+}

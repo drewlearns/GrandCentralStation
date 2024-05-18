@@ -1,54 +1,15 @@
 const { PrismaClient } = require('@prisma/client');
 const { v4: uuidv4 } = require('uuid');
-const { LambdaClient, InvokeCommand } = require('@aws-sdk/client-lambda');
+const crypto = require('crypto');
 
 const prisma = new PrismaClient();
-const lambdaClient = new LambdaClient({ region: process.env.AWS_REGION });
 
 exports.handler = async (event) => {
-    const { authorizationToken, householdName, customHouseholdNameSuchAsCrew, account, ipAddress, deviceDetails } = JSON.parse(event.body);
-
-    if (!authorizationToken) {
-        return {
-            statusCode: 401,
-            body: JSON.stringify({
-                message: 'Access denied. No token provided.'
-            })
-        };
-    }
-
-    let createdBy;
+    const { householdName, createdBy, customHouseholdNameSuchAsCrew, account, ipAddress, deviceDetails } = JSON.parse(event.body);
+    const householdId = uuidv4(); // Unique ID for the household
 
     try {
-        // Invoke verifyToken Lambda function
-        const verifyTokenCommand = new InvokeCommand({
-            FunctionName: 'verifyToken', // Replace with the actual function name
-            Payload: JSON.stringify({ authorizationToken })
-        });
-
-        const verifyTokenResponse = await lambdaClient.send(verifyTokenCommand);
-        const payload = JSON.parse(new TextDecoder('utf-8').decode(verifyTokenResponse.Payload));
-        
-        if (verifyTokenResponse.FunctionError) {
-            throw new Error(payload.errorMessage || 'Token verification failed.');
-        }
-
-        createdBy = payload.username;
-        if (!createdBy) {
-            throw new Error('Token verification did not return a valid UUID.');
-        }
-    } catch (error) {
-        console.error('Token verification failed:', error);
-        return {
-            statusCode: 401,
-            body: JSON.stringify({
-                message: 'Invalid token.',
-                error: error.message,
-            }),
-        };
-    }
-
-    try {
+        // Check if the user with createdBy exists in the User table
         const userExists = await prisma.user.findUnique({
             where: { uuid: createdBy },
         });
@@ -63,12 +24,14 @@ exports.handler = async (event) => {
             };
         }
 
+        // Check if the household with the same householdName and createdBy already exists
         const householdExists = await prisma.household.findFirst({
             where: {
                 householdName: householdName,
                 members: {
                     some: {
                         memberUuid: createdBy,
+                        role: 'Owner',
                     },
                 },
             },
@@ -85,9 +48,10 @@ exports.handler = async (event) => {
         }
 
         const result = await prisma.$transaction(async (prisma) => {
+            // Create the household record
             const household = await prisma.household.create({
                 data: {
-                    householdId: uuidv4(),
+                    householdId: householdId,
                     householdName: householdName,
                     customHouseholdNameSuchAsCrew: customHouseholdNameSuchAsCrew,
                     creationDate: new Date(),
@@ -111,18 +75,20 @@ exports.handler = async (event) => {
                 },
             });
 
+            // Check if an initial dummy ledger already exists for the household
             const existingInitialLedger = await prisma.ledger.findFirst({
                 where: {
-                    householdId: household.householdId,
+                    householdId: householdId,
                     transactionType: 'Initialization',
                 },
             });
 
             if (!existingInitialLedger) {
+                // Create an initial dummy ledger for the household
                 await prisma.ledger.create({
                     data: {
                         ledgerId: uuidv4(),
-                        householdId: household.householdId,
+                        householdId: householdId,
                         amount: 0.0,
                         runningTotal: 0.0,
                         transactionType: 'Initialization',
@@ -132,7 +98,6 @@ exports.handler = async (event) => {
                         createdAt: new Date(),
                         updatedAt: new Date(),
                         updatedBy: createdBy,
-                        status: 'Active',
                     },
                 });
             }
@@ -140,6 +105,7 @@ exports.handler = async (event) => {
             return household;
         });
 
+        // Log an entry in the AuditTrail
         await prisma.auditTrail.create({
             data: {
                 auditId: uuidv4(),
@@ -161,7 +127,7 @@ exports.handler = async (event) => {
             statusCode: 201,
             body: JSON.stringify({
                 message: 'Household created successfully',
-                householdId: result.householdId,
+                householdId: householdId,
                 householdName: householdName,
                 customHouseholdName: customHouseholdNameSuchAsCrew,
                 account: account,

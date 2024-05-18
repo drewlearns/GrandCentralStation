@@ -1,9 +1,9 @@
 const { PrismaClient } = require('@prisma/client');
 const prisma = new PrismaClient();
-const { CognitoIdentityProviderClient, ConfirmSignUpCommand } = require('@aws-sdk/client-cognito-identity-provider');
+const { CognitoIdentityProviderClient, ConfirmForgotPasswordCommand } = require('@aws-sdk/client-cognito-identity-provider');
 const crypto = require('crypto');
 
-const cognitoClient = new CognitoIdentityProviderClient({ region: process.env.AWS_REGION });
+const client = new CognitoIdentityProviderClient({ region: process.env.AWS_REGION });
 
 function generateSecretHash(username, clientId, clientSecret) {
     return crypto.createHmac('SHA256', clientSecret)
@@ -12,35 +12,30 @@ function generateSecretHash(username, clientId, clientSecret) {
 }
 
 exports.handler = async (event) => {
-    const { username, confirmationCode, ipAddress, deviceDetails } = JSON.parse(event.body);
+    const { username, code, newPassword, ipAddress, deviceDetails } = JSON.parse(event.body);
     const clientId = process.env.USER_POOL_CLIENT_ID;
     const clientSecret = process.env.USER_POOL_CLIENT_SECRET;
     const secretHash = generateSecretHash(username, clientId, clientSecret);
 
-    const confirmSignUpParams = {
+    const params = {
         ClientId: clientId,
-        SecretHash: secretHash,
         Username: username,
-        ConfirmationCode: confirmationCode,
+        ConfirmationCode: code,
+        Password: newPassword,
+        SecretHash: secretHash
     };
 
     try {
-        const confirmSignUpResponse = await cognitoClient.send(new ConfirmSignUpCommand(confirmSignUpParams));
-
-        // Update the confirmedEmail field in the database for this user
-        const updatedUser = await prisma.user.update({
-            where: { uuid: username },
-            data: { confirmedEmail: true, updatedAt: new Date() },
-        });
+        await client.send(new ConfirmForgotPasswordCommand(params));
 
         // Log an entry in the AuditTrail
         await prisma.auditTrail.create({
             data: {
                 auditId: crypto.randomUUID(),
                 tableAffected: 'User',
-                actionType: 'Update',
-                oldValue: JSON.stringify({ confirmedEmail: false }),
-                newValue: JSON.stringify({ confirmedEmail: true }),
+                actionType: 'PasswordReset',
+                oldValue: '',
+                newValue: JSON.stringify({ username }),
                 changedBy: username,
                 changeDate: new Date(),
                 timestamp: new Date(),
@@ -51,7 +46,7 @@ exports.handler = async (event) => {
             },
         });
 
-        // Log the security event
+        // Log an entry in the SecurityLog
         await prisma.securityLog.create({
             data: {
                 logId: crypto.randomUUID(),
@@ -60,22 +55,31 @@ exports.handler = async (event) => {
                 ipAddress,
                 deviceDetails,
                 locationDetails: '',
-                actionType: 'ConfirmSignUp',
+                actionType: 'PasswordReset',
                 createdAt: new Date(),
             },
         });
 
         return {
             statusCode: 200,
-            body: JSON.stringify({ message: 'Email verified and user updated successfully', details: confirmSignUpResponse, user: updatedUser }),
-            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                message: 'Password has been changed successfully.'
+            }),
+            headers: {
+                'Content-Type': 'application/json'
+            }
         };
     } catch (error) {
-        console.error('Error in ConfirmSignUp or DB operation:', error);
+        console.error('Error in confirming new password:', error);
         return {
-            statusCode: 500,
-            body: JSON.stringify({ message: 'Failed to verify email and update user', errorDetails: error.message }),
-            headers: { 'Content-Type': 'application/json' },
+            statusCode: 400,
+            body: JSON.stringify({
+                message: 'Failed to change password',
+                errorDetails: error.message
+            }),
+            headers: {
+                'Content-Type': 'application/json'
+            }
         };
     }
 };

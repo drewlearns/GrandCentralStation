@@ -21,55 +21,21 @@ exports.handler = async (event) => {
   const clientId = process.env.USER_POOL_CLIENT_ID;
   const clientSecret = process.env.USER_POOL_CLIENT_SECRET;
 
-  try {
-    // Fetch the user from the database
-    const user = await prisma.user.findUnique({
-      where: {
-        uuid: username,
-      },
-    });
-
-    // Check if user exists
-    if (!user) {
-      return {
-        statusCode: 404,
-        body: JSON.stringify({ message: 'User not found' }),
-        headers: { 'Content-Type': 'application/json' },
-      };
-    }
-
-    // Check if the account status is not 'trial' or 'active'
-    if (user.subscriptionStatus !== 'trial' && user.subscriptionStatus !== 'active') {
-      return {
-        statusCode: 403,
-        body: JSON.stringify({ message: 'Account is not in trial or active status' }),
-        headers: { 'Content-Type': 'application/json' },
-      };
-    }
-
-    if (!session) {
-      // First attempt to authenticate
-      return initiateAuth(username, password, clientId, clientSecret, ipAddress, deviceDetails, locationDetails);
-    } else {
-      // Respond to MFA challenge
-      return respondToMFASetupChallenge(
-        username,
-        mfaCode,
-        session,
-        clientId,
-        clientSecret,
-        ipAddress,
-        deviceDetails,
-        locationDetails
-      );
-    }
-  } catch (error) {
-    console.error('Error during login:', error);
-    return {
-      statusCode: 500,
-      body: JSON.stringify({ message: 'Internal server error', errorDetails: error.message }),
-      headers: { 'Content-Type': 'application/json' },
-    };
+  if (!session) {
+    // First attempt to authenticate
+    return initiateAuth(username, password, clientId, clientSecret, ipAddress, deviceDetails, locationDetails);
+  } else {
+    // Respond to MFA challenge
+    return respondToMFASetupChallenge(
+      username,
+      mfaCode,
+      session,
+      clientId,
+      clientSecret,
+      ipAddress,
+      deviceDetails,
+      locationDetails
+    );
   }
 };
 
@@ -110,7 +76,6 @@ function respondToMFASetupChallenge(username, mfaCode, session, clientId, client
   const challengeResponses = {
     USERNAME: username,
     SECRET_HASH: generateSecretHash(username, clientId, clientSecret),
-    SOFTWARE_TOKEN_MFA_CODE: mfaCode,
   };
 
   const params = {
@@ -136,17 +101,15 @@ function respondToMFASetupChallenge(username, mfaCode, session, clientId, client
     });
 }
 
-async function handleAuthResponse(response, username, ipAddress, deviceDetails, locationDetails) {
+function handleAuthResponse(response, username, ipAddress, deviceDetails, locationDetails) {
   if (response.AuthenticationResult) {
-    const tokens = response.AuthenticationResult;
-    await logSecurityEvent(username, ipAddress, deviceDetails, locationDetails, 'Login');
-    await storeTokens(username, tokens);
+    logSecurityEvent(username, ipAddress, deviceDetails, locationDetails, 'Login').catch(console.error);
 
     return {
       statusCode: 200,
       body: JSON.stringify({
         message: 'Authentication successful',
-        tokens: tokens,
+        tokens: response.AuthenticationResult,
       }),
       headers: { 'Content-Type': 'application/json' },
     };
@@ -169,17 +132,16 @@ async function handleAuthResponse(response, username, ipAddress, deviceDetails, 
   }
 }
 
-async function logSecurityEvent(username, ipAddress, deviceDetails, locationDetails, actionType) {
+async function logSecurityEvent(username, ipAddress, deviceDetails, locationDetails) {
   try {
-    await prisma.securityLog.create({
+    const securityLogEntry = await prisma.securityLog.create({
       data: {
-        logId: crypto.randomUUID(),
         userUuid: username,
         loginTime: new Date(),
-        ipAddress,
-        deviceDetails,
-        locationDetails,
-        actionType,
+        ipAddress: ipAddress,
+        deviceDetails: deviceDetails,
+        locationDetails: locationDetails,
+        actionType: login,
         createdAt: new Date(),
       },
     });
@@ -189,27 +151,3 @@ async function logSecurityEvent(username, ipAddress, deviceDetails, locationDeta
     throw error;
   }
 }
-
-async function storeTokens(username, tokens) {
-  try {
-    await prisma.token.create({
-      data: {
-        tokenId: crypto.randomUUID(),
-        userUuid: username,
-        accessToken: tokens.AccessToken,
-        refreshToken: tokens.RefreshToken,
-        idToken: tokens.IdToken,
-        issuedAt: new Date(),
-        expiresIn: tokens.ExpiresIn,
-        token: tokens.IdToken, // Assuming token is idToken
-        type: 'access', // Example value, adjust as necessary
-      },
-    });
-    console.log('Stored tokens for user:', username);
-  } catch (error) {
-    console.error('Error storing tokens:', error);
-    throw error;
-  }
-}
-
-

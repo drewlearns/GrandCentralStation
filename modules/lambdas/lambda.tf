@@ -8,7 +8,7 @@ resource "aws_lambda_function" "this_lambda" {
   runtime       = each.value.runtime
   filename      = "./deploy/${each.key}.zip"
   timeout       = 30
-  memory_size = 256
+  memory_size   = 256
   tags = {
     Name = "each.key"
   }

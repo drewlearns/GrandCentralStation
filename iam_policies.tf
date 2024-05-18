@@ -92,7 +92,7 @@ resource "aws_iam_policy" "lambda_s3_policy" {
           aws_s3_bucket.receipts_bucket.arn,
           "${aws_s3_bucket.receipts_bucket.arn}/*",
         ],
-        Effect   = "Allow"
+        Effect = "Allow"
       },
       {
         Action = [
@@ -112,8 +112,8 @@ resource "aws_iam_policy" "lambda_invoke_policy" {
     Version = "2012-10-17",
     Statement = [
       {
-        Effect   = "Allow",
-        Action   = "lambda:InvokeFunction",
+        Effect = "Allow",
+        Action = "lambda:InvokeFunction",
         Resource = [
           "arn:aws:lambda:${var.region}:${data.aws_caller_identity.current.account_id}:function:*",
         ]

@@ -9,26 +9,31 @@ datasource db {
 }
 
 model User {
-  uuid               String   @id
-  username           String
-  firstName          String
-  lastName           String
-  email              String
-  phoneNumber        String
-  signupDate         DateTime
-  mailOptIn          Boolean
-  defaultHouseholdId String?
-  createdAt          DateTime
-  updatedAt          DateTime
-  confirmedEmail     Boolean
+  uuid                String    @id
+  username            String
+  firstName           String
+  lastName            String
+  email               String
+  phoneNumber         String
+  signupDate          DateTime
+  mailOptIn           Boolean
+  defaultHouseholdId  String?
+  createdAt           DateTime
+  updatedAt           DateTime
+  confirmedEmail      Boolean
+  subscriptionEndDate DateTime?
+  subscriptionId      String? // In-app purchase subscription ID
+  subscriptionStatus  String // Subscription status (e.g., 'active', 'trial', 'inactive')
+  purchaseToken       String? // Purchase token for verification (Android)
+  receiptData         String? // Receipt data for verification (iOS)
 
-  households         Household[]        @relation("UserHouseholds")
-  householdMembers   HouseholdMembers[]
-  invited            Invitations[]
-  audits             AuditTrail[]
-  securityLogs       SecurityLog[]
-  notifications      Notification[]
-  tokens             Token[]
+  households       Household[]        @relation("UserHouseholds")
+  householdMembers HouseholdMembers[]
+  invited          Invitations[]
+  audits           AuditTrail[]
+  securityLogs     SecurityLog[]
+  notifications    Notification[]
+  tokens           Token[]
 }
 
 model Household {
@@ -54,27 +59,27 @@ model Household {
 }
 
 model HouseholdMembers {
-  id            String   @id @default(uuid())
-  householdId   String
-  memberUuid    String
-  role          String
-  joinedDate    DateTime
-  createdAt     DateTime
-  updatedAt     DateTime
+  id          String   @id @default(uuid())
+  householdId String
+  memberUuid  String
+  role        String
+  joinedDate  DateTime
+  createdAt   DateTime
+  updatedAt   DateTime
 
   household Household @relation(fields: [householdId], references: [householdId])
   user      User      @relation(fields: [memberUuid], references: [uuid])
 }
 
 model Incomes {
-  incomeId      String   @id
-  householdId   String
-  name          String
-  amount        Int
-  frequency     String
-  firstPayDay   DateTime
-  createdAt     DateTime
-  updatedAt     DateTime
+  incomeId    String   @id
+  householdId String
+  name        String
+  amount      Int
+  frequency   String
+  firstPayDay DateTime
+  createdAt   DateTime
+  updatedAt   DateTime
 
   household Household @relation(fields: [householdId], references: [householdId])
   ledger    Ledger[]
@@ -106,28 +111,28 @@ model Ledger {
 }
 
 model Bill {
-  billId       String   @id
-  householdId  String
-  category     String
-  billName     String
-  amount       Float
-  dayOfMonth   Int
-  frequency    String
-  isDebt       Boolean
-  interestRate Float?
-  cashBack     Float?
-  description  String
-  status       String
-  url          String
-  username     String
-  password     String
-  createdAt    DateTime
-  updatedAt    DateTime
-  notificationId String?
+  billId                     String   @id
+  householdId                String
+  category                   String
+  billName                   String
+  amount                     Float
+  dayOfMonth                 Int
+  frequency                  String
+  isDebt                     Boolean
+  interestRate               Float?
+  cashBack                   Float?
+  description                String
+  status                     String
+  url                        String
+  username                   String
+  password                   String
+  createdAt                  DateTime
+  updatedAt                  DateTime
+  notificationNotificationId String?  @unique
 
-  household    Household @relation(fields: [householdId], references: [householdId])
+  household    Household     @relation(fields: [householdId], references: [householdId])
   ledger       Ledger[]
-  notification Notification? @relation(fields: [notificationId], references: [notificationId])
+  notification Notification? @relation(fields: [notificationNotificationId], references: [notificationId])
 }
 
 model Preferences {
@@ -172,13 +177,13 @@ model AuditTrail {
 }
 
 model Attachments {
-  attachmentId  String   @id
-  ledgerId      String
-  fileType      String
-  filePath      String
-  uploadDate    DateTime
-  createdAt     DateTime
-  updatedAt     DateTime
+  attachmentId String   @id
+  ledgerId     String
+  fileType     String
+  filePath     String
+  uploadDate   DateTime
+  createdAt    DateTime
+  updatedAt    DateTime
 
   ledger Ledger @relation(fields: [ledgerId], references: [ledgerId])
 }
@@ -199,27 +204,28 @@ model SecurityLog {
 model Notification {
   notificationId String   @id
   userUuid       String
-  billId         String?
+  billId         String?  @unique
   title          String
   message        String
   read           Boolean
   createdAt      DateTime
   updatedAt      DateTime
 
-  user User @relation(fields: [userUuid], references: [uuid])
-  bill Bill? @relation(fields: [billId], references: [billId])
+  user User  @relation(fields: [userUuid], references: [uuid])
+  bill Bill?
 }
 
 model Token {
-  tokenId    String   @id @default(uuid())
-  token      String   @unique
-  userId     String
-  type       String
-  expiration DateTime
-  createdAt  DateTime @default(now())
-  updatedAt  DateTime @updatedAt
-
-  user User @relation(fields: [userId], references: [uuid])
+  tokenId      String   @id @default(uuid())
+  userUuid     String
+  accessToken  String
+  refreshToken String
+  idToken      String
+  issuedAt     DateTime
+  expiresIn    Int
+  token        String
+  type         String // Ensure this field exists
+  User         User     @relation(fields: [userUuid], references: [uuid])
 }
 
 model PaymentSource {

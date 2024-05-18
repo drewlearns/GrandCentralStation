@@ -74,7 +74,7 @@ exports.handler = async (event) => {
             runningTotal: 0, // Initially set, needs recalculation
           },
         });
-  
+
         await prisma.calendar.create({
           data: {
             dateId: uuidv4(),
@@ -88,14 +88,13 @@ exports.handler = async (event) => {
           }
         });
       }
-  
+
       // Trigger updateRunningTotals after all transactions are added
       await axios.post(`${UPDATE_RUNNING_TOTAL_URL}/updateRunningTotal`, { familyId: familyId });
-  
+
       return { statusCode: 201, body: JSON.stringify({ message: 'Income created successfully' }) };
     } catch (error) {
       console.error(`Error creating income: ${error.message}`, { familyId: familyId, errorDetails: error });
       return { statusCode: 500, body: JSON.stringify({ message: 'Error creating income', error: error.message }) };
     }
   };
-  

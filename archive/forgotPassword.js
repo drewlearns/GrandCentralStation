@@ -45,20 +45,6 @@ exports.handler = async (event) => {
             },
         });
 
-        // Log an entry in the SecurityLog
-        await prisma.securityLog.create({
-            data: {
-                logId: crypto.randomUUID(),
-                userUuid: username,
-                loginTime: new Date(),
-                ipAddress,
-                deviceDetails,
-                locationDetails: '',
-                actionType: 'ForgotPassword',
-                createdAt: new Date(),
-            },
-        });
-
         return {
             statusCode: 200,
             body: JSON.stringify({

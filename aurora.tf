@@ -1,12 +1,13 @@
 # Generate a random password for the Aurora PostgreSQL master user
 resource "random_password" "master_password" {
-  length           = 16
-  special          = false
+  length  = 16
+  special = false
 }
 
 # Store the generated password in AWS Secrets Manager
 resource "aws_secretsmanager_secret" "db_master_password" {
-  name = "aurora-db-master-password"
+  name                    = "aurora-db-master-password"
+  recovery_window_in_days = 0
 }
 
 resource "aws_secretsmanager_secret_version" "db_master_password_version" {
@@ -16,20 +17,24 @@ resource "aws_secretsmanager_secret_version" "db_master_password_version" {
 
 # Aurora PostgreSQL Database
 resource "aws_rds_cluster" "aurora_cluster" {
-  cluster_identifier      = "tppb${var.environment}"
-  engine                  = "aurora-postgresql"
-  engine_version          = "16.1"
-  database_name           = "tppb${var.environment}"
-  master_username         = "root"
-  master_password         = aws_secretsmanager_secret_version.db_master_password_version.secret_string
-  skip_final_snapshot     = true
-  engine_mode             = "provisioned"
-  vpc_security_group_ids  = [aws_security_group.aurora_sg.id]
-  db_subnet_group_name    = aws_db_subnet_group.aurora_subnet_group.name
-  apply_immediately       = true
-  backup_retention_period = 1
-  preferred_backup_window = "03:00-04:00"
+  cluster_identifier           = "tppb${var.environment}"
+  engine                       = "aurora-postgresql"
+  engine_version               = "16.1"
+  database_name                = "tppb${var.environment}"
+  master_username              = "root"
+  master_password              = aws_secretsmanager_secret_version.db_master_password_version.secret_string
+  skip_final_snapshot          = true
+  engine_mode                  = "provisioned"
+  vpc_security_group_ids       = [aws_security_group.aurora_sg.id]
+  db_subnet_group_name         = aws_db_subnet_group.aurora_subnet_group.name
+  apply_immediately            = true
+  backup_retention_period      = 1
+  preferred_backup_window      = "03:00-04:00"
   preferred_maintenance_window = "Mon:04:30-Mon:05:30" # Ensure this doesn't overlap with backup_window
+  serverlessv2_scaling_configuration {
+    max_capacity = var.max_capacity
+    min_capacity = 0.5
+  }
 }
 
 # Instance attached to the Aurora PostgreSQL cluster

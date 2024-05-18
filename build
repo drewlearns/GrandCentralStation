@@ -103,6 +103,94 @@ process_file() {
   mkdir -p "$TMP_DIR/node_modules/@aws-crypto/"
   cp -r node_modules/@aws-crypto/* "$TMP_DIR/node_modules/@aws-crypto/"
 
+  # Include jsonwebtoken module
+  mkdir -p "$TMP_DIR/node_modules/jsonwebtoken/"
+  cp -r node_modules/jsonwebtoken/* "$TMP_DIR/node_modules/jsonwebtoken/"
+  
+  # Include jwksClient module
+  mkdir -p "$TMP_DIR/node_modules/jwksClient/"
+  cp -r node_modules/jwksClient/* "$TMP_DIR/node_modules/jwksClient/"
+  
+  # Include jws module
+  mkdir -p "$TMP_DIR/node_modules/jws/"
+  cp -r node_modules/jws/* "$TMP_DIR/node_modules/jws/"
+  
+  # Include safe-buffer module
+  mkdir -p "$TMP_DIR/node_modules/safe-buffer/"
+  cp -r node_modules/safe-buffer/* "$TMP_DIR/node_modules/safe-buffer/"
+ 
+  # Include jwa module
+  mkdir -p "$TMP_DIR/node_modules/jwa/"
+  cp -r node_modules/jwa/* "$TMP_DIR/node_modules/jwa/"
+ 
+  # Include buffer-equal-constant-time module
+  mkdir -p "$TMP_DIR/node_modules/buffer-equal-constant-time/"
+  cp -r node_modules/buffer-equal-constant-time/* "$TMP_DIR/node_modules/buffer-equal-constant-time/"
+
+  # Include ecdsa-sig-formatter module
+  mkdir -p "$TMP_DIR/node_modules/ecdsa-sig-formatter/"
+  cp -r node_modules/ecdsa-sig-formatter/* "$TMP_DIR/node_modules/ecdsa-sig-formatter/"
+
+  # Include ms module
+  mkdir -p "$TMP_DIR/node_modules/ms/"
+  cp -r node_modules/ms/* "$TMP_DIR/node_modules/ms/"
+
+  # Include lodash module
+  mkdir -p "$TMP_DIR/node_modules/lodash/"
+  cp -r node_modules/lodash/* "$TMP_DIR/node_modules/lodash/"
+
+  # Include lodash.includes module
+  mkdir -p "$TMP_DIR/node_modules/lodash.includes/"
+  cp -r node_modules/lodash.includes/* "$TMP_DIR/node_modules/lodash.includes/"
+
+  # Include lodash.isboolean module
+  mkdir -p "$TMP_DIR/node_modules/lodash.isboolean/"
+  cp -r node_modules/lodash.isboolean/* "$TMP_DIR/node_modules/lodash.isboolean/"
+
+  # Include lodash.isinteger module
+  mkdir -p "$TMP_DIR/node_modules/lodash.isinteger/"
+  cp -r node_modules/lodash.isinteger/* "$TMP_DIR/node_modules/lodash.isinteger/"
+
+  # Include lodash.isnumber module
+  mkdir -p "$TMP_DIR/node_modules/lodash.isnumber/"
+  cp -r node_modules/lodash.isnumber/* "$TMP_DIR/node_modules/lodash.isnumber/"
+
+  # Include lodash.isplainobject module
+  mkdir -p "$TMP_DIR/node_modules/lodash.isplainobject/"
+  cp -r node_modules/lodash.isplainobject/* "$TMP_DIR/node_modules/lodash.isplainobject/"
+
+  # Include lodash.once module
+  mkdir -p "$TMP_DIR/node_modules/lodash.once/"
+  cp -r node_modules/lodash.once/* "$TMP_DIR/node_modules/lodash.once/"
+
+  # Include lodash.isstring module
+  mkdir -p "$TMP_DIR/node_modules/lodash.isstring/"
+  cp -r node_modules/lodash.isstring/* "$TMP_DIR/node_modules/lodash.isstring/"
+
+  # Include jwks-rsa module
+  mkdir -p "$TMP_DIR/node_modules/jwks-rsa/"
+  cp -r node_modules/jwks-rsa/* "$TMP_DIR/node_modules/jwks-rsa/"
+
+  # Include debug module
+  mkdir -p "$TMP_DIR/node_modules/debug/"
+  cp -r node_modules/debug/* "$TMP_DIR/node_modules/debug/"
+
+  # Include jose module
+  mkdir -p "$TMP_DIR/node_modules/jose/"
+  cp -r node_modules/jose/* "$TMP_DIR/node_modules/jose/"
+
+  # Include lru-memoizer module
+  mkdir -p "$TMP_DIR/node_modules/lru-memoizer/"
+  cp -r node_modules/lru-memoizer/* "$TMP_DIR/node_modules/lru-memoizer/"
+
+  # Include lodash.clonedeep module
+  mkdir -p "$TMP_DIR/node_modules/lodash.clonedeep/"
+  cp -r node_modules/lodash.clonedeep/* "$TMP_DIR/node_modules/lodash.clonedeep/"
+
+  # Include limiter module
+  mkdir -p "$TMP_DIR/node_modules/limiter/"
+  cp -r node_modules/limiter/* "$TMP_DIR/node_modules/limiter/"
+
   if [ -d "node_modules/busboy" ]; then
     mkdir -p "$TMP_DIR/node_modules/busboy"
     cp -r node_modules/busboy/* "$TMP_DIR/node_modules/busboy/"

@@ -9,6 +9,11 @@ variable "lambdas" {
   }))
 }
 
+variable "database_url" {
+  type = string
+  description = "passed in database URL"
+}
+
 variable "zone_id" {
   description = "zone id for api dns hosted zone"
   type        = string

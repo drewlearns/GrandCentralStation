@@ -18,14 +18,14 @@ resource "aws_cognito_user_pool" "cognito_user_pool" {
     }
   }
 
-  email_configuration {
-    email_sending_account  = "DEVELOPER"
-    source_arn             = "arn:aws:ses:${var.region}:${data.aws_caller_identity.current.account_id}:identity/${var.verified_email_address}"
-    from_email_address     = var.verified_email_address
-    reply_to_email_address = var.reply_to_email_address # Optional, but recommended
-
-  }
+  # email_configuration {
+  #   email_sending_account  = "DEVELOPER"
+  #   source_arn             = "arn:aws:ses:${var.region}:${data.aws_caller_identity.current.account_id}:identity/noReply@${var.domain_name}"
+  #   from_email_address     = "noReply@${var.domain_name}"
+  #   reply_to_email_address = "help@thepurplepiggybank.com"
+  # }
 }
+
 
 resource "aws_cognito_user_pool_client" "cognito_user_pool_client" {
   name         = "TPPBClient"
@@ -41,4 +41,43 @@ resource "aws_cognito_user_pool_client" "cognito_user_pool_client" {
 
   callback_urls = ["https://app.thepurplepiggybank.com/dashboard"]
   logout_urls   = ["https://app.thepurplepiggybank.com/logout"]
+}
+
+resource "aws_iam_policy" "cognito_ses_policy" {
+  name        = "CognitoSESPolicy"
+  description = "IAM policy for Cognito to send emails via SES"
+  
+  policy = jsonencode({
+    Version = "2012-10-17",
+    Statement = [
+      {
+        Effect   = "Allow",
+        Action   = [
+          "ses:SendEmail",
+          "ses:SendRawEmail"
+        ],
+        Resource = "arn:aws:ses:${var.region}:${data.aws_caller_identity.current.account_id}:identity/noReply@${var.domain_name}"
+      }
+    ]
+  })
+}
+
+data "aws_iam_policy_document" "assume_role" {
+  statement {
+    actions = ["sts:AssumeRole"]
+    principals {
+      type        = "Service"
+      identifiers = ["cognito-idp.amazonaws.com"]
+    }
+  }
+}
+
+resource "aws_iam_role" "cognito_user_pool_role" {
+  name               = "CognitoUserPoolRole"
+  assume_role_policy = data.aws_iam_policy_document.assume_role.json
+}
+
+resource "aws_iam_role_policy_attachment" "cognito_ses_policy_attachment" {
+  role       = aws_iam_role.cognito_user_pool_role.name
+  policy_arn = aws_iam_policy.cognito_ses_policy.arn
 }

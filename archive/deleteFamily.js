@@ -38,7 +38,7 @@ exports.handler = async (event) => {
 
             // Delete TransactionLedger after deleting related Attachments
             await prisma.transactionLedger.deleteMany({ where: { familyId } });
-            
+
             await prisma.calendar.deleteMany({ where: { familyId } });
             await prisma.billTable.deleteMany({ where: { familyId } });
             await prisma.preferences.deleteMany({ where: { familyId } });

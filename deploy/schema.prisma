@@ -1,9 +1,3 @@
-// This is your Prisma schema file,
-// learn more about it in the docs: https://pris.ly/d/prisma-schema
-
-// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
-// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
-
 generator client {
   provider      = "prisma-client-js"
   binaryTargets = ["rhel-openssl-3.0.x", "darwin-arm64"]
@@ -15,146 +9,154 @@ datasource db {
 }
 
 model User {
-  uuid            String          @id
-  username        String
-  firstName       String
-  lastName        String
-  email           String
-  phoneNumber     String
-  signupDate      DateTime
-  mailOptIn       Boolean
-  defaultFamily   Family?         @relation(fields: [defaultFamilyId], references: [familyId])
-  defaultFamilyId String?
-  createdAt       DateTime
-  updatedAt       DateTime
-  familyMembers   FamilyMembers[]
-  invited         Invitations[]
-  audits          AuditTrail[]
-  confirmedEmail  Boolean
+  uuid                String    @id
+  username            String
+  firstName           String
+  lastName            String
+  email               String
+  phoneNumber         String
+  signupDate          DateTime
+  mailOptIn           Boolean
+  defaultHouseholdId  String?
+  createdAt           DateTime
+  updatedAt           DateTime
+  confirmedEmail      Boolean
+  subscriptionEndDate DateTime?
+  subscriptionId      String? // In-app purchase subscription ID
+  subscriptionStatus  String // Subscription status (e.g., 'active', 'trial', 'inactive')
+  purchaseToken       String? // Purchase token for verification (Android)
+  receiptData         String? // Receipt data for verification (iOS)
 
-  securityLogs  SecurityLog[]
-  notifications Notification[]
+  households       Household[]        @relation("UserHouseholds")
+  householdMembers HouseholdMembers[]
+  invited          Invitations[]
+  audits           AuditTrail[]
+  securityLogs     SecurityLog[]
+  notifications    Notification[]
+  tokens           Token[]
 }
 
-model Family {
-  familyId                   String              @id
-  familyName                 String
-  creationDate               DateTime
-  customFamilyNameSuchAsCrew String
-  createdAt                  DateTime
-  updatedAt                  DateTime
-  account                    String
-  setupComplete              Boolean
-  members                    FamilyMembers[]     // Direct connection to FamilyMembers
-  incomes                    Incomes[]
-  transactionLedgers         TransactionLedger[]
-  calendars                  Calendar[]
-  billTables                 BillTable[]
-  preferences                Preferences[]
-  invitations                Invitations[]
-  categories                 Categories[]
-  activeSubscription         Boolean
-  User                       User[]
+model Household {
+  householdId                   String   @id
+  householdName                 String
+  creationDate                  DateTime
+  customHouseholdNameSuchAsCrew String
+  createdAt                     DateTime
+  updatedAt                     DateTime
+  account                       String
+  setupComplete                 Boolean
+  activeSubscription            Boolean
+
+  members        HouseholdMembers[]
+  incomes        Incomes[]
+  ledger         Ledger[]
+  bills          Bill[]
+  preferences    Preferences[]
+  invitations    Invitations[]
+  paymentSources PaymentSource[]
+
+  users User[] @relation("UserHouseholds")
 }
 
-model FamilyMembers {
-  id         String   @id @default(uuid())  // Unique identifier for each family member
-  familyId   String
-  memberUuid String
-  role       String
-  joinedDate DateTime
-  createdAt  DateTime
-  updatedAt  DateTime
-  family     Family   @relation(fields: [familyId], references: [familyId])
-  user       User     @relation(fields: [memberUuid], references: [uuid])
+model HouseholdMembers {
+  id          String   @id @default(uuid())
+  householdId String
+  memberUuid  String
+  role        String
+  joinedDate  DateTime
+  createdAt   DateTime
+  updatedAt   DateTime
+
+  household Household @relation(fields: [householdId], references: [householdId])
+  user      User      @relation(fields: [memberUuid], references: [uuid])
 }
 
 model Incomes {
   incomeId    String   @id
-  familyId    String
+  householdId String
   name        String
   amount      Int
   frequency   String
-  firstPayDay String
-  createdAt   DateTime // Ensure these are present if manually setting them
+  firstPayDay DateTime
+  createdAt   DateTime
   updatedAt   DateTime
-  family      Family   @relation(fields: [familyId], references: [familyId])
+
+  household Household @relation(fields: [householdId], references: [householdId])
+  ledger    Ledger[]
 }
 
-model TransactionLedger {
-  transactionId   String        @id
-  familyId        String
+model Ledger {
+  ledgerId        String   @id
+  householdId     String
   amount          Float
   transactionType String
   transactionDate DateTime
   category        String
   description     String
+  status          String
   createdAt       DateTime
   updatedAt       DateTime
   updatedBy       String
-  attachments     Attachments[]
-  family          Family        @relation(fields: [familyId], references: [familyId])
-  Calendar        Calendar[]
-  runningTotal    Float        
+  billId          String?
+  incomeId        String?
+  runningTotal    Float
+  interestRate    Float?
+  cashBack        Float?
+
+  household    Household     @relation(fields: [householdId], references: [householdId])
+  bill         Bill?         @relation(fields: [billId], references: [billId])
+  income       Incomes?      @relation(fields: [incomeId], references: [incomeId])
+  attachments  Attachments[]
+  transactions Transaction[]
 }
 
-model Calendar {
-  dateId        Int                @id
-  familyId      String
-  eventName     String
-  eventDate     DateTime
-  transactionId String?
-  billId        String?
-  description   String
-  createdAt     DateTime
-  updatedAt     DateTime
-  family        Family             @relation(fields: [familyId], references: [familyId])
-  transaction   TransactionLedger? @relation(fields: [transactionId], references: [transactionId])
-  bill          BillTable?         @relation(fields: [billId], references: [billId])
-}
+model Bill {
+  billId                     String   @id
+  householdId                String
+  category                   String
+  billName                   String
+  amount                     Float
+  dayOfMonth                 Int
+  frequency                  String
+  isDebt                     Boolean
+  interestRate               Float?
+  cashBack                   Float?
+  description                String
+  status                     String
+  url                        String
+  username                   String
+  password                   String
+  createdAt                  DateTime
+  updatedAt                  DateTime
+  notificationNotificationId String?  @unique
 
-model BillTable {
-  billId       String     @id
-  familyId     String
-  category     String
-  billName     String
-  amount       Float
-  dayOfMonth   Int
-  frequency    String
-  isDebt       Boolean
-  interestRate Float
-  totalDebt    Int
-  description  String
-  status       String
-  url          String
-  username     String
-  password     String
-  createdAt    DateTime
-  updatedAt    DateTime
-  family       Family     @relation(fields: [familyId], references: [familyId])
-  Calendar     Calendar[]
+  household    Household     @relation(fields: [householdId], references: [householdId])
+  ledger       Ledger[]
+  notification Notification? @relation(fields: [notificationNotificationId], references: [notificationId])
 }
 
 model Preferences {
   preferenceId    String   @id
-  familyId        String
+  householdId     String
   preferenceType  String
   preferenceValue String
   createdAt       DateTime
   updatedAt       DateTime
-  family          Family   @relation(fields: [familyId], references: [familyId])
+
+  household Household @relation(fields: [householdId], references: [householdId])
 }
 
 model Invitations {
   invitationId     String   @id
-  familyId         String
+  householdId      String
   invitedUserUuid  String
   invitationStatus String
   sentDate         DateTime
   createdAt        DateTime
   updatedAt        DateTime
-  family           Family   @relation(fields: [familyId], references: [familyId])
-  invitedUser      User     @relation(fields: [invitedUserUuid], references: [uuid])
+
+  household   Household @relation(fields: [householdId], references: [householdId])
+  invitedUser User      @relation(fields: [invitedUserUuid], references: [uuid])
 }
 
 model AuditTrail {
@@ -170,28 +172,20 @@ model AuditTrail {
   ipAddress     String
   deviceType    String
   ssoEnabled    String
-  user          User     @relation(fields: [changedBy], references: [uuid])
+
+  user User @relation(fields: [changedBy], references: [uuid])
 }
 
 model Attachments {
-  attachmentId  String            @id
-  transactionId String
-  fileType      String
-  filePath      String
-  uploadDate    DateTime
-  createdAt     DateTime
-  updatedAt     DateTime
-  transaction   TransactionLedger @relation(fields: [transactionId], references: [transactionId])
-}
+  attachmentId String   @id
+  ledgerId     String
+  fileType     String
+  filePath     String
+  uploadDate   DateTime
+  createdAt    DateTime
+  updatedAt    DateTime
 
-model Categories {
-  category_id String   @id
-  familyId    String
-  name        String
-  budgetLimit Int
-  createdAt   DateTime
-  updatedAt   DateTime
-  family      Family   @relation(fields: [familyId], references: [familyId])
+  ledger Ledger @relation(fields: [ledgerId], references: [ledgerId])
 }
 
 model SecurityLog {
@@ -210,11 +204,53 @@ model SecurityLog {
 model Notification {
   notificationId String   @id
   userUuid       String
+  billId         String?  @unique
   title          String
   message        String
   read           Boolean
   createdAt      DateTime
   updatedAt      DateTime
 
-  user User @relation(fields: [userUuid], references: [uuid])
+  user User  @relation(fields: [userUuid], references: [uuid])
+  bill Bill?
+}
+
+model Token {
+  tokenId      String   @id @default(uuid())
+  userUuid     String
+  accessToken  String
+  refreshToken String
+  idToken      String
+  issuedAt     DateTime
+  expiresIn    Int
+  token        String
+  type         String // Ensure this field exists
+  User         User     @relation(fields: [userUuid], references: [uuid])
+}
+
+model PaymentSource {
+  sourceId    String   @id @default(uuid())
+  householdId String
+  sourceName  String
+  sourceType  String // e.g., 'credit_card', 'bank_account'
+  details     String // Additional details like account number, last 4 digits of a card, etc.
+  createdAt   DateTime
+  updatedAt   DateTime
+
+  household    Household     @relation(fields: [householdId], references: [householdId])
+  transactions Transaction[]
+}
+
+model Transaction {
+  transactionId   String   @id @default(uuid())
+  ledgerId        String
+  sourceId        String
+  amount          Float
+  transactionDate DateTime
+  description     String
+  createdAt       DateTime
+  updatedAt       DateTime
+
+  ledger Ledger        @relation(fields: [ledgerId], references: [ledgerId])
+  source PaymentSource @relation(fields: [sourceId], references: [sourceId])
 }
