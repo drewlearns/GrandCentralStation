@@ -210,3 +210,28 @@ resource "aws_iam_policy" "ses_send_email_policy" {
     ]
   })
 }
+
+resource "aws_iam_policy" "lambda_secrets_policy" {
+  name        = "LambdaSecretsPolicy"
+  description = "Policy for Lambda to manage secrets with /bills/* pattern in Secrets Manager"
+  policy      = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Action = [
+          "secretsmanager:GetSecretValue",
+          "secretsmanager:DescribeSecret",
+          "secretsmanager:CreateSecret"
+        ]
+        Effect   = "Allow"
+        Resource = [
+          "arn:aws:secretsmanager:${var.region}:${data.aws_caller_identity.current.account_id}:secret:/bills/*",
+          "arn:aws:secretsmanager:${var.region}:${data.aws_caller_identity.current.account_id}:secret:/bills/*/*",
+          "arn:aws:secretsmanager:${var.region}:${data.aws_caller_identity.current.account_id}:secret:bills/*",
+          "arn:aws:secretsmanager:${var.region}:${data.aws_caller_identity.current.account_id}:secret:bills/*/*",
+          "arn:aws:secretsmanager:${var.region}:${data.aws_caller_identity.current.account_id}:secret:bills/bill-credentials/*"
+        ]
+      }
+    ]
+  })
+}
