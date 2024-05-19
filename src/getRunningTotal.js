@@ -6,7 +6,26 @@ const prisma = new PrismaClient();
 const lambdaClient = new LambdaClient({ region: process.env.AWS_REGION });
 
 exports.handler = async (event) => {
-  const { authorizationToken, paymentSourceId, ipAddress, deviceDetails } = event;
+  console.log("Received event:", JSON.stringify(event, null, 2));
+
+  let authorizationToken, paymentSourceId, ipAddress, deviceDetails;
+  
+  try {
+    const parsedBody = JSON.parse(event.body);
+    authorizationToken = parsedBody.authorizationToken;
+    paymentSourceId = parsedBody.paymentSourceId;
+    ipAddress = parsedBody.ipAddress;
+    deviceDetails = parsedBody.deviceDetails;
+  } catch (error) {
+    console.error('Error parsing event body:', error);
+    return {
+      statusCode: 400,
+      body: JSON.stringify({
+        message: 'Invalid request body format',
+        error: error.message,
+      }),
+    };
+  }
 
   try {
     if (!authorizationToken) {
@@ -58,12 +77,27 @@ exports.handler = async (event) => {
       };
     }
 
-    // Fetch the latest ledger entry for the given payment source to get the current running total
+    // Fetch the latest ledger entry for the given payment source up to the current date and time
+    const now = new Date();
+    console.log(`Fetching ledger entries for paymentSourceId: ${paymentSourceId} up to: ${now}`);
+
     const latestLedgerEntry = await prisma.ledger.findFirst({
-      where: { paymentSourceId: paymentSourceId },
-      orderBy: { transactionDate: 'desc' },
-      select: { runningTotal: true },
+      where: {
+        paymentSourceId: paymentSourceId,
+        transactionDate: {
+          lte: now,
+        },
+      },
+      orderBy: {
+        transactionDate: 'desc',
+      },
+      select: {
+        runningTotal: true,
+        transactionDate: true,
+      },
     });
+
+    console.log(`Latest ledger entry fetched: ${JSON.stringify(latestLedgerEntry)}`);
 
     if (!latestLedgerEntry) {
       return {
@@ -74,22 +108,26 @@ exports.handler = async (event) => {
       };
     }
 
+    // Add logging for audit trail data
+    const auditData = {
+      auditId: uuidv4(),
+      tableAffected: 'Ledger',
+      actionType: 'Read',
+      oldValue: '',
+      newValue: JSON.stringify(latestLedgerEntry),
+      changedBy: updatedBy,
+      changeDate: new Date(),
+      timestamp: new Date(),
+      device: deviceDetails,
+      ipAddress: ipAddress,
+      deviceType: '',
+      ssoEnabled: 'false',
+    };
+    console.log(`Audit trail data: ${JSON.stringify(auditData)}`);
+
     // Log the audit trail
     await prisma.auditTrail.create({
-      data: {
-        auditId: uuidv4(),
-        tableAffected: 'Ledger',
-        actionType: 'Read',
-        oldValue: '',
-        newValue: JSON.stringify(latestLedgerEntry),
-        changedBy: updatedBy,
-        changeDate: new Date(),
-        timestamp: new Date(),
-        device: deviceDetails,
-        ipAddress: ipAddress,
-        deviceType: '',
-        ssoEnabled: 'false',
-      },
+      data: auditData,
     });
 
     return {

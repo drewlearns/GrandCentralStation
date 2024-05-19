@@ -198,13 +198,14 @@ exports.handler = async (event) => {
       filePath = imageKey;
     }
 
-    const runningTotal = await getRunningTotal(householdId);
+    const runningTotal = await getRunningTotal(householdId, sourceId);
 
     // Ledger Table Entry
     const newLedger = await prisma.ledger.create({
       data: {
         ledgerId: uuidv4(),
         householdId: householdId,
+        paymentSourceId: sourceId,  // Add paymentSourceId here
         amount: parseFloat(amount),
         transactionType: transactionType,
         transactionDate: new Date(transactionDate),
@@ -297,9 +298,12 @@ exports.handler = async (event) => {
   }
 };
 
-async function getRunningTotal(householdId) {
+async function getRunningTotal(householdId, paymentSourceId) {
   const transactions = await prisma.ledger.findMany({
-    where: { householdId: householdId },
+    where: {
+      householdId: householdId,
+      paymentSourceId: paymentSourceId,
+    },
   });
 
   return transactions.reduce((total, transaction) => {

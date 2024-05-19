@@ -1,5 +1,4 @@
 const { PrismaClient } = require("@prisma/client");
-
 const prisma = new PrismaClient();
 
 exports.handler = async (event) => {
@@ -14,6 +13,8 @@ exports.handler = async (event) => {
         }),
       };
     }
+
+    console.log(`Calculating running totals for householdId: ${householdId}, paymentSourceId: ${paymentSourceId}`);
 
     // Fetch all ledger entries for the household and payment source, ordered by transaction date
     const ledgerEntries = await prisma.ledger.findMany({
@@ -33,15 +34,20 @@ exports.handler = async (event) => {
       };
     }
 
+    console.log(`Found ${ledgerEntries.length} ledger entries. Calculating running totals...`);
+
     // Calculate running totals for the specific payment source
     let runningTotal = 0;
     for (let entry of ledgerEntries) {
       runningTotal += entry.transactionType.toLowerCase() === 'debit' ? -entry.amount : entry.amount;
+      console.log(`Updating ledgerId: ${entry.ledgerId} with runningTotal: ${runningTotal}`);
       await prisma.ledger.update({
         where: { ledgerId: entry.ledgerId },
         data: { runningTotal: runningTotal },
       });
     }
+
+    console.log('Running totals updated successfully for payment source');
 
     return {
       statusCode: 200,

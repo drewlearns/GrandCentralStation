@@ -16,9 +16,7 @@ exports.handler = async (event) => {
             })
         };
     }
-
     let createdBy;
-
     try {
         // Invoke verifyToken Lambda function
         const verifyTokenCommand = new InvokeCommand({

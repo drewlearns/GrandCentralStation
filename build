@@ -107,9 +107,9 @@ process_file() {
   mkdir -p "$TMP_DIR/node_modules/jsonwebtoken/"
   cp -r node_modules/jsonwebtoken/* "$TMP_DIR/node_modules/jsonwebtoken/"
   
-  # Include jwksClient module
-  mkdir -p "$TMP_DIR/node_modules/jwksClient/"
-  cp -r node_modules/jwksClient/* "$TMP_DIR/node_modules/jwksClient/"
+  # # Include jwksClient module
+  # mkdir -p "$TMP_DIR/node_modules/jwksClient/"
+  # cp -r node_modules/jwksClient/* "$TMP_DIR/node_modules/jwksClient/"
   
   # Include jws module
   mkdir -p "$TMP_DIR/node_modules/jws/"
