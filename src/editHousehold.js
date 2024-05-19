@@ -1,11 +1,12 @@
 const { PrismaClient } = require('@prisma/client');
+const { v4: uuidv4 } = require('uuid');
 const { LambdaClient, InvokeCommand } = require('@aws-sdk/client-lambda');
 
 const prisma = new PrismaClient();
 const lambdaClient = new LambdaClient({ region: process.env.AWS_REGION });
 
 exports.handler = async (event) => {
-    const { authorizationToken, householdId, householdName, customHouseholdNameSuchAsCrew, account, ipAddress, deviceDetails } = JSON.parse(event.body);
+    const { authorizationToken, householdId, householdName, customHouseholdNameSuchAsCrew, account, setupComplete, activeSubscription, ipAddress, deviceDetails } = JSON.parse(event.body);
 
     if (!authorizationToken) {
         return {
@@ -15,36 +16,42 @@ exports.handler = async (event) => {
             })
         };
     }
-
-    let userUuid;
-
+    let updatedBy;
     try {
         // Invoke verifyToken Lambda function
         const verifyTokenCommand = new InvokeCommand({
-            FunctionName: 'verifyToken', // Replace with the actual function name
+            FunctionName: 'verifyToken',
             Payload: JSON.stringify({ authorizationToken })
         });
 
-        // Parallelize token verification and initial database fetch
-        const [verifyTokenResponse, household] = await Promise.all([
-            lambdaClient.send(verifyTokenCommand),
-            prisma.household.findUnique({
-                where: { householdId },
-                include: { members: true }
-            })
-        ]);
-
+        const verifyTokenResponse = await lambdaClient.send(verifyTokenCommand);
         const payload = JSON.parse(new TextDecoder('utf-8').decode(verifyTokenResponse.Payload));
+        
         if (verifyTokenResponse.FunctionError) {
             throw new Error(payload.errorMessage || 'Token verification failed.');
         }
 
-        userUuid = payload.username;
-        if (!userUuid) {
+        updatedBy = payload.username;
+        if (!updatedBy) {
             throw new Error('Token verification did not return a valid UUID.');
         }
+    } catch (error) {
+        console.error('Token verification failed:', error);
+        return {
+            statusCode: 401,
+            body: JSON.stringify({
+                message: 'Invalid token.',
+                error: error.message,
+            }),
+        };
+    }
 
-        if (!household) {
+    try {
+        const householdExists = await prisma.household.findUnique({
+            where: { householdId: householdId },
+        });
+
+        if (!householdExists) {
             console.log(`Error: Household ${householdId} does not exist`);
             return {
                 statusCode: 404,
@@ -54,25 +61,16 @@ exports.handler = async (event) => {
             };
         }
 
-        const isOwner = household.members.some(member => member.memberUuid === userUuid && member.role === 'Owner');
-        if (!isOwner) {
-            console.log(`Error: User ${userUuid} is not authorized to edit household ${householdId}`);
-            return {
-                statusCode: 403,
-                body: JSON.stringify({
-                    message: 'User is not authorized to edit this household',
-                }),
-            };
-        }
-
         const updatedHousehold = await prisma.household.update({
-            where: { householdId },
+            where: { householdId: householdId },
             data: {
-                householdName,
-                customHouseholdNameSuchAsCrew,
-                account,
-                updatedAt: new Date()
-            }
+                householdName: householdName,
+                customHouseholdNameSuchAsCrew: customHouseholdNameSuchAsCrew,
+                account: account,
+                setupComplete: setupComplete,
+                activeSubscription: activeSubscription,
+                updatedAt: new Date(),
+            },
         });
 
         await prisma.auditTrail.create({
@@ -80,9 +78,9 @@ exports.handler = async (event) => {
                 auditId: uuidv4(),
                 tableAffected: 'Household',
                 actionType: 'Update',
-                oldValue: JSON.stringify(household),
+                oldValue: JSON.stringify(householdExists),
                 newValue: JSON.stringify(updatedHousehold),
-                changedBy: userUuid,
+                changedBy: updatedBy,
                 changeDate: new Date(),
                 timestamp: new Date(),
                 device: deviceDetails,
@@ -96,7 +94,12 @@ exports.handler = async (event) => {
             statusCode: 200,
             body: JSON.stringify({
                 message: 'Household updated successfully',
-                household: updatedHousehold,
+                householdId: updatedHousehold.householdId,
+                householdName: updatedHousehold.householdName,
+                customHouseholdNameSuchAsCrew: updatedHousehold.customHouseholdNameSuchAsCrew,
+                account: updatedHousehold.account,
+                setupComplete: updatedHousehold.setupComplete,
+                activeSubscription: updatedHousehold.activeSubscription,
             }),
         };
     } catch (error) {

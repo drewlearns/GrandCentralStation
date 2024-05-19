@@ -22,7 +22,7 @@ exports.handler = async (event) => {
     try {
         // Invoke verifyToken Lambda function
         const verifyTokenCommand = new InvokeCommand({
-            FunctionName: 'verifyToken', // Replace with the actual function name
+            FunctionName: 'verifyToken',
             Payload: JSON.stringify({ authorizationToken })
         });
 
@@ -52,6 +52,13 @@ exports.handler = async (event) => {
         // Check if the household exists
         const household = await prisma.household.findUnique({
             where: { householdId: householdId },
+            include: {
+                members: {
+                    where: {
+                        role: 'Owner',
+                    }
+                }
+            }
         });
 
         if (!household) {
@@ -64,16 +71,10 @@ exports.handler = async (event) => {
             };
         }
 
-        // Check if the removing user is a member of the household with role 'Owner'
-        const removingUserMembership = await prisma.householdMembers.findFirst({
-            where: {
-                householdId: householdId,
-                memberUuid: removingUserUuid,
-                role: 'Owner',
-            },
-        });
+        // Check if the removing user is an owner of the household
+        const isOwner = household.members.some(member => member.memberUuid === removingUserUuid);
 
-        if (!removingUserMembership) {
+        if (!isOwner) {
             console.log(`Error: User ${removingUserUuid} is not an owner of household ${householdId}`);
             return {
                 statusCode: 403,

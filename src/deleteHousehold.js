@@ -1,4 +1,5 @@
 const { PrismaClient } = require('@prisma/client');
+const { v4: uuidv4 } = require('uuid');
 const { LambdaClient, InvokeCommand } = require('@aws-sdk/client-lambda');
 
 const prisma = new PrismaClient();
@@ -15,34 +16,47 @@ exports.handler = async (event) => {
             })
         };
     }
-
-    let userUuid;
-
+    let deletedBy;
     try {
         // Invoke verifyToken Lambda function
         const verifyTokenCommand = new InvokeCommand({
-            FunctionName: 'verifyToken', // Replace with the actual function name
+            FunctionName: 'verifyToken',
             Payload: JSON.stringify({ authorizationToken })
         });
 
-        // Parallelize token verification and initial database fetch
-        const [verifyTokenResponse, household] = await Promise.all([
-            lambdaClient.send(verifyTokenCommand),
-            prisma.household.findUnique({
-                where: { householdId },
-                include: { members: true }
-            })
-        ]);
-
+        const verifyTokenResponse = await lambdaClient.send(verifyTokenCommand);
         const payload = JSON.parse(new TextDecoder('utf-8').decode(verifyTokenResponse.Payload));
+        
         if (verifyTokenResponse.FunctionError) {
             throw new Error(payload.errorMessage || 'Token verification failed.');
         }
 
-        userUuid = payload.username;
-        if (!userUuid) {
+        deletedBy = payload.username;
+        if (!deletedBy) {
             throw new Error('Token verification did not return a valid UUID.');
         }
+    } catch (error) {
+        console.error('Token verification failed:', error);
+        return {
+            statusCode: 401,
+            body: JSON.stringify({
+                message: 'Invalid token.',
+                error: error.message,
+            }),
+        };
+    }
+
+    try {
+        const household = await prisma.household.findUnique({
+            where: { householdId: householdId },
+            include: {
+                members: {
+                    where: {
+                        role: 'Owner',
+                    }
+                }
+            }
+        });
 
         if (!household) {
             console.log(`Error: Household ${householdId} does not exist`);
@@ -54,19 +68,31 @@ exports.handler = async (event) => {
             };
         }
 
-        const isOwner = household.members.some(member => member.memberUuid === userUuid && member.role === 'Owner');
-        if (!isOwner) {
-            console.log(`Error: User ${userUuid} is not authorized to delete household ${householdId}`);
+        const owner = household.members.find(member => member.role === 'Owner');
+
+        if (!owner || owner.memberUuid !== deletedBy) {
+            console.log(`Error: User ${deletedBy} is not authorized to delete household ${householdId}`);
             return {
                 statusCode: 403,
                 body: JSON.stringify({
-                    message: 'User is not authorized to delete this household',
+                    message: 'You are not authorized to delete this household',
                 }),
             };
         }
 
-        await prisma.household.delete({
-            where: { householdId },
+        await prisma.$transaction(async (prisma) => {
+            await prisma.household.delete({
+                where: { householdId: householdId },
+            });
+
+            // Optionally delete related data (members, incomes, ledger, bills, etc.)
+            await prisma.householdMembers.deleteMany({ where: { householdId: householdId } });
+            await prisma.incomes.deleteMany({ where: { householdId: householdId } });
+            await prisma.ledger.deleteMany({ where: { householdId: householdId } });
+            await prisma.bill.deleteMany({ where: { householdId: householdId } });
+            await prisma.preferences.deleteMany({ where: { householdId: householdId } });
+            await prisma.invitations.deleteMany({ where: { householdId: householdId } });
+            await prisma.paymentSource.deleteMany({ where: { householdId: householdId } });
         });
 
         await prisma.auditTrail.create({
@@ -76,7 +102,7 @@ exports.handler = async (event) => {
                 actionType: 'Delete',
                 oldValue: JSON.stringify(household),
                 newValue: '',
-                changedBy: userUuid,
+                changedBy: deletedBy,
                 changeDate: new Date(),
                 timestamp: new Date(),
                 device: deviceDetails,
@@ -90,6 +116,7 @@ exports.handler = async (event) => {
             statusCode: 200,
             body: JSON.stringify({
                 message: 'Household deleted successfully',
+                householdId: householdId,
             }),
         };
     } catch (error) {
