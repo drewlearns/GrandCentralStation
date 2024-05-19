@@ -216,19 +216,3 @@ resource "aws_iam_policy" "lambda_secrets_policy" {
   })
 }
 
-resource "aws_iam_policy" "lambda_sns_policy" {
-  name = "lambda_sns_policy"
-
-  policy = jsonencode({
-    Version = "2012-10-17"
-    Statement = [
-      {
-        Effect = "Allow"
-        Action = [
-          "sns:Publish"
-        ]
-        Resource = "arn:aws:sns:your-region:your-account-id:bill-notifications-topic"
-      }
-    ]
-  })
-}
