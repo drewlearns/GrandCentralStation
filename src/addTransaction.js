@@ -1,4 +1,3 @@
-const { LambdaClient, InvokeCommand } = require("@aws-sdk/client-lambda");
 const Busboy = require("busboy");
 const { PrismaClient } = require("@prisma/client");
 const { v4: uuidv4 } = require("uuid");
@@ -7,6 +6,7 @@ const {
   PutObjectCommand,
   HeadBucketCommand,
 } = require("@aws-sdk/client-s3");
+const { LambdaClient, InvokeCommand } = require("@aws-sdk/client-lambda");
 const fs = require("fs");
 const path = require("path");
 const os = require("os");
@@ -17,11 +17,6 @@ const s3Client = new S3Client({ region: process.env.AWS_REGION });
 
 const REGION = process.env.AWS_REGION;
 const BUCKET = process.env.BUCKET;
-const UPDATE_RUNNING_TOTAL_LAMBDA = 'updateRunningTotal';
-
-console.log(`AWS_REGION: ${REGION}`);
-console.log(`BUCKET: ${BUCKET}`);
-console.log(`UPDATE_RUNNING_TOTAL_LAMBDA: ${UPDATE_RUNNING_TOTAL_LAMBDA}`);
 
 const uploadToS3 = async (bucket, key, body) => {
   try {
@@ -90,7 +85,7 @@ exports.handler = async (event) => {
           console.log(`File [${filename}] saved to [${filepath}]`);
           result.files.push({
             fieldname,
-            originalFilename: uuidv4(),
+            originalFilename: filename,
             filepath,
             encoding,
           });
@@ -125,57 +120,56 @@ exports.handler = async (event) => {
     console.log("Fields:", JSON.stringify(fields, null, 2));
     console.log("Files:", JSON.stringify(files, null, 2));
 
-    const { authorizationToken, familyId, amount, transactionType, transactionDate, category, description } = fields;
+    const { authorizationToken, householdId, amount, transactionType, transactionDate, category, description, ipAddress, deviceDetails, status } = fields;
 
     if (!authorizationToken) {
-        return {
-            statusCode: 401,
-            body: JSON.stringify({
-                message: 'Access denied. No token provided.'
-            })
-        };
+      return {
+        statusCode: 401,
+        body: JSON.stringify({
+          message: 'Access denied. No token provided.'
+        })
+      };
     }
 
     let updatedBy;
 
     try {
-        // Invoke verifyToken Lambda function
-        const verifyTokenCommand = new InvokeCommand({
-            FunctionName: 'verifyToken', // Replace with the actual function name
-            Payload: JSON.stringify({ authorizationToken })
-        });
+      const verifyTokenCommand = new InvokeCommand({
+        FunctionName: 'verifyToken',
+        Payload: JSON.stringify({ authorizationToken })
+      });
 
-        const verifyTokenResponse = await lambdaClient.send(verifyTokenCommand);
-        const payload = JSON.parse(new TextDecoder('utf-8').decode(verifyTokenResponse.Payload));
-        
-        if (verifyTokenResponse.FunctionError) {
-            throw new Error(payload.errorMessage || 'Token verification failed.');
-        }
+      const verifyTokenResponse = await lambdaClient.send(verifyTokenCommand);
+      const payload = JSON.parse(new TextDecoder('utf-8').decode(verifyTokenResponse.Payload));
 
-        updatedBy = payload.username;
-        if (!updatedBy) {
-            throw new Error('Token verification did not return a valid UUID.');
-        }
+      if (verifyTokenResponse.FunctionError) {
+        throw new Error(payload.errorMessage || 'Token verification failed.');
+      }
+
+      updatedBy = payload.username;
+      if (!updatedBy) {
+        throw new Error('Token verification did not return a valid username.');
+      }
     } catch (error) {
-        console.error('Token verification failed:', error);
-        return {
-            statusCode: 401,
-            body: JSON.stringify({
-                message: 'Invalid token.',
-                error: error.message,
-            }),
-        };
+      console.error('Token verification failed:', error);
+      return {
+        statusCode: 401,
+        body: JSON.stringify({
+          message: 'Invalid token.',
+          error: error.message,
+        }),
+      };
     }
 
-    const familyExists = await prisma.family.findUnique({
-      where: { familyId: familyId },
+    const householdExists = await prisma.household.findUnique({
+      where: { householdId: householdId },
     });
 
-    if (!familyExists) {
-      console.log(`Error: Family ${familyId} does not exist`);
+    if (!householdExists) {
+      console.log(`Error: Household ${householdId} does not exist`);
       return {
         statusCode: 404,
-        body: JSON.stringify({ message: "Family not found" }),
+        body: JSON.stringify({ message: "Household not found" }),
       };
     }
 
@@ -193,12 +187,11 @@ exports.handler = async (event) => {
       filePath = imageKey;
     }
 
-    const runningTotal = await getRunningTotal(familyId); // Assuming you have a function to calculate running total
-
-    const newTransaction = await prisma.transactionLedger.create({
+    const runningTotal = await getRunningTotal(householdId);
+    const newTransaction = await prisma.ledger.create({
       data: {
-        transactionId: uuidv4(),
-        familyId: familyId,
+        ledgerId: uuidv4(),
+        householdId: householdId,
         amount: parseFloat(amount),
         transactionType: transactionType,
         transactionDate: new Date(transactionDate),
@@ -220,26 +213,28 @@ exports.handler = async (event) => {
               },
             }
           : undefined,
+        status: status === "true", // Ensure status is provided
       },
     });
 
-    // Invoke the updateRunningTotal Lambda function using AWS SDK v3
-    const params = {
-      FunctionName: UPDATE_RUNNING_TOTAL_LAMBDA,
-      InvocationType: "Event", // Use "RequestResponse" for synchronous invocation
-      Payload: JSON.stringify({ familyId: familyId }),
-    };
+    await prisma.auditTrail.create({
+      data: {
+        auditId: uuidv4(),
+        tableAffected: 'Ledger',
+        actionType: 'Create',
+        oldValue: '',
+        newValue: JSON.stringify(newTransaction),
+        changedBy: updatedBy,
+        changeDate: new Date(),
+        timestamp: new Date(),
+        device: deviceDetails,
+        ipAddress: ipAddress,
+        deviceType: '',
+        ssoEnabled: 'false',
+      },
+    });
 
-    try {
-      const command = new InvokeCommand(params);
-      const data = await lambdaClient.send(command);
-      console.log(`Update running total Lambda invoked successfully: ${data}`);
-    } catch (error) {
-      console.error(`Error invoking updateRunningTotal Lambda: ${error.message}`);
-      throw new Error("Failed to update running total");
-    }
-
-    console.log(`Success: Transaction added to ledger for family ${familyId}`);
+    console.log(`Success: Transaction added to ledger for household ${householdId}`);
     return {
       statusCode: 201,
       body: JSON.stringify({
@@ -275,11 +270,9 @@ exports.handler = async (event) => {
   }
 };
 
-async function getRunningTotal(familyId) {
-  // Implement this function based on your business logic to calculate the running total
-  // Example:
-  const transactions = await prisma.transactionLedger.findMany({
-    where: { familyId: familyId },
+async function getRunningTotal(householdId) {
+  const transactions = await prisma.ledger.findMany({
+    where: { householdId: householdId },
   });
 
   return transactions.reduce((total, transaction) => {

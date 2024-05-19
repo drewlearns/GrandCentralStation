@@ -2,7 +2,6 @@ const { PrismaClient } = require('@prisma/client');
 const { CognitoIdentityProviderClient, SignUpCommand } = require('@aws-sdk/client-cognito-identity-provider');
 const crypto = require('crypto');
 const { v4: uuidv4 } = require('uuid');
-const stripe = require('stripe')(process.env.STRIPE_SECRET_KEY);
 
 const prisma = new PrismaClient();
 const cognitoClient = new CognitoIdentityProviderClient({ region: process.env.AWS_REGION });

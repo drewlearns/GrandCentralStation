@@ -162,7 +162,7 @@ async function main() {
           transactionDate: new Date(2023, i - 1, 1),
           category: `Category${i}`,
           description: `Description for Ledger${i}`,
-          status: 'completed',
+          status: true,
           createdAt: new Date(),
           updatedAt: new Date(),
           updatedBy: users[i % 4].uuid,

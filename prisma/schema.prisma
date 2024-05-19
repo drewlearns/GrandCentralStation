@@ -93,7 +93,7 @@ model Ledger {
   transactionDate DateTime
   category        String
   description     String
-  status          String
+  status          Boolean
   createdAt       DateTime
   updatedAt       DateTime
   updatedBy       String

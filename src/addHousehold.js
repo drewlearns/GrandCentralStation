@@ -132,7 +132,7 @@ exports.handler = async (event) => {
                         createdAt: new Date(),
                         updatedAt: new Date(),
                         updatedBy: createdBy,
-                        status: 'Active',
+                        status: true,
                     },
                 });
             }
