@@ -10,7 +10,7 @@ const secretsManagerClient = new SecretsManagerClient({ region: process.env.AWS_
 
 const calculateOccurrences = (startDate, frequency) => {
   let occurrences = [];
-  const endDate = add(startDate, { months: 12 });
+  const endDate = add(startDate, { months: 60 });
 
   switch (frequency) {
     case "once":

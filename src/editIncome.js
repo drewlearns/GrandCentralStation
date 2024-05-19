@@ -1,5 +1,4 @@
 const { PrismaClient } = require("@prisma/client");
-const { v4: uuidv4 } = require("uuid");
 const { LambdaClient, InvokeCommand } = require("@aws-sdk/client-lambda");
 const { add, eachMonthOfInterval, eachWeekOfInterval, eachDayOfInterval } = require("date-fns");
 
@@ -48,7 +47,7 @@ const calculateOccurrences = (startDate, frequency) => {
 exports.handler = async (event) => {
   try {
     const body = JSON.parse(event.body);
-    const { authorizationToken, householdId, name, amount, firstPayDay, frequency, description, ipAddress, deviceDetails, paymentSourceId } = body;
+    const { authorizationToken, incomeId, householdId, name, amount, firstPayDay, frequency, description, ipAddress, deviceDetails, paymentSourceId } = body;
 
     if (!authorizationToken) {
       return {
@@ -113,17 +112,31 @@ exports.handler = async (event) => {
       };
     }
 
-    const newIncome = await prisma.incomes.create({
+    const incomeExists = await prisma.incomes.findUnique({
+      where: { incomeId: incomeId },
+    });
+
+    if (!incomeExists) {
+      console.log(`Error: Income ${incomeId} does not exist`);
+      return {
+        statusCode: 404,
+        body: JSON.stringify({ message: "Income not found" }),
+      };
+    }
+
+    const updatedIncome = await prisma.incomes.update({
+      where: { incomeId: incomeId },
       data: {
-        incomeId: uuidv4(),
-        householdId: householdId,
         name: name,
         amount: parseFloat(amount),
         frequency: frequency,
         firstPayDay: new Date(firstPayDay),
-        createdAt: new Date(),
         updatedAt: new Date(),
       },
+    });
+
+    await prisma.ledger.deleteMany({
+      where: { incomeId: incomeId },
     });
 
     const occurrences = calculateOccurrences(new Date(firstPayDay), frequency);
@@ -142,14 +155,13 @@ exports.handler = async (event) => {
           createdAt: new Date(),
           updatedAt: new Date(),
           updatedBy: updatedBy,
-          incomeId: newIncome.incomeId,
+          incomeId: updatedIncome.incomeId,
           paymentSourceId: paymentSourceId,
           runningTotal: 0, // Initial placeholder
         },
       });
     }
 
-    // Invoke the secondary Lambda function to calculate running totals for the payment source
     const calculateTotalsCommand = new InvokeCommand({
       FunctionName: 'calculateRunningTotal',
       Payload: JSON.stringify({ householdId: householdId, paymentSourceId: paymentSourceId }),
@@ -161,9 +173,9 @@ exports.handler = async (event) => {
       data: {
         auditId: uuidv4(),
         tableAffected: 'Incomes',
-        actionType: 'Create',
-        oldValue: '',
-        newValue: JSON.stringify(newIncome),
+        actionType: 'Update',
+        oldValue: JSON.stringify(incomeExists),
+        newValue: JSON.stringify(updatedIncome),
         changedBy: updatedBy,
         changeDate: new Date(),
         timestamp: new Date(),
@@ -174,12 +186,12 @@ exports.handler = async (event) => {
       },
     });
 
-    console.log(`Success: Income and ledger entries added for household ${householdId}`);
+    console.log(`Success: Income and ledger entries updated for household ${householdId}`);
     return {
-      statusCode: 201,
+      statusCode: 200,
       body: JSON.stringify({
-        message: "Income and ledger entries added successfully",
-        income: newIncome,
+        message: "Income and ledger entries updated successfully",
+        income: updatedIncome,
       }),
     };
   } catch (error) {

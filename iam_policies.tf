@@ -1,27 +1,5 @@
 data "aws_caller_identity" "current" {}
 
-resource "aws_iam_policy" "lambda_dynamodb_policy" {
-  name = "lambda_dynamodb_policy"
-  policy = jsonencode({
-    Version = "2012-10-17",
-    Statement = [
-      {
-        Action = [
-          "dynamodb:PutItem",
-          "dynamodb:DeleteItem",
-          "dynamodb:Scan",
-          "dynamodb:Query",
-          "dynamodb:UpdateItem",
-          "dynamodb:GetItem"
-        ],
-        Resource = "arn:aws:dynamodb:us-east-1:${data.aws_caller_identity.current.account_id}:table/tppb*",
-
-        Effect = "Allow"
-      }
-    ]
-  })
-}
-
 resource "aws_iam_policy" "lambda_sns_policy" {
   name = "lambda_sns_policy"
   policy = jsonencode({
@@ -233,6 +211,23 @@ resource "aws_iam_policy" "lambda_secrets_policy" {
           "arn:aws:secretsmanager:${var.region}:${data.aws_caller_identity.current.account_id}:secret:/bill-credentials/*",
           "arn:aws:secretsmanager:${var.region}:${data.aws_caller_identity.current.account_id}:secret:bill-credentials/*",
         ]
+      }
+    ]
+  })
+}
+
+resource "aws_iam_policy" "lambda_sns_policy" {
+  name = "lambda_sns_policy"
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Effect = "Allow"
+        Action = [
+          "sns:Publish"
+        ]
+        Resource = "arn:aws:sns:your-region:your-account-id:bill-notifications-topic"
       }
     ]
   })
