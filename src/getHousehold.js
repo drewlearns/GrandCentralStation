@@ -9,12 +9,15 @@ exports.handler = async (event) => {
   console.log('Received event:', JSON.stringify(event, null, 2));
 
   let authorizationToken, ipAddress, deviceDetails;
+  const pageSize = 30; // Adjust the page size as needed
+  let page; // Declare the page variable
 
   try {
     const parsedBody = JSON.parse(event.body);
     authorizationToken = parsedBody.authorizationToken;
     ipAddress = parsedBody.ipAddress;
     deviceDetails = parsedBody.deviceDetails;
+    page = parsedBody.page || 1; // Default to page 1 if not provided
   } catch (error) {
     console.error('Error parsing event body:', error);
     return {
@@ -52,10 +55,11 @@ exports.handler = async (event) => {
         throw new Error(payload.errorMessage || 'Token verification failed.');
       }
 
-      userId = payload.userId;
+      userId = payload.username;
       if (!userId) {
         throw new Error('Token verification did not return a valid user ID.');
       }
+      console.log(`Verified user ID: ${userId}`);
     } catch (error) {
       console.error('Token verification failed:', error);
       return {
@@ -70,23 +74,37 @@ exports.handler = async (event) => {
     // Fetch the households associated with the user
     const households = await prisma.household.findMany({
       where: {
-        users: {
+        members: {
           some: {
-            uuid: userId,
+            memberUuid: userId,
           },
         },
       },
       include: {
         members: true,
         incomes: true,
-        ledger: true,
         bills: true,
         preferences: true,
         invitations: true,
         paymentSources: true,
         users: true,
+        ledger: {
+          where: {
+            transactionDate: {
+              gte: new Date(new Date().getFullYear(), new Date().getMonth(), 1),
+              lt: new Date(new Date().getFullYear(), new Date().getMonth() + 1, 1),
+            },
+          },
+          orderBy: {
+            transactionDate: 'asc',
+          },
+          take: pageSize,
+          skip: (page - 1) * pageSize,
+        },
       },
     });
+
+    console.log(`Households found: ${JSON.stringify(households)}`);
 
     if (households.length === 0) {
       return {
@@ -98,7 +116,7 @@ exports.handler = async (event) => {
     }
 
     // Extract paymentSourceIds and invoke getRunningTotal.js for each
-    const paymentSourceIds = households.flatMap(household => household.paymentSources.map(ps => ps.id));
+    const paymentSourceIds = households.flatMap(household => household.paymentSources.map(ps => ps.sourceId));
     const runningTotals = await Promise.all(paymentSourceIds.map(async (paymentSourceId) => {
       const getRunningTotalCommand = new InvokeCommand({
         FunctionName: 'getRunningTotal',
@@ -120,7 +138,7 @@ exports.handler = async (event) => {
     // Attach running totals to households response
     households.forEach(household => {
       household.paymentSources.forEach(paymentSource => {
-        const runningTotal = runningTotals.find(rt => rt.paymentSourceId === paymentSource.id);
+        const runningTotal = runningTotals.find(rt => rt.paymentSourceId === paymentSource.sourceId);
         paymentSource.runningTotal = runningTotal ? runningTotal.runningTotal : null;
       });
     });
