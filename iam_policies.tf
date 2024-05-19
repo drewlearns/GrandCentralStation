@@ -229,7 +229,9 @@ resource "aws_iam_policy" "lambda_secrets_policy" {
           "arn:aws:secretsmanager:${var.region}:${data.aws_caller_identity.current.account_id}:secret:/bills/*/*",
           "arn:aws:secretsmanager:${var.region}:${data.aws_caller_identity.current.account_id}:secret:bills/*",
           "arn:aws:secretsmanager:${var.region}:${data.aws_caller_identity.current.account_id}:secret:bills/*/*",
-          "arn:aws:secretsmanager:${var.region}:${data.aws_caller_identity.current.account_id}:secret:bills/bill-credentials/*"
+          "arn:aws:secretsmanager:${var.region}:${data.aws_caller_identity.current.account_id}:secret:bills/bill-credentials/*",
+          "arn:aws:secretsmanager:${var.region}:${data.aws_caller_identity.current.account_id}:secret:/bill-credentials/*",
+          "arn:aws:secretsmanager:${var.region}:${data.aws_caller_identity.current.account_id}:secret:bill-credentials/*",
         ]
       }
     ]

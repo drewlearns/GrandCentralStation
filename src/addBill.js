@@ -48,7 +48,7 @@ const calculateOccurrences = (startDate, frequency) => {
 };
 
 const storeCredentialsInSecretsManager = async (username, password) => {
-  const secretName = `bills/bill-credentials/${uuidv4()}`;
+  const secretName = `bill-credentials/${uuidv4()}`;
   const secretValue = JSON.stringify({ username, password });
 
   const command = new CreateSecretCommand({
@@ -161,12 +161,20 @@ exports.handler = async (event) => {
           updatedAt: new Date(),
           updatedBy: updatedBy,
           billId: newBill.billId,
-          runningTotal: 0, // This would need to be calculated based on existing ledger entries
+          runningTotal: 0, // Initial placeholder
           interestRate: interestRate ? parseFloat(interestRate) : null,
           cashBack: cashBack ? parseFloat(cashBack) : null,
         },
       });
     }
+
+    // Invoke the secondary Lambda function to calculate running totals
+    const calculateTotalsCommand = new InvokeCommand({
+      FunctionName: 'calculateRunningTotal',
+      Payload: JSON.stringify({ householdId: householdId }),
+    });
+
+    await lambdaClient.send(calculateTotalsCommand);
 
     await prisma.auditTrail.create({
       data: {
