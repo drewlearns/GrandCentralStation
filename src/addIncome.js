@@ -1,12 +1,10 @@
 const { PrismaClient } = require("@prisma/client");
 const { v4: uuidv4 } = require("uuid");
 const { LambdaClient, InvokeCommand } = require("@aws-sdk/client-lambda");
-const { SecretsManagerClient, CreateSecretCommand } = require("@aws-sdk/client-secrets-manager");
 const { add, eachMonthOfInterval, eachWeekOfInterval, eachDayOfInterval } = require("date-fns");
 
 const prisma = new PrismaClient();
 const lambdaClient = new LambdaClient({ region: process.env.AWS_REGION });
-const secretsManagerClient = new SecretsManagerClient({ region: process.env.AWS_REGION });
 
 const calculateOccurrences = (startDate, frequency) => {
   let occurrences = [];
@@ -47,23 +45,10 @@ const calculateOccurrences = (startDate, frequency) => {
   return occurrences;
 };
 
-const storeCredentialsInSecretsManager = async (username, password) => {
-  const secretName = `bill-credentials/${uuidv4()}`;
-  const secretValue = JSON.stringify({ username, password });
-
-  const command = new CreateSecretCommand({
-    Name: secretName,
-    SecretString: secretValue,
-  });
-
-  const response = await secretsManagerClient.send(command);
-  return response.ARN;
-};
-
 exports.handler = async (event) => {
   try {
     const body = JSON.parse(event.body);
-    const { authorizationToken, householdId, category, billName, amount, dayOfMonth, frequency, isDebt, interestRate, cashBack, description, status, url, username, password, ipAddress, deviceDetails, paymentSourceId } = body;
+    const { authorizationToken, householdId, name, amount, firstPayDay, frequency, description, ipAddress, deviceDetails, paymentSourceId } = body;
 
     if (!authorizationToken) {
       return {
@@ -128,35 +113,20 @@ exports.handler = async (event) => {
       };
     }
 
-    // Store credentials in Secrets Manager and get the ARN
-    const credentialsArn = await storeCredentialsInSecretsManager(username, password);
-
-    const newBill = await prisma.bill.create({
+    const newIncome = await prisma.incomes.create({
       data: {
-        billId: uuidv4(),
+        incomeId: uuidv4(),
         householdId: householdId,
-        category: category,
-        billName: billName,
+        name: name,
         amount: parseFloat(amount),
-        dayOfMonth: parseInt(dayOfMonth),
         frequency: frequency,
-        isDebt: isDebt === "true",
-        interestRate: interestRate ? parseFloat(interestRate) : null,
-        cashBack: cashBack ? parseFloat(cashBack) : null,
-        description: description,
-        status: status,
-        url: url,
-        username: credentialsArn, // Store the ARN of the secret
-        password: credentialsArn, // Store the ARN of the secret
+        firstPayDay: new Date(firstPayDay),
         createdAt: new Date(),
         updatedAt: new Date(),
       },
     });
 
-    const firstBillDate = new Date();
-    firstBillDate.setDate(dayOfMonth);
-
-    const occurrences = calculateOccurrences(firstBillDate, frequency);
+    const occurrences = calculateOccurrences(new Date(firstPayDay), frequency);
 
     for (const occurrence of occurrences) {
       await prisma.ledger.create({
@@ -164,24 +134,22 @@ exports.handler = async (event) => {
           ledgerId: uuidv4(),
           householdId: householdId,
           amount: parseFloat(amount),
-          transactionType: "debit",
+          transactionType: "credit",
           transactionDate: occurrence,
-          category: category,
-          description: `${billName} - ${description}`,
+          category: 'Income',
+          description: `${name} - ${description}`,
           status: true,
           createdAt: new Date(),
           updatedAt: new Date(),
           updatedBy: updatedBy,
-          billId: newBill.billId,
+          incomeId: newIncome.incomeId,
           paymentSourceId: paymentSourceId,
           runningTotal: 0, // Initial placeholder
-          interestRate: interestRate ? parseFloat(interestRate) : null,
-          cashBack: cashBack ? parseFloat(cashBack) : null,
         },
       });
     }
 
-    // Invoke the secondary Lambda function to calculate running totals
+    // Invoke the secondary Lambda function to calculate running totals for the payment source
     const calculateTotalsCommand = new InvokeCommand({
       FunctionName: 'calculateRunningTotal',
       Payload: JSON.stringify({ householdId: householdId, paymentSourceId: paymentSourceId }),
@@ -192,10 +160,10 @@ exports.handler = async (event) => {
     await prisma.auditTrail.create({
       data: {
         auditId: uuidv4(),
-        tableAffected: 'Bill',
+        tableAffected: 'Incomes',
         actionType: 'Create',
         oldValue: '',
-        newValue: JSON.stringify(newBill),
+        newValue: JSON.stringify(newIncome),
         changedBy: updatedBy,
         changeDate: new Date(),
         timestamp: new Date(),
@@ -206,12 +174,12 @@ exports.handler = async (event) => {
       },
     });
 
-    console.log(`Success: Bill and ledger entries added for household ${householdId}`);
+    console.log(`Success: Income and ledger entries added for household ${householdId}`);
     return {
       statusCode: 201,
       body: JSON.stringify({
-        message: "Bill and ledger entries added successfully",
-        bill: newBill,
+        message: "Income and ledger entries added successfully",
+        income: newIncome,
       }),
     };
   } catch (error) {

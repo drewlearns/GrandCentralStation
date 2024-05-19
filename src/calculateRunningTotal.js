@@ -3,16 +3,37 @@ const { PrismaClient } = require("@prisma/client");
 const prisma = new PrismaClient();
 
 exports.handler = async (event) => {
-  const { householdId } = event;
+  const { householdId, paymentSourceId } = event;
 
   try {
-    // Fetch all ledger entries for the household, ordered by transaction date
+    if (!householdId || !paymentSourceId) {
+      return {
+        statusCode: 400,
+        body: JSON.stringify({
+          message: 'Missing householdId or paymentSourceId in the request',
+        }),
+      };
+    }
+
+    // Fetch all ledger entries for the household and payment source, ordered by transaction date
     const ledgerEntries = await prisma.ledger.findMany({
-      where: { householdId: householdId },
+      where: {
+        householdId: householdId,
+        paymentSourceId: paymentSourceId,
+      },
       orderBy: { transactionDate: 'asc' },
     });
 
-    // Calculate running totals
+    if (ledgerEntries.length === 0) {
+      return {
+        statusCode: 404,
+        body: JSON.stringify({
+          message: 'No ledger entries found for the given household and payment source',
+        }),
+      };
+    }
+
+    // Calculate running totals for the specific payment source
     let runningTotal = 0;
     for (let entry of ledgerEntries) {
       runningTotal += entry.transactionType.toLowerCase() === 'debit' ? -entry.amount : entry.amount;
@@ -25,7 +46,7 @@ exports.handler = async (event) => {
     return {
       statusCode: 200,
       body: JSON.stringify({
-        message: 'Running totals updated successfully',
+        message: 'Running totals updated successfully for payment source',
       }),
     };
   } catch (error) {

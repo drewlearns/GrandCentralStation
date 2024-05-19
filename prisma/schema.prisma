@@ -88,6 +88,7 @@ model Incomes {
 model Ledger {
   ledgerId        String   @id
   householdId     String
+  paymentSourceId String?
   amount          Float
   transactionType String
   transactionDate DateTime

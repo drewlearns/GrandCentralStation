@@ -123,6 +123,7 @@ exports.handler = async (event) => {
                     data: {
                         ledgerId: uuidv4(),
                         householdId: household.householdId,
+                        paymentSourceId: 'dummy-payment-source-id', // Provide a valid paymentSourceId
                         amount: 0.0,
                         runningTotal: 0.0,
                         transactionType: 'Initialization',
