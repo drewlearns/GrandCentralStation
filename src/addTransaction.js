@@ -15,7 +15,6 @@ const prisma = new PrismaClient();
 const lambdaClient = new LambdaClient({ region: process.env.AWS_REGION });
 const s3Client = new S3Client({ region: process.env.AWS_REGION });
 
-const REGION = process.env.AWS_REGION;
 const BUCKET = process.env.BUCKET;
 
 const uploadToS3 = async (bucket, key, body) => {
@@ -120,7 +119,7 @@ exports.handler = async (event) => {
     console.log("Fields:", JSON.stringify(fields, null, 2));
     console.log("Files:", JSON.stringify(files, null, 2));
 
-    const { authorizationToken, householdId, amount, transactionType, transactionDate, category, description, ipAddress, deviceDetails, status } = fields;
+    const { authorizationToken, householdId, amount, transactionType, transactionDate, category, description, ipAddress, deviceDetails, status, sourceId } = fields;
 
     if (!authorizationToken) {
       return {
@@ -173,6 +172,18 @@ exports.handler = async (event) => {
       };
     }
 
+    const paymentSourceExists = await prisma.paymentSource.findUnique({
+      where: { sourceId: sourceId },
+    });
+
+    if (!paymentSourceExists) {
+      console.log(`Error: Payment source ${sourceId} does not exist`);
+      return {
+        statusCode: 404,
+        body: JSON.stringify({ message: "Payment source not found" }),
+      };
+    }
+
     const imageFile = files.find((file) => file.fieldname === "image");
     let filePath = null;
 
@@ -188,7 +199,9 @@ exports.handler = async (event) => {
     }
 
     const runningTotal = await getRunningTotal(householdId);
-    const newTransaction = await prisma.ledger.create({
+
+    // Ledger Table Entry
+    const newLedger = await prisma.ledger.create({
       data: {
         ledgerId: uuidv4(),
         householdId: householdId,
@@ -217,13 +230,27 @@ exports.handler = async (event) => {
       },
     });
 
+    // Transaction Table Entry
+    const newTransaction = await prisma.transaction.create({
+      data: {
+        transactionId: uuidv4(),
+        ledgerId: newLedger.ledgerId, // Use the same ID as in the Ledger entry
+        sourceId: sourceId, // Payment source ID
+        amount: parseFloat(amount),
+        transactionDate: new Date(transactionDate),
+        description: description,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      },
+    });
+
     await prisma.auditTrail.create({
       data: {
         auditId: uuidv4(),
         tableAffected: 'Ledger',
         actionType: 'Create',
         oldValue: '',
-        newValue: JSON.stringify(newTransaction),
+        newValue: JSON.stringify(newLedger),
         changedBy: updatedBy,
         changeDate: new Date(),
         timestamp: new Date(),
@@ -234,7 +261,7 @@ exports.handler = async (event) => {
       },
     });
 
-    console.log(`Success: Transaction added to ledger for household ${householdId}`);
+    console.log(`Success: Transaction added to ledger and transaction table for household ${householdId}`);
     return {
       statusCode: 201,
       body: JSON.stringify({
