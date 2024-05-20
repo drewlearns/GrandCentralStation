@@ -30,6 +30,7 @@ const uploadToS3 = async (bucket, key, body) => {
     Bucket: bucket,
     Key: key,
     Body: body,
+    ContentType: 'image/jpeg'  // Ensure ContentType is set correctly
   };
 
   try {

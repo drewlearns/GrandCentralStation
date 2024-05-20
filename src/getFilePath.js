@@ -92,20 +92,23 @@ exports.handler = async (event) => {
       });
 
       const getAttachmentResponse = await lambdaClient.send(getAttachmentCommand);
-      const getAttachmentPayload = JSON.parse(new TextDecoder('utf-8').decode(getAttachmentResponse.Payload));
+      const payloadString = new TextDecoder('utf-8').decode(getAttachmentResponse.Payload);
+      const getAttachmentPayload = JSON.parse(payloadString);
+      const bodyPayload = JSON.parse(getAttachmentPayload.body);
 
       console.log('getAttachmentResponse:', getAttachmentResponse);
       console.log('getAttachmentPayload:', getAttachmentPayload);
+      console.log('bodyPayload:', bodyPayload);
 
       if (getAttachmentResponse.FunctionError) {
-        throw new Error(getAttachmentPayload.errorMessage || 'Failed to get presigned URL.');
+        throw new Error(bodyPayload.errorMessage || 'Failed to get presigned URL.');
       }
 
       return {
         statusCode: 200,
         body: JSON.stringify({
           message: "Presigned URL generated successfully",
-          url: getAttachmentPayload.url, // Include the URL in the response
+          url: bodyPayload.url, // Include the URL in the response
         }),
       };
     } catch (error) {

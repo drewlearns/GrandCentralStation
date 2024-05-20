@@ -9,7 +9,22 @@ const BUCKET = process.env.BUCKET;
 
 exports.handler = async (event) => {
   try {
-    const body = JSON.parse(event.body);
+    console.log('Received event:', JSON.stringify(event, null, 2));
+
+    let body;
+    if (event.body) {
+      // When event body is provided as a string
+      try {
+        body = JSON.parse(event.body);
+      } catch (parseError) {
+        console.error('Failed to parse event body:', event.body);
+        throw new Error(`Invalid JSON format: ${event.body}`);
+      }
+    } else {
+      // When event body is directly provided
+      body = event;
+    }
+
     const { authorizationToken, filePath } = body;
 
     if (!authorizationToken) {
@@ -80,7 +95,7 @@ exports.handler = async (event) => {
       statusCode: 200,
       body: JSON.stringify({
         message: "Presigned URL generated successfully",
-        url: presignedUrl, // Include the URL in the response
+        url: presignedUrl,
       }),
     };
   } catch (error) {
