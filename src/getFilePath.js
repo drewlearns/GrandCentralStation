@@ -6,7 +6,8 @@ const lambdaClient = new LambdaClient({ region: process.env.AWS_REGION });
 
 exports.handler = async (event) => {
   try {
-    const body = JSON.parse(event.body);
+    // Ensure event.body is parsed correctly
+    const body = typeof event.body === "string" ? JSON.parse(event.body) : event.body;
     const { authorizationToken, transactionId } = body;
 
     if (!authorizationToken) {
@@ -93,6 +94,9 @@ exports.handler = async (event) => {
       const getAttachmentResponse = await lambdaClient.send(getAttachmentCommand);
       const getAttachmentPayload = JSON.parse(new TextDecoder('utf-8').decode(getAttachmentResponse.Payload));
 
+      console.log('getAttachmentResponse:', getAttachmentResponse);
+      console.log('getAttachmentPayload:', getAttachmentPayload);
+
       if (getAttachmentResponse.FunctionError) {
         throw new Error(getAttachmentPayload.errorMessage || 'Failed to get presigned URL.');
       }
@@ -101,7 +105,7 @@ exports.handler = async (event) => {
         statusCode: 200,
         body: JSON.stringify({
           message: "Presigned URL generated successfully",
-          url: getAttachmentPayload.url,
+          url: getAttachmentPayload.url, // Include the URL in the response
         }),
       };
     } catch (error) {

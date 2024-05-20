@@ -74,11 +74,13 @@ exports.handler = async (event) => {
     const command = new GetObjectCommand(getObjectParams);
     const presignedUrl = await getSignedUrl(s3Client, command, { expiresIn: 3600 });
 
+    console.log('presignedUrl:', presignedUrl);
+
     return {
       statusCode: 200,
       body: JSON.stringify({
         message: "Presigned URL generated successfully",
-        url: presignedUrl,
+        url: presignedUrl, // Include the URL in the response
       }),
     };
   } catch (error) {
