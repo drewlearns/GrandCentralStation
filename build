@@ -7,6 +7,8 @@ SRC_DIR="./src"
 DEPLOY_DIR="./deploy"
 TMP_DIR="$DEPLOY_DIR/tmp"
 
+npm i
+
 # Clean and prepare the deploy directory
 # rm -rf $DEPLOY_DIR
 # mkdir -p $DEPLOY_DIR
