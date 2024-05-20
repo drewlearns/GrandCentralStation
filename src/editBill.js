@@ -88,6 +88,7 @@ exports.handler = async (event) => {
         url: updates.url || bill.url,
         username: updates.username || bill.username,
         password: updates.password || bill.password,
+        tags: updates.tags || bill.tags, // Add tags field here
         updatedAt: new Date(),
       },
     });

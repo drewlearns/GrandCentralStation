@@ -1,6 +1,7 @@
 const { PrismaClient } = require("@prisma/client");
 const { LambdaClient, InvokeCommand } = require("@aws-sdk/client-lambda");
 const { add, eachMonthOfInterval, eachWeekOfInterval, eachDayOfInterval } = require("date-fns");
+const { v4: uuidv4 } = require("uuid");
 
 const prisma = new PrismaClient();
 const lambdaClient = new LambdaClient({ region: process.env.AWS_REGION });
@@ -47,7 +48,7 @@ const calculateOccurrences = (startDate, frequency) => {
 exports.handler = async (event) => {
   try {
     const body = JSON.parse(event.body);
-    const { authorizationToken, incomeId, householdId, name, amount, firstPayDay, frequency, description, ipAddress, deviceDetails, paymentSourceId } = body;
+    const { authorizationToken, incomeId, householdId, name, amount, firstPayDay, frequency, description, ipAddress, deviceDetails, paymentSourceId, tags } = body;
 
     if (!authorizationToken) {
       return {
@@ -132,6 +133,7 @@ exports.handler = async (event) => {
         frequency: frequency,
         firstPayDay: new Date(firstPayDay),
         updatedAt: new Date(),
+        tags: tags || incomeExists.tags, // Add tags field here
       },
     });
 
@@ -158,6 +160,7 @@ exports.handler = async (event) => {
           incomeId: updatedIncome.incomeId,
           paymentSourceId: paymentSourceId,
           runningTotal: 0, // Initial placeholder
+          tags: tags || null, // Add the tags field here
         },
       });
     }

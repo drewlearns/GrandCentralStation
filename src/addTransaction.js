@@ -120,7 +120,7 @@ exports.handler = async (event) => {
     console.log("Fields:", JSON.stringify(fields, null, 2));
     console.log("Files:", JSON.stringify(files, null, 2));
 
-    const { authorizationToken, householdId, amount, transactionType, transactionDate, category, description, ipAddress, deviceDetails, status, sourceId } = fields;
+    const { authorizationToken, householdId, amount, transactionType, transactionDate, category, description, ipAddress, deviceDetails, status, sourceId, tags } = fields;
 
     if (!authorizationToken) {
       return {
@@ -229,6 +229,7 @@ exports.handler = async (event) => {
             }
           : undefined,
         status: status === "true", // Ensure status is provided
+        tags: tags || null, // Add the tags field here
       },
     });
 

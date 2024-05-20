@@ -63,7 +63,7 @@ const storeCredentialsInSecretsManager = async (username, password) => {
 exports.handler = async (event) => {
   try {
     const body = JSON.parse(event.body);
-    const { authorizationToken, householdId, category, billName, amount, dayOfMonth, frequency, isDebt, interestRate, cashBack, description, status, url, username, password, ipAddress, deviceDetails, paymentSourceId } = body;
+    const { authorizationToken, householdId, category, billName, amount, dayOfMonth, frequency, isDebt, interestRate, cashBack, description, status, url, username, password, ipAddress, deviceDetails, paymentSourceId, tags } = body;
 
     if (!authorizationToken) {
       return {
@@ -177,6 +177,7 @@ exports.handler = async (event) => {
           runningTotal: 0, // Initial placeholder
           interestRate: interestRate ? parseFloat(interestRate) : null,
           cashBack: cashBack ? parseFloat(cashBack) : null,
+          tags: tags || null, // Add the tags field here
         },
       });
     }

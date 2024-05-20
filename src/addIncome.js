@@ -48,7 +48,7 @@ const calculateOccurrences = (startDate, frequency) => {
 exports.handler = async (event) => {
   try {
     const body = JSON.parse(event.body);
-    const { authorizationToken, householdId, name, amount, firstPayDay, frequency, description, ipAddress, deviceDetails, paymentSourceId } = body;
+    const { authorizationToken, householdId, name, amount, firstPayDay, frequency, description, ipAddress, deviceDetails, paymentSourceId, tags } = body;
 
     if (!authorizationToken) {
       return {
@@ -145,6 +145,7 @@ exports.handler = async (event) => {
           incomeId: newIncome.incomeId,
           paymentSourceId: paymentSourceId,
           runningTotal: 0, // Initial placeholder
+          tags: tags || null, // Add the tags field here
         },
       });
     }

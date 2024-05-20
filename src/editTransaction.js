@@ -119,7 +119,7 @@ exports.handler = async (event) => {
     console.log("Fields:", JSON.stringify(fields, null, 2));
     console.log("Files:", JSON.stringify(files, null, 2));
 
-    const { authorizationToken, transactionId, householdId, amount, transactionType, transactionDate, category, description, ipAddress, deviceDetails, status, sourceId } = fields;
+    const { authorizationToken, transactionId, householdId, amount, transactionType, transactionDate, category, description, ipAddress, deviceDetails, status, sourceId, tags } = fields;
 
     if (!authorizationToken) {
       return {
@@ -237,6 +237,7 @@ exports.handler = async (event) => {
             }
           : undefined,
         status: status === "true", // Ensure status is provided
+        tags: tags || null, // Add the tags field here
       },
     });
 
@@ -248,12 +249,13 @@ exports.handler = async (event) => {
         transactionDate: new Date(transactionDate),
         description: description,
         updatedAt: new Date(),
+        tags: tags || null, // Add the tags field here
       },
     });
 
     // Invoke the secondary Lambda function to update running totals
     const updateTotalsCommand = new InvokeCommand({
-      FunctionName: 'updateRunningTotal',
+      FunctionName: "updateRunningTotal",
       Payload: JSON.stringify({ householdId: householdId, paymentSourceId: sourceId }),
     });
 

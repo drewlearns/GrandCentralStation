@@ -103,6 +103,7 @@ model Ledger {
   runningTotal    Float
   interestRate    Float?
   cashBack        Float?
+  tags            String?
 
   household    Household     @relation(fields: [householdId], references: [householdId])
   bill         Bill?         @relation(fields: [billId], references: [billId])
