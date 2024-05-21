@@ -1,121 +1,120 @@
 const { PrismaClient } = require('@prisma/client');
 const { v4: uuidv4 } = require('uuid');
-const { SESClient, SendEmailCommand } = require('@aws-sdk/client-ses');
+const { LambdaClient, InvokeCommand } = require('@aws-sdk/client-lambda');
 
 const prisma = new PrismaClient();
-const sesClient = new SESClient({ region: process.env.AWS_REGION });
+const lambdaClient = new LambdaClient({ region: process.env.AWS_REGION });
 
 exports.handler = async (event) => {
-    const { householdId, invitedUserEmail, invitingUserUuid, role, ipAddress, deviceDetails } = JSON.parse(event.body);
+    const { invitationId, ipAddress, deviceDetails, username, mailOptIn, firstName, lastName, phoneNumber, password } = JSON.parse(event.body);
 
     try {
-        // Check if the inviting user exists
-        const invitingUserExists = await prisma.user.findUnique({
-            where: { uuid: invitingUserUuid },
+        // Check if the invitation exists and is still pending
+        const invitation = await prisma.invitations.findUnique({
+            where: { invitationId: invitationId },
         });
 
-        if (!invitingUserExists) {
-            console.log(`Error: Inviting user ${invitingUserUuid} does not exist`);
+        if (!invitation) {
+            console.log(`Error: Invitation ${invitationId} does not exist`);
             return {
                 statusCode: 404,
                 body: JSON.stringify({
-                    message: 'Inviting user not found',
+                    message: 'Invitation not found',
                 }),
             };
         }
 
-        // Check if the invited user exists by email
-        const invitedUser = await prisma.user.findUnique({
-            where: { email: invitedUserEmail },
-        });
-
-        if (!invitedUser) {
-            console.log(`Error: Invited user with email ${invitedUserEmail} does not exist`);
-            return {
-                statusCode: 404,
-                body: JSON.stringify({
-                    message: 'Invited user not found',
-                }),
-            };
-        }
-
-        const invitedUserUuid = invitedUser.uuid;
-
-        // Check if the household exists
-        const householdExists = await prisma.household.findUnique({
-            where: { householdId: householdId },
-        });
-
-        if (!householdExists) {
-            console.log(`Error: Household ${householdId} does not exist`);
-            return {
-                statusCode: 404,
-                body: JSON.stringify({
-                    message: 'Household not found',
-                }),
-            };
-        }
-
-        // Check if the user is already a member of the household
-        const membershipExists = await prisma.householdMembers.findFirst({
-            where: {
-                householdId: householdId,
-                memberUuid: invitedUserUuid,
-            },
-        });
-
-        if (membershipExists) {
-            console.log(`Error: User ${invitedUserUuid} is already a member of household ${householdId}`);
+        if (invitation.invitationStatus !== 'Pending') {
+            console.log(`Error: Invitation ${invitationId} is not pending`);
             return {
                 statusCode: 409,
                 body: JSON.stringify({
-                    message: 'User is already a member of the household',
+                    message: 'Invitation is not pending',
                 }),
             };
         }
 
-        // Create the invitation
-        const invitation = await prisma.invitations.create({
+        const { householdId, invitedUserEmail } = invitation;
+
+        // Check if the username is unique
+        const existingUser = await prisma.user.findUnique({
+            where: { uuid: username },
+        });
+
+        if (existingUser) {
+            console.log(`Error: Username ${username} is already taken`);
+            return {
+                statusCode: 409,
+                body: JSON.stringify({
+                    message: 'Username is already taken',
+                }),
+            };
+        }
+
+        // Invoke the addUser.js Lambda to create the user in Cognito
+        const addUserCommand = new InvokeCommand({
+            FunctionName: 'addUser',
+            Payload: JSON.stringify({
+                username: username,
+                email: invitedUserEmail,
+                password: password,
+                mailOptIn: mailOptIn,
+                phoneNumber: phoneNumber,
+                firstName: firstName,
+                lastName: lastName,
+                ipAddress: ipAddress,
+                deviceDetails: deviceDetails
+            }),
+        });
+
+        const addUserResponse = await lambdaClient.send(addUserCommand);
+
+        // Ensure the payload is valid JSON
+        let addUserPayload;
+        try {
+            addUserPayload = JSON.parse(new TextDecoder('utf-8').decode(addUserResponse.Payload));
+        } catch (error) {
+            throw new Error('Failed to parse addUser response: ' + error.message);
+        }
+
+        if (addUserResponse.FunctionError) {
+            throw new Error(addUserPayload.errorMessage || 'User creation in Cognito failed.');
+        }
+
+        const newUserUuid = addUserPayload.uuid;
+
+        // Add the user as a member of the household
+        const householdMember = await prisma.householdMembers.create({
             data: {
-                invitationId: uuidv4(),
+                id: uuidv4(),
                 householdId: householdId,
-                invitedUserUuid: invitedUserUuid,
-                invitationStatus: 'Pending',
-                sentDate: new Date(),
+                memberUuid: newUserUuid,
+                role: 'Member', // Adjust the role as needed
+                joinedDate: new Date(),
                 createdAt: new Date(),
                 updatedAt: new Date(),
             },
         });
 
-        // Send invitation email using AWS SES
-        const emailParams = {
-            Source: `noReply@${process.env.TTPB_DOMAIN}`,
-            Destination: {
-                ToAddresses: [invitedUserEmail],
+        // Update the invitation status to accepted
+        await prisma.invitations.update({
+            where: { invitationId: invitationId },
+            data: {
+                invitationStatus: 'Accepted',
+                updatedAt: new Date(),
+                userUuid: newUserUuid,
             },
-            Message: {
-                Subject: {
-                    Data: 'You are invited to join someone at The Purple Piggy Bank!',
-                },
-                Body: {
-                    Text: {
-                        Data: `You have been invited to budget and track expenses using The Purple Piggy Bank with "${householdExists.householdName}". Please accept the invitation code: ${invitation.invitationId}`,
-                    },
-                },
-            },
-        };
-
-        await sesClient.send(new SendEmailCommand(emailParams));
+        });
 
         // Log an entry in the AuditTrail
         await prisma.auditTrail.create({
             data: {
                 auditId: uuidv4(),
-                tableAffected: 'Invitations',
+                tableAffected: 'HouseholdMembers',
                 actionType: 'Create',
                 oldValue: '',
-                newValue: JSON.stringify(invitation),
-                changedBy: invitingUserUuid,
+                newValue: JSON.stringify(householdMember),
+                changedBy: newUserUuid,
                 changeDate: new Date(),
                 timestamp: new Date(),
                 device: deviceDetails,
@@ -126,20 +125,18 @@ exports.handler = async (event) => {
         });
 
         return {
-            statusCode: 201,
+            statusCode: 200,
             body: JSON.stringify({
-                message: 'Invitation sent successfully',
-                invitationId: invitation.invitationId,
-                householdId: householdId,
-                invitedUserUuid: invitedUserUuid,
+                message: 'Invitation accepted successfully',
+                householdMember: householdMember,
             }),
         };
     } catch (error) {
-        console.error('Error inviting household member:', error);
+        console.error('Error accepting invitation:', error);
         return {
             statusCode: 500,
             body: JSON.stringify({
-                message: 'Error inviting household member',
+                message: 'Error accepting invitation',
                 error: error.message,
             }),
         };

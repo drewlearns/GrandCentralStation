@@ -51,7 +51,7 @@ module "lambdas" {
       runtime       = "nodejs20.x"
       method        = "POST" # CAN ONLY BE POST
       authorization = "NONE" # MUST BE NONE
-      policy_arns   = [aws_iam_policy.forgot_password_policy.arn]
+      policy_arns   = [aws_iam_policy.forgot_password_policy.arn, aws_iam_policy.lambda_invoke_policy.arn]
       environment = {
         USER_POOL_CLIENT_ID     = aws_cognito_user_pool_client.cognito_user_pool_client.id
         USER_POOL_CLIENT_SECRET = aws_cognito_user_pool_client.cognito_user_pool_client.client_secret
@@ -63,7 +63,7 @@ module "lambdas" {
       runtime       = "nodejs20.x"
       method        = "POST" # CAN ONLY BE POST
       authorization = "NONE" # MUST BE NONE
-      policy_arns   = [aws_iam_policy.ses_send_email_policy.arn, aws_iam_policy.forgot_password_policy.arn]
+      policy_arns   = [aws_iam_policy.ses_send_email_policy.arn, aws_iam_policy.forgot_password_policy.arn, aws_iam_policy.lambda_invoke_policy.arn]
       environment = {
         USER_POOL_CLIENT_ID     = aws_cognito_user_pool_client.cognito_user_pool_client.id
         USER_POOL_CLIENT_SECRET = aws_cognito_user_pool_client.cognito_user_pool_client.client_secret
@@ -74,50 +74,69 @@ module "lambdas" {
       runtime       = "nodejs20.x"
       method        = "POST" # CAN ONLY BE POST
       authorization = "NONE" # MUST BE NONE
-      policy_arns   = [aws_iam_policy.forgot_password_policy.arn]
+      policy_arns   = [aws_iam_policy.forgot_password_policy.arn, aws_iam_policy.lambda_invoke_policy.arn]
       environment = {
-        USER_POOL_ID            = aws_cognito_user_pool.cognito_user_pool.id
+        USER_POOL_ID        = aws_cognito_user_pool.cognito_user_pool.id
+        USER_POOL_CLIENT_ID = aws_cognito_user_pool_client.cognito_user_pool_client.id
         USER_POOL_CLIENT_SECRET = aws_cognito_user_pool_client.cognito_user_pool_client.client_secret
+        DATABASE_URL            = "postgresql://root:${aws_secretsmanager_secret_version.db_master_password_version.secret_string}@${aws_rds_cluster_instance.aurora_instance.endpoint}:5432/tppb${var.environment}?schema=public"
+      }
+    },
+    "revokeToken" = {
+      runtime       = "nodejs20.x"
+      method        = "POST" # CAN ONLY BE POST
+      authorization = "NONE" # MUST BE NONE
+      policy_arns   = [aws_iam_policy.forgot_password_policy.arn, aws_iam_policy.lambda_invoke_policy.arn]
+      environment = {
+        USER_POOL_ID        = aws_cognito_user_pool.cognito_user_pool.id
+        USER_POOL_CLIENT_ID = aws_cognito_user_pool_client.cognito_user_pool_client.id
+        USER_POOL_CLIENT_SECRET = aws_cognito_user_pool_client.cognito_user_pool_client.client_secret
+        DATABASE_URL            = "postgresql://root:${aws_secretsmanager_secret_version.db_master_password_version.secret_string}@${aws_rds_cluster_instance.aurora_instance.endpoint}:5432/tppb${var.environment}?schema=public"
       }
     },
     "getUser" = {
       runtime       = "nodejs20.x"
       method        = "POST" # CAN ONLY BE POST
       authorization = "NONE" # MUST BE NONE
-      policy_arns   = [aws_iam_policy.forgot_password_policy.arn]
+      policy_arns   = [aws_iam_policy.forgot_password_policy.arn, aws_iam_policy.lambda_cognito_login_policy.arn, aws_iam_policy.lambda_invoke_policy.arn]
       environment = {
         USER_POOL_ID            = aws_cognito_user_pool.cognito_user_pool.id
         USER_POOL_CLIENT_SECRET = aws_cognito_user_pool_client.cognito_user_pool_client.client_secret
+        DATABASE_URL            = "postgresql://root:${aws_secretsmanager_secret_version.db_master_password_version.secret_string}@${aws_rds_cluster_instance.aurora_instance.endpoint}:5432/tppb${var.environment}?schema=public"
       }
     },
     "editUser" = {
       runtime       = "nodejs20.x"
       method        = "POST" # CAN ONLY BE POST
       authorization = "NONE" # MUST BE NONE
-      policy_arns   = [aws_iam_policy.forgot_password_policy.arn]
+      policy_arns   = [aws_iam_policy.lambda_cognito_create_user_policy.arn, aws_iam_policy.lambda_invoke_policy.arn]
       environment = {
         USER_POOL_CLIENT_SECRET = aws_cognito_user_pool_client.cognito_user_pool_client.client_secret
         USER_POOL_ID            = aws_cognito_user_pool.cognito_user_pool.id
+        DATABASE_URL            = "postgresql://root:${aws_secretsmanager_secret_version.db_master_password_version.secret_string}@${aws_rds_cluster_instance.aurora_instance.endpoint}:5432/tppb${var.environment}?schema=public"
       }
     },
     "deleteUser" = {
       runtime       = "nodejs20.x"
       method        = "POST" # CAN ONLY BE POST
       authorization = "NONE" # MUST BE NONE
-      policy_arns   = [aws_iam_policy.forgot_password_policy.arn]
+      policy_arns   = [aws_iam_policy.lambda_cognito_disable_user_policy.arn, aws_iam_policy.forgot_password_policy.arn, aws_iam_policy.lambda_invoke_policy.arn]
       environment = {
         USER_POOL_ID            = aws_cognito_user_pool.cognito_user_pool.id
         USER_POOL_CLIENT_SECRET = aws_cognito_user_pool_client.cognito_user_pool_client.client_secret
+        DATABASE_URL            = "postgresql://root:${aws_secretsmanager_secret_version.db_master_password_version.secret_string}@${aws_rds_cluster_instance.aurora_instance.endpoint}:5432/tppb${var.environment}?schema=public"
       }
     },
     "refreshToken" = {
       runtime       = "nodejs20.x"
       method        = "POST" # CAN ONLY BE POST
       authorization = "NONE" # MUST BE NONE
-      policy_arns   = [aws_iam_policy.forgot_password_policy.arn]
+      policy_arns   = [aws_iam_policy.forgot_password_policy.arn, aws_iam_policy.lambda_invoke_policy.arn]
       environment = {
+        USER_POOL_CLIENT_ID     = aws_cognito_user_pool_client.cognito_user_pool_client.id
         USER_POOL_ID            = aws_cognito_user_pool.cognito_user_pool.id
         USER_POOL_CLIENT_SECRET = aws_cognito_user_pool_client.cognito_user_pool_client.client_secret
+        DATABASE_URL            = "postgresql://root:${aws_secretsmanager_secret_version.db_master_password_version.secret_string}@${aws_rds_cluster_instance.aurora_instance.endpoint}:5432/tppb${var.environment}?schema=public"
       }
     },
     ######################

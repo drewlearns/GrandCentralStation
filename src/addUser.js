@@ -11,7 +11,19 @@ const generateSecretHash = (username, clientId, clientSecret) => {
 };
 
 exports.handler = async (event) => {
-  const { username, email, password, mailOptIn, phoneNumber, firstName, lastName, ipAddress, deviceDetails } = JSON.parse(event.body);
+  let body;
+
+  try {
+    body = typeof event.body === 'string' ? JSON.parse(event.body) : event.body;
+  } catch (error) {
+    return {
+      statusCode: 400,
+      body: JSON.stringify({ message: 'Invalid JSON input' }),
+      headers: { 'Content-Type': 'application/json' },
+    };
+  }
+
+  const { username, email, password, mailOptIn, phoneNumber, firstName, lastName, ipAddress, deviceDetails } = body;
   const mailOptInValue = mailOptIn === 'true';
   const clientId = process.env.USER_POOL_CLIENT_ID;
   const clientSecret = process.env.USER_POOL_CLIENT_SECRET;
@@ -19,16 +31,29 @@ exports.handler = async (event) => {
 
   try {
     // Check if a user with the same uuid/username already exists
-    const existingUser = await prisma.user.findUnique({
+    const existingUserByUUID = await prisma.user.findUnique({
       where: {
         uuid: username,
       },
     });
 
-    if (existingUser) {
+    if (existingUserByUUID) {
       return {
         statusCode: 409,
         body: JSON.stringify({ message: 'User with this UUID already exists.' }),
+        headers: { 'Content-Type': 'application/json' },
+      };
+    }
+
+    // Check if a user with the same email already exists
+    const existingUserByEmail = await prisma.user.findFirst({
+      where: { email: email },
+    });
+
+    if (existingUserByEmail) {
+      return {
+        statusCode: 409,
+        body: JSON.stringify({ message: 'User with this email already exists.' }),
         headers: { 'Content-Type': 'application/json' },
       };
     }

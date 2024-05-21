@@ -1,9 +1,11 @@
 const { PrismaClient } = require('@prisma/client');
 const { LambdaClient, InvokeCommand } = require('@aws-sdk/client-lambda');
+const { CognitoIdentityProviderClient, AdminUpdateUserAttributesCommand } = require('@aws-sdk/client-cognito-identity-provider');
 const { v4: uuidv4 } = require('uuid');
 
 const prisma = new PrismaClient();
 const lambdaClient = new LambdaClient({ region: process.env.AWS_REGION });
+const cognitoClient = new CognitoIdentityProviderClient({ region: process.env.AWS_REGION });
 
 exports.handler = async (event) => {
   const { authorizationToken, email, phoneNumber, ipAddress, deviceDetails } = JSON.parse(event.body);
@@ -69,6 +71,18 @@ exports.handler = async (event) => {
         updatedAt: new Date(),
       },
     });
+
+    // Update Cognito user attributes
+    const updateUserAttributesCommand = new AdminUpdateUserAttributesCommand({
+      UserPoolId: process.env.USER_POOL_ID,
+      Username: username,
+      UserAttributes: [
+        { Name: 'email', Value: email },
+        { Name: 'email_verified', Value: 'true' },
+      ],
+    });
+
+    await cognitoClient.send(updateUserAttributesCommand);
 
     // Log the update operation in the audit trail
     await prisma.auditTrail.create({

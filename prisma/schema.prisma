@@ -151,14 +151,15 @@ model Preferences {
 model Invitations {
   invitationId     String   @id
   householdId      String
-  invitedUserUuid  String
+  invitedUserEmail String
   invitationStatus String
   sentDate         DateTime
   createdAt        DateTime
   updatedAt        DateTime
 
-  household   Household @relation(fields: [householdId], references: [householdId])
-  invitedUser User      @relation(fields: [invitedUserUuid], references: [uuid])
+  household Household @relation(fields: [householdId], references: [householdId])
+  User      User?     @relation(fields: [userUuid], references: [uuid])
+  userUuid  String?
 }
 
 model AuditTrail {

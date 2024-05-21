@@ -25,12 +25,31 @@ resource "aws_iam_policy" "lambda_cognito_create_user_policy" {
         Effect = "Allow",
         Action = [
           "cognito-idp:AdminCreateUser",
-          "cognito-idp:AdminRespondToAuthChallenge"
+          "cognito-idp:AdminRespondToAuthChallenge",
+          "cognito-idp:AdminUpdateUserAttributes"
         ],
         Resource = [
           "arn:aws:cognito-idp:*:*:userpool/*",
           "arn:aws:cognito-identity:*:*:identitypool/*"
 
+        ]
+      }
+    ]
+  })
+}
+resource "aws_iam_policy" "lambda_cognito_disable_user_policy" {
+  name = "lambda_cognito_disable_user_policy"
+  policy = jsonencode({
+    Version = "2012-10-17",
+    Statement = [
+      {
+        Effect = "Allow",
+        Action = [
+          "cognito-idp:AdminDisableUser"
+        ],
+        Resource = [
+          "arn:aws:cognito-idp:*:*:userpool/*",
+          "arn:aws:cognito-identity:*:*:identitypool/*"
         ]
       }
     ]
@@ -192,7 +211,7 @@ resource "aws_iam_policy" "ses_send_email_policy" {
 resource "aws_iam_policy" "lambda_secrets_policy" {
   name        = "LambdaSecretsPolicy"
   description = "Policy for Lambda to manage secrets with /bills/* pattern in Secrets Manager"
-  policy      = jsonencode({
+  policy = jsonencode({
     Version = "2012-10-17"
     Statement = [
       {
@@ -201,7 +220,7 @@ resource "aws_iam_policy" "lambda_secrets_policy" {
           "secretsmanager:DescribeSecret",
           "secretsmanager:CreateSecret"
         ]
-        Effect   = "Allow"
+        Effect = "Allow"
         Resource = [
           "arn:aws:secretsmanager:${var.region}:${data.aws_caller_identity.current.account_id}:secret:/bills/*",
           "arn:aws:secretsmanager:${var.region}:${data.aws_caller_identity.current.account_id}:secret:/bills/*/*",
