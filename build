@@ -193,6 +193,10 @@ process_file() {
   mkdir -p "$TMP_DIR/node_modules/limiter/"
   cp -r node_modules/limiter/* "$TMP_DIR/node_modules/limiter/"
 
+  # Include json2csv module
+  mkdir -p "$TMP_DIR/node_modules/json2csv/"
+  cp -r node_modules/json2csv/* "$TMP_DIR/node_modules/json2csv/"
+
   # Include date-fns module
   mkdir -p "$TMP_DIR/node_modules/date-fns/"
   cp -r node_modules/date-fns/* "$TMP_DIR/node_modules/date-fns/"
