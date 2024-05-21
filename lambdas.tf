@@ -12,7 +12,7 @@ module "lambdas" {
   database_url                  = "postgresql://root:${aws_secretsmanager_secret_version.db_master_password_version.secret_string}@${aws_rds_cluster_instance.aurora_instance.endpoint}:5432/tppb${var.environment}?schema=public"
   lambdas = {
     ################
-    # AUTH
+    # User
     ################
     "addUser" = {
       runtime       = "nodejs20.x"
@@ -76,7 +76,48 @@ module "lambdas" {
       authorization = "NONE" # MUST BE NONE
       policy_arns   = [aws_iam_policy.forgot_password_policy.arn]
       environment = {
-        USER_POOL_ID = aws_cognito_user_pool.cognito_user_pool.id
+        USER_POOL_ID            = aws_cognito_user_pool.cognito_user_pool.id
+        USER_POOL_CLIENT_SECRET = aws_cognito_user_pool_client.cognito_user_pool_client.client_secret
+      }
+    },
+    "getUser" = {
+      runtime       = "nodejs20.x"
+      method        = "POST" # CAN ONLY BE POST
+      authorization = "NONE" # MUST BE NONE
+      policy_arns   = [aws_iam_policy.forgot_password_policy.arn]
+      environment = {
+        USER_POOL_ID            = aws_cognito_user_pool.cognito_user_pool.id
+        USER_POOL_CLIENT_SECRET = aws_cognito_user_pool_client.cognito_user_pool_client.client_secret
+      }
+    },
+    "editUser" = {
+      runtime       = "nodejs20.x"
+      method        = "POST" # CAN ONLY BE POST
+      authorization = "NONE" # MUST BE NONE
+      policy_arns   = [aws_iam_policy.forgot_password_policy.arn]
+      environment = {
+        USER_POOL_CLIENT_SECRET = aws_cognito_user_pool_client.cognito_user_pool_client.client_secret
+        USER_POOL_ID            = aws_cognito_user_pool.cognito_user_pool.id
+      }
+    },
+    "deleteUser" = {
+      runtime       = "nodejs20.x"
+      method        = "POST" # CAN ONLY BE POST
+      authorization = "NONE" # MUST BE NONE
+      policy_arns   = [aws_iam_policy.forgot_password_policy.arn]
+      environment = {
+        USER_POOL_ID            = aws_cognito_user_pool.cognito_user_pool.id
+        USER_POOL_CLIENT_SECRET = aws_cognito_user_pool_client.cognito_user_pool_client.client_secret
+      }
+    },
+    "refreshToken" = {
+      runtime       = "nodejs20.x"
+      method        = "POST" # CAN ONLY BE POST
+      authorization = "NONE" # MUST BE NONE
+      policy_arns   = [aws_iam_policy.forgot_password_policy.arn]
+      environment = {
+        USER_POOL_ID            = aws_cognito_user_pool.cognito_user_pool.id
+        USER_POOL_CLIENT_SECRET = aws_cognito_user_pool_client.cognito_user_pool_client.client_secret
       }
     },
     ######################
@@ -174,10 +215,46 @@ module "lambdas" {
         DATABASE_URL = "postgresql://root:${aws_secretsmanager_secret_version.db_master_password_version.secret_string}@${aws_rds_cluster_instance.aurora_instance.endpoint}:5432/tppb${var.environment}?schema=public"
       }
     },
+    "getHouseholdMembers" = {
+      runtime       = "nodejs20.x"
+      method        = "POST" # CAN ONLY BE POST
+      authorization = "NONE" # "NONE" OR "COGNITO_USER_POOLS"
+      policy_arns   = [aws_iam_policy.lambda_invoke_policy.arn]
+      environment = {
+        DATABASE_URL = "postgresql://root:${aws_secretsmanager_secret_version.db_master_password_version.secret_string}@${aws_rds_cluster_instance.aurora_instance.endpoint}:5432/tppb${var.environment}?schema=public"
+      }
+    },
     ##########################
     # TRANSACTION
     ##########################
     "addPaymentSource" = {
+      runtime       = "nodejs20.x"
+      method        = "POST" # CAN ONLY BE POST
+      authorization = "NONE" # "NONE" OR "COGNITO_USER_POOLS"
+      policy_arns   = [aws_iam_policy.lambda_invoke_policy.arn]
+      environment = {
+        DATABASE_URL = "postgresql://root:${aws_secretsmanager_secret_version.db_master_password_version.secret_string}@${aws_rds_cluster_instance.aurora_instance.endpoint}:5432/tppb${var.environment}?schema=public"
+      }
+    },
+    "getTransactionsByMonth" = {
+      runtime       = "nodejs20.x"
+      method        = "POST" # CAN ONLY BE POST
+      authorization = "NONE" # "NONE" OR "COGNITO_USER_POOLS"
+      policy_arns   = [aws_iam_policy.lambda_invoke_policy.arn]
+      environment = {
+        DATABASE_URL = "postgresql://root:${aws_secretsmanager_secret_version.db_master_password_version.secret_string}@${aws_rds_cluster_instance.aurora_instance.endpoint}:5432/tppb${var.environment}?schema=public"
+      }
+    },
+    "editPaymentSource" = {
+      runtime       = "nodejs20.x"
+      method        = "POST" # CAN ONLY BE POST
+      authorization = "NONE" # "NONE" OR "COGNITO_USER_POOLS"
+      policy_arns   = [aws_iam_policy.lambda_invoke_policy.arn]
+      environment = {
+        DATABASE_URL = "postgresql://root:${aws_secretsmanager_secret_version.db_master_password_version.secret_string}@${aws_rds_cluster_instance.aurora_instance.endpoint}:5432/tppb${var.environment}?schema=public"
+      }
+    },
+    "deletePaymentSource" = {
       runtime       = "nodejs20.x"
       method        = "POST" # CAN ONLY BE POST
       authorization = "NONE" # "NONE" OR "COGNITO_USER_POOLS"
@@ -362,7 +439,25 @@ module "lambdas" {
         DATABASE_URL = "postgresql://root:${aws_secretsmanager_secret_version.db_master_password_version.secret_string}@${aws_rds_cluster_instance.aurora_instance.endpoint}:5432/tppb${var.environment}?schema=public"
       }
     },
-    "getPaymentSourceIds" = {
+    "getPaymentSource" = {
+      runtime       = "nodejs20.x"
+      method        = "POST" # CAN ONLY BE POST
+      authorization = "NONE" # "NONE" OR "COGNITO_USER_POOLS"
+      policy_arns   = [aws_iam_policy.lambda_invoke_policy.arn]
+      environment = {
+        DATABASE_URL = "postgresql://root:${aws_secretsmanager_secret_version.db_master_password_version.secret_string}@${aws_rds_cluster_instance.aurora_instance.endpoint}:5432/tppb${var.environment}?schema=public"
+      }
+    },
+    "getPaymentSourcesForHousehold" = {
+      runtime       = "nodejs20.x"
+      method        = "POST" # CAN ONLY BE POST
+      authorization = "NONE" # "NONE" OR "COGNITO_USER_POOLS"
+      policy_arns   = [aws_iam_policy.lambda_invoke_policy.arn]
+      environment = {
+        DATABASE_URL = "postgresql://root:${aws_secretsmanager_secret_version.db_master_password_version.secret_string}@${aws_rds_cluster_instance.aurora_instance.endpoint}:5432/tppb${var.environment}?schema=public"
+      }
+    },
+    "editPaymentSource" = {
       runtime       = "nodejs20.x"
       method        = "POST" # CAN ONLY BE POST
       authorization = "NONE" # "NONE" OR "COGNITO_USER_POOLS"
@@ -450,6 +545,58 @@ module "lambdas" {
       policy_arns   = [aws_iam_policy.lambda_invoke_policy.arn]
       environment = {
         DATABASE_URL = "postgresql://root:${aws_secretsmanager_secret_version.db_master_password_version.secret_string}@${aws_rds_cluster_instance.aurora_instance.endpoint}:5432/tppb${var.environment}?schema=public"
+      }
+    },
+    #########################
+    # Reporting
+    #########################
+    "getCategories" = {
+      runtime       = "nodejs20.x"
+      method        = "POST" # CAN ONLY BE POST
+      authorization = "NONE" # "NONE" OR "COGNITO_USER_POOLS"
+      policy_arns   = [aws_iam_policy.lambda_invoke_policy.arn]
+      environment = {
+        DATABASE_URL = "postgresql://root:${aws_secretsmanager_secret_version.db_master_password_version.secret_string}@${aws_rds_cluster_instance.aurora_instance.endpoint}:5432/tppb${var.environment}?schema=public"
+      }
+    },
+    "exportLedgerToCsv" = {
+      runtime       = "nodejs20.x"
+      method        = "POST" # CAN ONLY BE POST
+      authorization = "NONE" # "NONE" OR "COGNITO_USER_POOLS"
+      policy_arns   = [aws_iam_policy.lambda_invoke_policy.arn, aws_iam_policy.lambda_s3_policy.arn]
+      environment = {
+        DATABASE_URL = "postgresql://root:${aws_secretsmanager_secret_version.db_master_password_version.secret_string}@${aws_rds_cluster_instance.aurora_instance.endpoint}:5432/tppb${var.environment}?schema=public"
+        BUCKET       = aws_s3_bucket.receipts_bucket.bucket
+      }
+    },
+    "exportLedgerToQBO" = {
+      runtime       = "nodejs20.x"
+      method        = "POST" # CAN ONLY BE POST
+      authorization = "NONE" # "NONE" OR "COGNITO_USER_POOLS"
+      policy_arns   = [aws_iam_policy.lambda_invoke_policy.arn, aws_iam_policy.lambda_s3_policy.arn]
+      environment = {
+        DATABASE_URL = "postgresql://root:${aws_secretsmanager_secret_version.db_master_password_version.secret_string}@${aws_rds_cluster_instance.aurora_instance.endpoint}:5432/tppb${var.environment}?schema=public"
+        BUCKET       = aws_s3_bucket.receipts_bucket.bucket
+      }
+    },
+    "getLedger" = {
+      runtime       = "nodejs20.x"
+      method        = "POST" # CAN ONLY BE POST
+      authorization = "NONE" # "NONE" OR "COGNITO_USER_POOLS"
+      policy_arns   = [aws_iam_policy.lambda_invoke_policy.arn, aws_iam_policy.lambda_s3_policy.arn]
+      environment = {
+        DATABASE_URL = "postgresql://root:${aws_secretsmanager_secret_version.db_master_password_version.secret_string}@${aws_rds_cluster_instance.aurora_instance.endpoint}:5432/tppb${var.environment}?schema=public"
+        BUCKET       = aws_s3_bucket.receipts_bucket.bucket
+      }
+    },
+    "getTransactionsByPaymentSource" = {
+      runtime       = "nodejs20.x"
+      method        = "POST" # CAN ONLY BE POST
+      authorization = "NONE" # "NONE" OR "COGNITO_USER_POOLS"
+      policy_arns   = [aws_iam_policy.lambda_invoke_policy.arn, aws_iam_policy.lambda_s3_policy.arn]
+      environment = {
+        DATABASE_URL = "postgresql://root:${aws_secretsmanager_secret_version.db_master_password_version.secret_string}@${aws_rds_cluster_instance.aurora_instance.endpoint}:5432/tppb${var.environment}?schema=public"
+        BUCKET       = aws_s3_bucket.receipts_bucket.bucket
       }
     },
   }
