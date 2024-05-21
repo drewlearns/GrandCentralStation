@@ -81,11 +81,7 @@ exports.handler = async (event) => {
         }
 
         await prisma.$transaction(async (prisma) => {
-            await prisma.household.delete({
-                where: { householdId: householdId },
-            });
-
-            // Optionally delete related data (members, incomes, ledger, bills, etc.)
+            // Delete related data first to avoid foreign key constraint issues
             await prisma.householdMembers.deleteMany({ where: { householdId: householdId } });
             await prisma.incomes.deleteMany({ where: { householdId: householdId } });
             await prisma.ledger.deleteMany({ where: { householdId: householdId } });
@@ -93,6 +89,11 @@ exports.handler = async (event) => {
             await prisma.preferences.deleteMany({ where: { householdId: householdId } });
             await prisma.invitations.deleteMany({ where: { householdId: householdId } });
             await prisma.paymentSource.deleteMany({ where: { householdId: householdId } });
+
+            // Now delete the household
+            await prisma.household.delete({
+                where: { householdId: householdId },
+            });
         });
 
         await prisma.auditTrail.create({
