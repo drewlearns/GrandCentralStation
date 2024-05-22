@@ -234,4 +234,3 @@ resource "aws_iam_policy" "lambda_secrets_policy" {
     ]
   })
 }
-

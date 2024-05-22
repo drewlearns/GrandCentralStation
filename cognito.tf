@@ -46,13 +46,13 @@ resource "aws_cognito_user_pool_client" "cognito_user_pool_client" {
 resource "aws_iam_policy" "cognito_ses_policy" {
   name        = "CognitoSESPolicy"
   description = "IAM policy for Cognito to send emails via SES"
-  
+
   policy = jsonencode({
     Version = "2012-10-17",
     Statement = [
       {
-        Effect   = "Allow",
-        Action   = [
+        Effect = "Allow",
+        Action = [
           "ses:SendEmail",
           "ses:SendRawEmail"
         ],

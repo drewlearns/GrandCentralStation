@@ -57,11 +57,11 @@ exports.handler = async (event) => {
     const preferenceValue = paymentSourceId;
 
     const preference = await prisma.preferences.upsert({
-      where: { 
-        householdId_preferenceType: { 
-          householdId: householdId, 
-          preferenceType: preferenceType 
-        } 
+      where: {
+        householdId_preferenceType: {
+          householdId: householdId,
+          preferenceType: preferenceType
+        }
       },
       update: { preferenceValue: preferenceValue },
       create: {

@@ -95,7 +95,7 @@ async function main() {
   // Create one transaction per month for 2024 for each household
   for (let month = 0; month < 12; month++) {
     const date = new Date(2024, month, 1);
-    
+
     await prisma.ledger.create({
       data: {
         ledgerId: uuidv4(),

@@ -108,23 +108,23 @@ process_file() {
   # Include jsonwebtoken module
   mkdir -p "$TMP_DIR/node_modules/jsonwebtoken/"
   cp -r node_modules/jsonwebtoken/* "$TMP_DIR/node_modules/jsonwebtoken/"
-  
+
   # # Include jwksClient module
   # mkdir -p "$TMP_DIR/node_modules/jwksClient/"
   # cp -r node_modules/jwksClient/* "$TMP_DIR/node_modules/jwksClient/"
-  
+
   # Include jws module
   mkdir -p "$TMP_DIR/node_modules/jws/"
   cp -r node_modules/jws/* "$TMP_DIR/node_modules/jws/"
-  
+
   # Include safe-buffer module
   mkdir -p "$TMP_DIR/node_modules/safe-buffer/"
   cp -r node_modules/safe-buffer/* "$TMP_DIR/node_modules/safe-buffer/"
- 
+
   # Include jwa module
   mkdir -p "$TMP_DIR/node_modules/jwa/"
   cp -r node_modules/jwa/* "$TMP_DIR/node_modules/jwa/"
- 
+
   # Include buffer-equal-constant-time module
   mkdir -p "$TMP_DIR/node_modules/buffer-equal-constant-time/"
   cp -r node_modules/buffer-equal-constant-time/* "$TMP_DIR/node_modules/buffer-equal-constant-time/"

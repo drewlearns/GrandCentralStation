@@ -31,4 +31,3 @@
 #   domain     = aws_ses_domain_identity.email_domain.domain
 #   depends_on = [aws_route53_record.ses_verification]
 # }
-

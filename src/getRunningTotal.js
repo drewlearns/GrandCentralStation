@@ -9,7 +9,7 @@ exports.handler = async (event) => {
   console.log("Received event:", JSON.stringify(event, null, 2));
 
   let authorizationToken, paymentSourceId, ipAddress, deviceDetails;
-  
+
   try {
     const parsedBody = JSON.parse(event.body);
     authorizationToken = parsedBody.authorizationToken;

@@ -211,5 +211,3 @@ async function storeTokens(username, tokens) {
     throw error;
   }
 }
-
-

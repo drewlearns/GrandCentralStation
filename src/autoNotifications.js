@@ -35,13 +35,13 @@ exports.handler = async (event) => {
             Data: notification.title,
           },
         },
-        Source: `NoReply@${process.env.TPPB_DOMAIN}`, 
+        Source: `NoReply@${process.env.TPPB_DOMAIN}`,
       };
 
       const command = new SendEmailCommand(params);
       await sesClient.send(command);
     }
-    
+
     console.log(`Emails sent for ${targetDay}/${month}/${year}`);
   } catch (error) {
     console.error("Error sending notifications:", error);

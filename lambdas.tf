@@ -75,8 +75,8 @@ module "lambdas" {
       authorization = "NONE" # MUST BE NONE
       policy_arns   = [aws_iam_policy.forgot_password_policy.arn, aws_iam_policy.lambda_invoke_policy.arn]
       environment = {
-        USER_POOL_ID        = aws_cognito_user_pool.cognito_user_pool.id
-        USER_POOL_CLIENT_ID = aws_cognito_user_pool_client.cognito_user_pool_client.id
+        USER_POOL_ID            = aws_cognito_user_pool.cognito_user_pool.id
+        USER_POOL_CLIENT_ID     = aws_cognito_user_pool_client.cognito_user_pool_client.id
         USER_POOL_CLIENT_SECRET = aws_cognito_user_pool_client.cognito_user_pool_client.client_secret
         DATABASE_URL            = "postgresql://root:${aws_secretsmanager_secret_version.db_master_password_version.secret_string}@${aws_rds_cluster_instance.aurora_instance.endpoint}:5432/tppb${var.environment}?schema=public"
       }
@@ -87,8 +87,8 @@ module "lambdas" {
       authorization = "NONE" # MUST BE NONE
       policy_arns   = [aws_iam_policy.forgot_password_policy.arn, aws_iam_policy.lambda_invoke_policy.arn]
       environment = {
-        USER_POOL_ID        = aws_cognito_user_pool.cognito_user_pool.id
-        USER_POOL_CLIENT_ID = aws_cognito_user_pool_client.cognito_user_pool_client.id
+        USER_POOL_ID            = aws_cognito_user_pool.cognito_user_pool.id
+        USER_POOL_CLIENT_ID     = aws_cognito_user_pool_client.cognito_user_pool_client.id
         USER_POOL_CLIENT_SECRET = aws_cognito_user_pool_client.cognito_user_pool_client.client_secret
         DATABASE_URL            = "postgresql://root:${aws_secretsmanager_secret_version.db_master_password_version.secret_string}@${aws_rds_cluster_instance.aurora_instance.endpoint}:5432/tppb${var.environment}?schema=public"
       }

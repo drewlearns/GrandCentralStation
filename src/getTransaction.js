@@ -26,7 +26,7 @@ exports.handler = async (event) => {
 
     const verifyTokenResponse = await lambdaClient.send(verifyTokenCommand);
     const payload = JSON.parse(new TextDecoder('utf-8').decode(verifyTokenResponse.Payload));
-    
+
     if (verifyTokenResponse.FunctionError) {
       throw new Error(payload.errorMessage || 'Token verification failed.');
     }

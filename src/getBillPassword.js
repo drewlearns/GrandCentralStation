@@ -18,7 +18,7 @@ exports.handler = async (event) => {
 
     const verifyTokenResponse = await lambdaClient.send(verifyTokenCommand);
     const payload = JSON.parse(new TextDecoder('utf-8').decode(verifyTokenResponse.Payload));
-    
+
     if (verifyTokenResponse.FunctionError) {
       throw new Error(payload.errorMessage || 'Token verification failed.');
     }
@@ -47,7 +47,7 @@ exports.handler = async (event) => {
 
     const verifyTokenResponse = await lambdaClient.send(verifyTokenCommand);
     const payload = JSON.parse(new TextDecoder('utf-8').decode(verifyTokenResponse.Payload));
-    
+
     if (verifyTokenResponse.FunctionError) {
       throw new Error(payload.errorMessage || 'Token verification failed.');
     }
@@ -107,7 +107,7 @@ exports.handler = async (event) => {
         ssoEnabled: 'false',
       },
     });
-    
+
     return {
       statusCode: 200,
       body: JSON.stringify({ secret: JSON.parse(response.SecretString) }),

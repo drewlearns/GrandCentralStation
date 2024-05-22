@@ -61,7 +61,7 @@ exports.handler = async (event) => {
     }
 
     let recipientEmails = notification.recipientEmail;
-    
+
     if (billId && billId !== notification.billId) {
       const billExists = await prisma.bill.findUnique({
         where: { billId: billId },
