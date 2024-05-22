@@ -6,8 +6,10 @@ const lambdaClient = new LambdaClient({ region: process.env.AWS_REGION });
 
 exports.handler = async (event) => {
   try {
+    console.log("Received event:", event);
+
     const body = typeof event.body === "string" ? JSON.parse(event.body) : event;
-    const { authorizationToken, notificationId, billId, title, message, deviceDetails, ipAddress } = body;
+    const { authorizationToken, notificationId, billId, title, message, dayOfMonth, deviceDetails, ipAddress } = body;
 
     if (!authorizationToken) {
       return {
@@ -48,6 +50,13 @@ exports.handler = async (event) => {
       };
     }
 
+    if (!notificationId) {
+      return {
+        statusCode: 400,
+        body: JSON.stringify({ message: "Missing notificationId parameter" }),
+      };
+    }
+
     const notification = await prisma.notification.findUnique({
       where: { notificationId: notificationId },
     });
@@ -75,12 +84,12 @@ exports.handler = async (event) => {
         };
       }
 
-      const householdMembers = await prisma.householdMember.findMany({
+      const householdMembers = await prisma.householdMembers.findMany({
         where: { householdId: billExists.householdId },
-        select: { email: true },
+        select: { user: { select: { email: true } } },
       });
 
-      recipientEmails = householdMembers.map(member => member.email).join(';');
+      recipientEmails = householdMembers.map(member => member.user.email).join(';');
     }
 
     const updatedNotification = await prisma.notification.update({
@@ -89,6 +98,7 @@ exports.handler = async (event) => {
         billId: billId || notification.billId,
         title: title || notification.title,
         message: message || notification.message,
+        dayOfMonth: dayOfMonth !== undefined ? parseInt(dayOfMonth) : notification.dayOfMonth,
         recipientEmail: recipientEmails,
         updatedAt: new Date(),
       },

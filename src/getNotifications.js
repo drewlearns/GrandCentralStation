@@ -7,7 +7,7 @@ const lambdaClient = new LambdaClient({ region: process.env.AWS_REGION });
 exports.handler = async (event) => {
   try {
     const body = typeof event.body === "string" ? JSON.parse(event.body) : event;
-    const { authorizationToken, notificationId } = body;
+    const { authorizationToken } = body;
 
     if (!authorizationToken) {
       return {
@@ -48,24 +48,73 @@ exports.handler = async (event) => {
       };
     }
 
-    const notification = await prisma.notification.findUnique({
-      where: { notificationId: notificationId },
+    // Find the user by username (uuid)
+    const user = await prisma.user.findUnique({
+      where: { uuid: username },
+      select: { uuid: true }
     });
 
-    if (!notification) {
-      console.log(`Error: Notification ${notificationId} does not exist`);
+    if (!user) {
+      console.log(`User with username ${username} not found`);
       return {
         statusCode: 404,
-        body: JSON.stringify({ message: "Notification not found" }),
+        body: JSON.stringify({ message: "User not found" }),
       };
     }
 
-    console.log(`Success: Notification ${notificationId} retrieved`);
+    const userUuid = user.uuid;
+
+    // Get households associated with the user
+    const households = await prisma.householdMembers.findMany({
+      where: { memberUuid: userUuid },
+      select: { householdId: true }
+    });
+
+    if (households.length === 0) {
+      console.log(`No households found for user ${userUuid}`);
+      return {
+        statusCode: 404,
+        body: JSON.stringify({ message: "No households found for user" }),
+      };
+    }
+
+    const householdIds = households.map(household => household.householdId);
+
+    // Get bills associated with these households
+    const bills = await prisma.bill.findMany({
+      where: { householdId: { in: householdIds } },
+      select: { billId: true }
+    });
+
+    if (bills.length === 0) {
+      console.log(`No bills found for households ${householdIds.join(", ")}`);
+      return {
+        statusCode: 404,
+        body: JSON.stringify({ message: "No bills found for households" }),
+      };
+    }
+
+    const billIds = bills.map(bill => bill.billId);
+
+    // Get notifications associated with these bills
+    const notifications = await prisma.notification.findMany({
+      where: { billId: { in: billIds } },
+    });
+
+    if (notifications.length === 0) {
+      console.log(`No notifications found for bills ${billIds.join(", ")}`);
+      return {
+        statusCode: 404,
+        body: JSON.stringify({ message: "No notifications found" }),
+      };
+    }
+
+    console.log(`Success: Notifications retrieved for user ${userUuid}`);
     return {
       statusCode: 200,
       body: JSON.stringify({
-        message: "Notification retrieved successfully",
-        notification: notification,
+        message: "Notifications retrieved successfully",
+        notifications: notifications,
       }),
     };
   } catch (error) {

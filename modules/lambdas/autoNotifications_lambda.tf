@@ -8,6 +8,7 @@ resource "aws_lambda_function" "auto_notifications" {
   environment {
     variables = {
       TPPB_DOMAIN = var.domain_name
+      DATABASE_URL = var.database_url
     }
   }
   vpc_config {

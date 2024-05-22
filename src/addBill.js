@@ -63,14 +63,12 @@ const storeCredentialsInSecretsManager = async (username, password) => {
 exports.handler = async (event) => {
   try {
     const body = JSON.parse(event.body);
-    const { authorizationToken, householdId, category, billName, amount, dayOfMonth, frequency, isDebt, interestRate, cashBack, description, status, url, username, password, ipAddress, deviceDetails, paymentSourceId, tags } = body;
+    const { authorizationToken, householdId, paymentSourceId, billName, dayOfMonth, frequency, username, password, deviceDetails, ipAddress, tags, description, amount, category, interestRate, cashBack, isDebt, status, url } = body;
 
     if (!authorizationToken) {
       return {
         statusCode: 401,
-        body: JSON.stringify({
-          message: 'Access denied. No token provided.'
-        })
+        body: JSON.stringify({ message: 'Access denied. No token provided.' })
       };
     }
 
@@ -97,10 +95,7 @@ exports.handler = async (event) => {
       console.error('Token verification failed:', error);
       return {
         statusCode: 401,
-        body: JSON.stringify({
-          message: 'Invalid token.',
-          error: error.message,
-        }),
+        body: JSON.stringify({ message: 'Invalid token.', error: error.message })
       };
     }
 
@@ -112,7 +107,7 @@ exports.handler = async (event) => {
       console.log(`Error: Household ${householdId} does not exist`);
       return {
         statusCode: 404,
-        body: JSON.stringify({ message: "Household not found" }),
+        body: JSON.stringify({ message: "Household not found" })
       };
     }
 
@@ -124,11 +119,10 @@ exports.handler = async (event) => {
       console.log(`Error: Payment source ${paymentSourceId} does not exist`);
       return {
         statusCode: 404,
-        body: JSON.stringify({ message: "Payment source not found" }),
+        body: JSON.stringify({ message: "Payment source not found" })
       };
     }
 
-    // Store credentials in Secrets Manager and get the ARN
     const credentialsArn = await storeCredentialsInSecretsManager(username, password);
 
     const newBill = await prisma.bill.create({
@@ -146,8 +140,8 @@ exports.handler = async (event) => {
         description: description,
         status: status,
         url: url,
-        username: credentialsArn, // Store the ARN of the secret
-        password: credentialsArn, // Store the ARN of the secret
+        username: credentialsArn,
+        password: credentialsArn,
         createdAt: new Date(),
         updatedAt: new Date(),
       },
@@ -174,15 +168,14 @@ exports.handler = async (event) => {
           updatedBy: updatedBy,
           billId: newBill.billId,
           paymentSourceId: paymentSourceId,
-          runningTotal: 0, // Initial placeholder
+          runningTotal: 0,
           interestRate: interestRate ? parseFloat(interestRate) : null,
           cashBack: cashBack ? parseFloat(cashBack) : null,
-          tags: tags || null, // Add the tags field here
+          tags: tags || null,
         },
       });
     }
 
-    // Invoke the secondary Lambda function to calculate running totals
     const calculateTotalsCommand = new InvokeCommand({
       FunctionName: 'calculateRunningTotal',
       Payload: JSON.stringify({ householdId: householdId, paymentSourceId: paymentSourceId }),
@@ -190,15 +183,13 @@ exports.handler = async (event) => {
 
     await lambdaClient.send(calculateTotalsCommand);
 
-    // Get household members' emails
-    const householdMembers = await prisma.householdMember.findMany({
+    const householdMembers = await prisma.householdMembers.findMany({
       where: { householdId: householdId },
-      select: { email: true },
+      select: { user: { select: { email: true } } },
     });
 
-    const recipientEmails = householdMembers.map(member => member.email).join(';');
+    const recipientEmails = householdMembers.map(member => member.user.email).join(';');
 
-    // Invoke the addNotification Lambda function
     const addNotificationCommand = new InvokeCommand({
       FunctionName: 'addNotification',
       Payload: JSON.stringify({
@@ -234,22 +225,14 @@ exports.handler = async (event) => {
     console.log(`Success: Bill and ledger entries added for household ${householdId}`);
     return {
       statusCode: 201,
-      body: JSON.stringify({
-        message: "Bill and ledger entries added successfully",
-        bill: newBill,
-      }),
+      body: JSON.stringify({ message: "Bill and ledger entries added successfully", bill: newBill })
     };
   } catch (error) {
-    console.error(`Error handling request: ${error.message}`, {
-      errorDetails: error,
-    });
+    console.error(`Error handling request: ${error.message}`, { errorDetails: error });
 
     return {
       statusCode: 500,
-      body: JSON.stringify({
-        message: "Error processing request",
-        error: error.message,
-      }),
+      body: JSON.stringify({ message: "Error processing request", error: error.message })
     };
   } finally {
     await prisma.$disconnect();

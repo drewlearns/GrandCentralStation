@@ -199,43 +199,6 @@ async function main() {
     }
   });
 
-  // Create some notifications
-  await prisma.notification.create({
-    data: {
-      notificationId: uuidv4(),
-      userUuid: user1.uuid,
-      title: 'Welcome!',
-      message: 'Welcome to the Doe Family Household 1',
-      read: false,
-      createdAt: new Date(),
-      updatedAt: new Date()
-    }
-  });
-
-  await prisma.notification.create({
-    data: {
-      notificationId: uuidv4(),
-      userUuid: user2.uuid,
-      title: 'Welcome!',
-      message: 'Welcome to the Doe Family Household 2',
-      read: false,
-      createdAt: new Date(),
-      updatedAt: new Date()
-    }
-  });
-
-  await prisma.notification.create({
-    data: {
-      notificationId: uuidv4(),
-      userUuid: user1.uuid,
-      title: 'Monthly Rent Due',
-      message: 'Your monthly rent is due tomorrow.',
-      read: false,
-      createdAt: new Date(),
-      updatedAt: new Date(),
-      billId: bill1.billId
-    }
-  });
 
   await prisma.notification.create({
     data: {
@@ -244,9 +207,12 @@ async function main() {
       title: 'Monthly Internet Due',
       message: 'Your monthly internet bill is due tomorrow.',
       read: false,
+      sent: true,
+      dayOfMonth: 10,
       createdAt: new Date(),
       updatedAt: new Date(),
-      billId: bill2.billId
+      billId: bill2.billId,
+      recipientEmail: user2.email
     }
   });
 }

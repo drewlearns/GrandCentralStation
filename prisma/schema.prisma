@@ -211,8 +211,11 @@ model Notification {
   title          String
   message        String
   read           Boolean
+  sent           Boolean
+  dayOfMonth     Int
   createdAt      DateTime
   updatedAt      DateTime
+  recipientEmail String
 
   user User  @relation(fields: [userUuid], references: [uuid])
   bill Bill?

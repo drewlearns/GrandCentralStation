@@ -54,6 +54,7 @@ exports.handler = async (event) => {
       };
     }
 
+    // Fetch bills
     const bills = await prisma.bill.findMany({
       where: { householdId: householdId },
       select: {
@@ -62,8 +63,34 @@ exports.handler = async (event) => {
         amount: true,
         frequency: true,
         status: true,
+        dayOfMonth: true,
       },
     });
+
+    // Fetch notifications for the bills
+    const billIds = bills.map(bill => bill.billId);
+    const notifications = await prisma.notification.findMany({
+      where: {
+        billId: {
+          in: billIds,
+        },
+      },
+      select: {
+        billId: true,
+        notificationId: true,
+        title: true,
+        message: true,
+        read: true,
+        sent: true,
+        dayOfMonth: true,
+      },
+    });
+
+    // Map notifications to their corresponding bills
+    const billsWithNotifications = bills.map(bill => ({
+      ...bill,
+      notifications: notifications.filter(notification => notification.billId === bill.billId),
+    }));
 
     // Log to audit trail
     await prisma.auditTrail.create({
@@ -72,7 +99,7 @@ exports.handler = async (event) => {
         tableAffected: 'Bill',
         actionType: 'Read',
         oldValue: '',
-        newValue: JSON.stringify({ bills: bills }),
+        newValue: JSON.stringify({ bills: billsWithNotifications }),
         changedBy: username,
         changeDate: new Date(),
         timestamp: new Date(),
@@ -85,7 +112,7 @@ exports.handler = async (event) => {
 
     return {
       statusCode: 200,
-      body: JSON.stringify({ bills: bills }),
+      body: JSON.stringify({ bills: billsWithNotifications }),
     };
   } catch (error) {
     console.error(`Error retrieving bills for household ${householdId}:`, error);
