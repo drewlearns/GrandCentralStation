@@ -8,7 +8,7 @@ const lambdaClient = new LambdaClient({ region: process.env.AWS_REGION });
 exports.handler = async (event) => {
   try {
     const body = JSON.parse(event.body);
-    const { authorizationToken, billId, title, message, userUuid, deviceDetails, ipAddress } = body;
+    const { authorizationToken, billId, title, message, deviceDetails, ipAddress } = body;
 
     if (!authorizationToken) {
       return {
@@ -76,7 +76,7 @@ exports.handler = async (event) => {
     const newNotification = await prisma.notification.create({
       data: {
         notificationId: uuidv4(),
-        userUuid: userUuid,
+        userUuid: updatedBy,
         billId: billId,
         title: title,
         message: message,
