@@ -7,7 +7,7 @@ const lambdaClient = new LambdaClient({ region: process.env.AWS_REGION });
 
 exports.handler = async (event) => {
   try {
-    const body = JSON.parse(event.body);
+    const body = typeof event.body === "string" ? JSON.parse(event.body) : event;
     const { authorizationToken, notificationId, title, message, read, deviceDetails, ipAddress } = body;
 
     if (!authorizationToken) {

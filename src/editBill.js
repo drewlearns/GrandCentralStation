@@ -111,6 +111,21 @@ exports.handler = async (event) => {
       },
     });
 
+    // Invoke the editNotification Lambda function
+    const editNotificationCommand = new InvokeCommand({
+      FunctionName: 'editNotification',
+      Payload: JSON.stringify({
+        authorizationToken: authorizationToken,
+        notificationId: updates.notificationId, // Assuming notificationId is provided in the updates
+        title: `Updated Bill: ${updates.billName || bill.billName}`,
+        message: `Your bill for ${updates.billName || bill.billName} has been updated.`,
+        deviceDetails: deviceDetails,
+        ipAddress: ipAddress
+      }),
+    });
+
+    await lambdaClient.send(editNotificationCommand);
+
     return {
       statusCode: 200,
       body: JSON.stringify({ message: "Bill updated successfully", updatedBill }),
