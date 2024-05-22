@@ -72,6 +72,7 @@ exports.handler = async (event) => {
       };
     }
 
+    // Update bill information
     const updatedBill = await prisma.bill.update({
       where: { billId: billId },
       data: {
@@ -111,14 +112,34 @@ exports.handler = async (event) => {
       },
     });
 
+    // Get household members' emails if the billId or householdId has changed
+    let recipientEmails;
+    if (updates.householdId && updates.householdId !== bill.householdId) {
+      const householdMembers = await prisma.householdMember.findMany({
+        where: { householdId: updates.householdId },
+        select: { email: true },
+      });
+
+      recipientEmails = householdMembers.map(member => member.email).join(';');
+    } else {
+      const householdMembers = await prisma.householdMember.findMany({
+        where: { householdId: bill.householdId },
+        select: { email: true },
+      });
+
+      recipientEmails = householdMembers.map(member => member.email).join(';');
+    }
+
     // Invoke the editNotification Lambda function
     const editNotificationCommand = new InvokeCommand({
       FunctionName: 'editNotification',
       Payload: JSON.stringify({
         authorizationToken: authorizationToken,
         notificationId: updates.notificationId, // Assuming notificationId is provided in the updates
+        billId: billId,
         title: `Updated Bill: ${updates.billName || bill.billName}`,
         message: `Your bill for ${updates.billName || bill.billName} has been updated.`,
+        recipientEmail: recipientEmails,
         deviceDetails: deviceDetails,
         ipAddress: ipAddress
       }),

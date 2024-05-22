@@ -88,9 +88,27 @@ exports.handler = async (event) => {
       },
     });
 
+    // Invoke deleteNotification.js Lambda to delete the associated notification
+    const deleteNotificationCommand = new InvokeCommand({
+      FunctionName: 'deleteNotification',
+      Payload: JSON.stringify({
+        authorizationToken,
+        notificationId: bill.notificationId, // assuming the bill has a notificationId field
+        ipAddress,
+        deviceDetails
+      })
+    });
+
+    const deleteNotificationResponse = await lambdaClient.send(deleteNotificationCommand);
+    const deleteNotificationPayload = JSON.parse(new TextDecoder('utf-8').decode(deleteNotificationResponse.Payload));
+
+    if (deleteNotificationResponse.FunctionError) {
+      throw new Error(deleteNotificationPayload.errorMessage || 'Notification deletion failed.');
+    }
+
     return {
       statusCode: 200,
-      body: JSON.stringify({ message: "Bill deleted successfully" }),
+      body: JSON.stringify({ message: "Bill and associated notification deleted successfully" }),
     };
   } catch (error) {
     console.error(`Error deleting bill ${billId}:`, error);

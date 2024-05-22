@@ -1,4 +1,5 @@
 const { PrismaClient } = require("@prisma/client");
+const { v4: uuidv4 } = require("uuid");
 const { LambdaClient, InvokeCommand } = require("@aws-sdk/client-lambda");
 
 const prisma = new PrismaClient();
@@ -6,7 +7,7 @@ const lambdaClient = new LambdaClient({ region: process.env.AWS_REGION });
 
 exports.handler = async (event) => {
   try {
-    const body = JSON.parse(event.body);
+    const body = typeof event.body === "string" ? JSON.parse(event.body) : event;
     const { authorizationToken, notificationId, deviceDetails, ipAddress } = body;
 
     if (!authorizationToken) {
@@ -48,11 +49,11 @@ exports.handler = async (event) => {
       };
     }
 
-    const notificationExists = await prisma.notification.findUnique({
+    const notification = await prisma.notification.findUnique({
       where: { notificationId: notificationId },
     });
 
-    if (!notificationExists) {
+    if (!notification) {
       console.log(`Error: Notification ${notificationId} does not exist`);
       return {
         statusCode: 404,
@@ -69,7 +70,7 @@ exports.handler = async (event) => {
         auditId: uuidv4(),
         tableAffected: 'Notification',
         actionType: 'Delete',
-        oldValue: JSON.stringify(notificationExists),
+        oldValue: JSON.stringify(notification),
         newValue: '',
         changedBy: updatedBy,
         changeDate: new Date(),

@@ -1,13 +1,13 @@
 const { PrismaClient } = require("@prisma/client");
 const { LambdaClient, InvokeCommand } = require("@aws-sdk/client-lambda");
-const { v4: uuidv4 } = require("uuid");
 
 const prisma = new PrismaClient();
 const lambdaClient = new LambdaClient({ region: process.env.AWS_REGION });
 
 exports.handler = async (event) => {
   try {
-    const { authorizationToken, deviceDetails, ipAddress } = JSON.parse(event.body);
+    const body = typeof event.body === "string" ? JSON.parse(event.body) : event;
+    const { authorizationToken, notificationId } = body;
 
     if (!authorizationToken) {
       return {
@@ -18,7 +18,7 @@ exports.handler = async (event) => {
       };
     }
 
-    let userUuid;
+    let username;
 
     try {
       const verifyTokenCommand = new InvokeCommand({
@@ -33,8 +33,8 @@ exports.handler = async (event) => {
         throw new Error(payload.errorMessage || 'Token verification failed.');
       }
 
-      userUuid = payload.username; // Assuming the token returns the UUID as username
-      if (!userUuid) {
+      username = payload.username;
+      if (!username) {
         throw new Error('Token verification did not return a valid username.');
       }
     } catch (error) {
@@ -48,36 +48,25 @@ exports.handler = async (event) => {
       };
     }
 
-    const notifications = await prisma.notification.findMany({
-      where: { userUuid: userUuid },
-      include: {
-        bill: true, // Include the related bill details
-      },
-      orderBy: {
-        createdAt: 'desc', // Optional: Order notifications by creation date
-      }
+    const notification = await prisma.notification.findUnique({
+      where: { notificationId: notificationId },
     });
 
-    await prisma.auditTrail.create({
-      data: {
-        auditId: uuidv4(),
-        tableAffected: 'Notification',
-        actionType: 'Fetch',
-        oldValue: '',
-        newValue: JSON.stringify(notifications),
-        changedBy: userUuid,
-        changeDate: new Date(),
-        timestamp: new Date(),
-        device: deviceDetails,
-        ipAddress: ipAddress,
-        deviceType: '',
-        ssoEnabled: 'false',
-      },
-    });
+    if (!notification) {
+      console.log(`Error: Notification ${notificationId} does not exist`);
+      return {
+        statusCode: 404,
+        body: JSON.stringify({ message: "Notification not found" }),
+      };
+    }
 
+    console.log(`Success: Notification ${notificationId} retrieved`);
     return {
       statusCode: 200,
-      body: JSON.stringify(notifications),
+      body: JSON.stringify({
+        message: "Notification retrieved successfully",
+        notification: notification,
+      }),
     };
   } catch (error) {
     console.error(`Error handling request: ${error.message}`, {

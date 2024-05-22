@@ -1,70 +1,51 @@
-import { PrismaClient } from '@prisma/client';
-import { SNSClient, PublishCommand } from '@aws-sdk/client-sns';
-
+const { PrismaClient } = require("@prisma/client");
+const { SESClient, SendEmailCommand } = require("@aws-sdk/client-ses");
 const prisma = new PrismaClient();
-const snsClient = new SNSClient({ region: 'your-region' });
+const sesClient = new SESClient({ region: process.env.AWS_REGION });
 
 exports.handler = async (event) => {
-    const today = new Date();
-    const dayOfMonth = today.getDate();
+  const now = new Date();
+  const day = now.getUTCDate();
+  const month = now.getUTCMonth() + 1; // getUTCMonth() is zero-indexed
+  const year = now.getUTCFullYear();
 
-    try {
-        // Find bills due today
-        const bills = await prisma.bill.findMany({
-            where: {
-                dayOfMonth: dayOfMonth
+  // Determine the target day, handling special cases
+  const targetDay = day > 28 ? 28 : day;
+
+  try {
+    const notifications = await prisma.notification.findMany({
+      where: {
+        dueDay: targetDay,
+        dueMonth: month,
+      },
+    });
+
+    for (const notification of notifications) {
+      const params = {
+        Destination: {
+          ToAddresses: [notification.recipientEmail],
+        },
+        Message: {
+          Body: {
+            Text: {
+              Data: notification.message,
             },
-            include: {
-                notification: true,
-                user: true
-            }
-        });
+          },
+          Subject: {
+            Data: notification.title,
+          },
+        },
+        Source: `NoReply@${process.env.TPPB_DOMAIN}`, 
+      };
 
-        // Trigger notifications
-        for (const bill of bills) {
-            if (bill.notification) {
-                await sendPushNotification(bill.notification.title, bill.notification.message);
-            }
-        }
-
-        return {
-            statusCode: 200,
-            body: JSON.stringify('Notifications sent successfully')
-        };
-    } catch (error) {
-        console.error('Error sending notifications:', error);
-        return {
-            statusCode: 500,
-            body: JSON.stringify('Error sending notifications')
-        };
+      const command = new SendEmailCommand(params);
+      await sesClient.send(command);
     }
+    
+    console.log(`Emails sent for ${targetDay}/${month}/${year}`);
+  } catch (error) {
+    console.error("Error sending notifications:", error);
+  } finally {
+    await prisma.$disconnect();
+  }
 };
-
-async function sendPushNotification(title, message) {
-    const params = {
-        Message: JSON.stringify({
-            default: message,
-            APNS: JSON.stringify({
-                aps: {
-                    alert: {
-                        title: title,
-                        body: message
-                    },
-                    sound: 'default'
-                }
-            }),
-            GCM: JSON.stringify({
-                notification: {
-                    title: title,
-                    body: message,
-                    sound: 'default'
-                }
-            })
-        }),
-        MessageStructure: 'json',
-        TopicArn: 'arn:aws:sns:your-region:your-account-id:bill-notifications-topic'
-    };
-
-    const command = new PublishCommand(params);
-    return snsClient.send(command);
-}

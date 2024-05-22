@@ -1,5 +1,4 @@
 const { PrismaClient } = require("@prisma/client");
-const { v4: uuidv4 } = require("uuid");
 const { LambdaClient, InvokeCommand } = require("@aws-sdk/client-lambda");
 
 const prisma = new PrismaClient();
@@ -8,7 +7,7 @@ const lambdaClient = new LambdaClient({ region: process.env.AWS_REGION });
 exports.handler = async (event) => {
   try {
     const body = typeof event.body === "string" ? JSON.parse(event.body) : event;
-    const { authorizationToken, notificationId, title, message, read, deviceDetails, ipAddress } = body;
+    const { authorizationToken, notificationId, billId, title, message, deviceDetails, ipAddress } = body;
 
     if (!authorizationToken) {
       return {
@@ -49,11 +48,11 @@ exports.handler = async (event) => {
       };
     }
 
-    const notificationExists = await prisma.notification.findUnique({
+    const notification = await prisma.notification.findUnique({
       where: { notificationId: notificationId },
     });
 
-    if (!notificationExists) {
+    if (!notification) {
       console.log(`Error: Notification ${notificationId} does not exist`);
       return {
         statusCode: 404,
@@ -61,12 +60,36 @@ exports.handler = async (event) => {
       };
     }
 
+    let recipientEmails = notification.recipientEmail;
+    
+    if (billId && billId !== notification.billId) {
+      const billExists = await prisma.bill.findUnique({
+        where: { billId: billId },
+      });
+
+      if (!billExists) {
+        console.log(`Error: Bill ${billId} does not exist`);
+        return {
+          statusCode: 404,
+          body: JSON.stringify({ message: "Bill not found" }),
+        };
+      }
+
+      const householdMembers = await prisma.householdMember.findMany({
+        where: { householdId: billExists.householdId },
+        select: { email: true },
+      });
+
+      recipientEmails = householdMembers.map(member => member.email).join(';');
+    }
+
     const updatedNotification = await prisma.notification.update({
       where: { notificationId: notificationId },
       data: {
-        title: title || notificationExists.title,
-        message: message || notificationExists.message,
-        read: read !== undefined ? read : notificationExists.read,
+        billId: billId || notification.billId,
+        title: title || notification.title,
+        message: message || notification.message,
+        recipientEmail: recipientEmails,
         updatedAt: new Date(),
       },
     });
@@ -76,7 +99,7 @@ exports.handler = async (event) => {
         auditId: uuidv4(),
         tableAffected: 'Notification',
         actionType: 'Update',
-        oldValue: JSON.stringify(notificationExists),
+        oldValue: JSON.stringify(notification),
         newValue: JSON.stringify(updatedNotification),
         changedBy: updatedBy,
         changeDate: new Date(),

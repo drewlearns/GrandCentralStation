@@ -61,6 +61,14 @@ exports.handler = async (event) => {
       };
     }
 
+    // Get household members' emails
+    const householdMembers = await prisma.householdMember.findMany({
+      where: { householdId: billExists.householdId },
+      select: { email: true },
+    });
+
+    const recipientEmails = householdMembers.map(member => member.email).join(';');
+
     const newNotification = await prisma.notification.create({
       data: {
         notificationId: uuidv4(),
@@ -68,6 +76,7 @@ exports.handler = async (event) => {
         billId: billId,
         title: title,
         message: message,
+        recipientEmail: recipientEmails, // Include the recipientEmail field
         read: false,
         createdAt: new Date(),
         updatedAt: new Date(),

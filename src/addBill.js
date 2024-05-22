@@ -190,6 +190,14 @@ exports.handler = async (event) => {
 
     await lambdaClient.send(calculateTotalsCommand);
 
+    // Get household members' emails
+    const householdMembers = await prisma.householdMember.findMany({
+      where: { householdId: householdId },
+      select: { email: true },
+    });
+
+    const recipientEmails = householdMembers.map(member => member.email).join(';');
+
     // Invoke the addNotification Lambda function
     const addNotificationCommand = new InvokeCommand({
       FunctionName: 'addNotification',
@@ -198,6 +206,7 @@ exports.handler = async (event) => {
         billId: newBill.billId,
         title: `Bill Due: ${billName}`,
         message: `Your bill for ${billName} is due on ${firstBillDate.toISOString().split('T')[0]}.`,
+        recipientEmail: recipientEmails,
         deviceDetails: deviceDetails,
         ipAddress: ipAddress
       }),
