@@ -1,14 +1,18 @@
 # Define the Lambda function
 resource "aws_lambda_function" "auto_notifications" {
-  filename         = "./deploy/autoNotifications.zip"
-  function_name    = "AutoNotifications"
-  role             = aws_iam_role.lambda_exec.arn
-  handler          = "autoNotifications.handler"
-  runtime          = "nodejs20.x"
+  filename      = "./deploy/autoNotifications.zip"
+  function_name = "AutoNotifications"
+  role          = aws_iam_role.lambda_exec.arn
+  handler       = "autoNotifications.handler"
+  runtime       = "nodejs20.x"
   environment {
     variables = {
       TPPB_DOMAIN = var.domain_name
     }
+  }
+  vpc_config {
+    subnet_ids         = var.lambda_vpc_subnet_ids
+    security_group_ids = [var.lambda_vpc_security_group_ids]
   }
 }
 
@@ -19,8 +23,8 @@ resource "aws_iam_role" "lambda_exec" {
   assume_role_policy = jsonencode({
     Version = "2012-10-17",
     Statement = [{
-      Action    = "sts:AssumeRole",
-      Effect    = "Allow",
+      Action = "sts:AssumeRole",
+      Effect = "Allow",
       Principal = {
         Service = "lambda.amazonaws.com",
       },
@@ -46,8 +50,17 @@ resource "aws_iam_role_policy" "lambda_policy" {
         Resource = "*",
       },
       {
-        Action = "ses:SendEmail",
-        Effect = "Allow",
+        Action   = "ses:SendEmail",
+        Effect   = "Allow",
+        Resource = "*",
+      },
+      {
+        Action = [
+          "ec2:CreateNetworkInterface",
+          "ec2:DeleteNetworkInterface",
+          "ec2:DescribeNetworkInterfaces",
+        ],
+        Effect   = "Allow",
         Resource = "*",
       },
     ],
@@ -58,7 +71,7 @@ resource "aws_iam_role_policy" "lambda_policy" {
 resource "aws_cloudwatch_event_rule" "daily_trigger" {
   name                = "DailyTrigger"
   description         = "Triggers Lambda function daily at 8 AM EST"
-  schedule_expression = "cron(0 13 * * ? *)"  # 8 AM EST = 1 PM UTC
+  schedule_expression = "cron(0 13 * * ? *)" # 8 AM EST = 1 PM UTC
 }
 
 resource "aws_cloudwatch_event_target" "trigger_lambda" {
