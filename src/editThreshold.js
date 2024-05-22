@@ -6,7 +6,7 @@ const prisma = new PrismaClient();
 const lambdaClient = new LambdaClient({ region: process.env.AWS_REGION });
 
 exports.handler = async (event) => {
-  const { authorizationToken, householdId, newThreshold, ipAddress, deviceDetails } = JSON.parse(event.body);
+  const { authorizationToken, householdId, newThreshold, paymentSourceId, ipAddress, deviceDetails } = JSON.parse(event.body);
 
   if (!authorizationToken) {
     return {
@@ -42,16 +42,16 @@ exports.handler = async (event) => {
   }
 
   try {
-    if (!householdId || newThreshold === undefined) {
+    if (!householdId || newThreshold === undefined || !paymentSourceId) {
       return {
         statusCode: 400,
-        body: JSON.stringify({ message: "Missing householdId or newThreshold parameter" }),
+        body: JSON.stringify({ message: "Missing householdId, newThreshold, or paymentSourceId parameter" }),
       };
     }
 
     // Fetch the current threshold
     const currentThreshold = await prisma.threshold.findUnique({
-      where: { householdId: householdId }
+      where: { householdId: householdId, paymentSourceId: paymentSourceId }
     });
 
     let oldValue = '';
@@ -61,11 +61,12 @@ exports.handler = async (event) => {
 
     // Update or create the threshold
     const thresholdRecord = await prisma.threshold.upsert({
-      where: { householdId: householdId },
+      where: { householdId_paymentSourceId: { householdId: householdId, paymentSourceId: paymentSourceId } },
       update: { value: newThreshold, updatedAt: new Date() },
       create: {
         id: uuidv4(),
         householdId: householdId,
+        paymentSourceId: paymentSourceId,
         value: newThreshold,
         createdAt: new Date(),
         updatedAt: new Date()
@@ -77,7 +78,7 @@ exports.handler = async (event) => {
       data: {
         auditId: uuidv4(),
         tableAffected: 'Threshold',
-        actionType: 'Update',
+        actionType: currentThreshold ? 'Update' : 'Create',
         oldValue: oldValue,
         newValue: JSON.stringify({ threshold: thresholdRecord }),
         changedBy: username,

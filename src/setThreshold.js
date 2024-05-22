@@ -6,7 +6,7 @@ const prisma = new PrismaClient();
 const lambdaClient = new LambdaClient({ region: process.env.AWS_REGION });
 
 exports.handler = async (event) => {
-  const { authorizationToken, householdId, threshold, ipAddress, deviceDetails } = JSON.parse(event.body);
+  const { authorizationToken, householdId, threshold, paymentSourceId, ipAddress, deviceDetails } = JSON.parse(event.body);
 
   if (!authorizationToken) {
     return {
@@ -42,32 +42,25 @@ exports.handler = async (event) => {
   }
 
   try {
-    if (!householdId || !threshold) {
+    if (!householdId || !threshold || !paymentSourceId) {
       return {
         statusCode: 400,
-        body: JSON.stringify({ message: "Missing householdId or threshold parameter" }),
+        body: JSON.stringify({ message: "Missing householdId, threshold, or paymentSourceId parameter" }),
       };
     }
 
-    // Fetch ledger transactions
-    const transactions = await prisma.ledger.findMany({
-      where: { householdId: householdId },
-      orderBy: { date: 'asc' }
+    // Fetch ledger entries with running total for the specified paymentSourceId
+    const ledgerEntries = await prisma.ledger.findMany({
+      where: { householdId: householdId, paymentSourceId: paymentSourceId },
+      orderBy: { date: 'asc' },
+      select: {
+        date: true,
+        amount: true,
+        runningTotal: true
+      }
     });
 
-    let runningTotal = 0;
-    const transactionsBelowThreshold = [];
-
-    for (const transaction of transactions) {
-      runningTotal += transaction.amount;
-      if (runningTotal < threshold) {
-        transactionsBelowThreshold.push({
-          date: transaction.date,
-          amount: transaction.amount,
-          runningTotal: runningTotal
-        });
-      }
-    }
+    const entriesBelowThreshold = ledgerEntries.filter(entry => entry.runningTotal < threshold);
 
     // Log to audit trail
     await prisma.auditTrail.create({
@@ -76,7 +69,7 @@ exports.handler = async (event) => {
         tableAffected: 'Ledger',
         actionType: 'Read',
         oldValue: '',
-        newValue: JSON.stringify({ transactionsBelowThreshold }),
+        newValue: JSON.stringify({ entriesBelowThreshold }),
         changedBy: username,
         changeDate: new Date(),
         timestamp: new Date(),
@@ -89,7 +82,7 @@ exports.handler = async (event) => {
 
     return {
       statusCode: 200,
-      body: JSON.stringify({ transactions: transactionsBelowThreshold }),
+      body: JSON.stringify({ entries: entriesBelowThreshold }),
     };
   } catch (error) {
     console.error('Error processing request:', error);

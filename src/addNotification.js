@@ -7,7 +7,7 @@ const lambdaClient = new LambdaClient({ region: process.env.AWS_REGION });
 
 exports.handler = async (event) => {
   try {
-    const body = JSON.parse(event.body);
+    const body = typeof event.body === "string" ? JSON.parse(event.body) : event;
     const { authorizationToken, billId, title, message, deviceDetails, ipAddress } = body;
 
     if (!authorizationToken) {
@@ -58,18 +58,6 @@ exports.handler = async (event) => {
       return {
         statusCode: 404,
         body: JSON.stringify({ message: "Bill not found" }),
-      };
-    }
-
-    const userExists = await prisma.user.findUnique({
-      where: { uuid: userUuid },
-    });
-
-    if (!userExists) {
-      console.log(`Error: User ${userUuid} does not exist`);
-      return {
-        statusCode: 404,
-        body: JSON.stringify({ message: "User not found" }),
       };
     }
 

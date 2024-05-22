@@ -190,6 +190,21 @@ exports.handler = async (event) => {
 
     await lambdaClient.send(calculateTotalsCommand);
 
+    // Invoke the addNotification Lambda function
+    const addNotificationCommand = new InvokeCommand({
+      FunctionName: 'addNotification',
+      Payload: JSON.stringify({
+        authorizationToken: authorizationToken,
+        billId: newBill.billId,
+        title: `Bill Due: ${billName}`,
+        message: `Your bill for ${billName} is due on ${firstBillDate.toISOString().split('T')[0]}.`,
+        deviceDetails: deviceDetails,
+        ipAddress: ipAddress
+      }),
+    });
+
+    await lambdaClient.send(addNotificationCommand);
+
     await prisma.auditTrail.create({
       data: {
         auditId: uuidv4(),

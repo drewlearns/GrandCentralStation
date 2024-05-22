@@ -6,7 +6,7 @@ const prisma = new PrismaClient();
 const lambdaClient = new LambdaClient({ region: process.env.AWS_REGION });
 
 exports.handler = async (event) => {
-  const { authorizationToken, householdId, ipAddress, deviceDetails } = JSON.parse(event.body);
+  const { authorizationToken, householdId, paymentSourceId, ipAddress, deviceDetails } = JSON.parse(event.body);
 
   if (!authorizationToken) {
     return {
@@ -42,14 +42,14 @@ exports.handler = async (event) => {
   }
 
   try {
-    if (!householdId) {
+    if (!householdId || !paymentSourceId) {
       return {
         statusCode: 400,
-        body: JSON.stringify({ message: "Missing householdId parameter" }),
+        body: JSON.stringify({ message: "Missing householdId or paymentSourceId parameter" }),
       };
     }
 
-    // Fetch threshold
+    // Fetch threshold for the household
     const thresholdRecord = await prisma.threshold.findUnique({
       where: { householdId: householdId }
     });
@@ -61,6 +61,21 @@ exports.handler = async (event) => {
       };
     }
 
+    const threshold = thresholdRecord.value;
+
+    // Fetch ledger entries with running total for the specified paymentSourceId
+    const ledgerEntries = await prisma.ledger.findMany({
+      where: { householdId: householdId, paymentSourceId: paymentSourceId },
+      orderBy: { date: 'asc' },
+      select: {
+        date: true,
+        amount: true,
+        runningTotal: true
+      }
+    });
+
+    const entriesAboveThreshold = ledgerEntries.filter(entry => entry.runningTotal > threshold);
+
     // Log to audit trail
     await prisma.auditTrail.create({
       data: {
@@ -68,7 +83,7 @@ exports.handler = async (event) => {
         tableAffected: 'Threshold',
         actionType: 'Read',
         oldValue: '',
-        newValue: JSON.stringify({ threshold: thresholdRecord }),
+        newValue: JSON.stringify({ entriesAboveThreshold }),
         changedBy: username,
         changeDate: new Date(),
         timestamp: new Date(),
@@ -81,13 +96,13 @@ exports.handler = async (event) => {
 
     return {
       statusCode: 200,
-      body: JSON.stringify({ threshold: thresholdRecord }),
+      body: JSON.stringify({ entries: entriesAboveThreshold }),
     };
   } catch (error) {
-    console.error('Error retrieving threshold:', error);
+    console.error('Error retrieving threshold breakers:', error);
     return {
       statusCode: 500,
-      body: JSON.stringify({ message: "Error retrieving threshold", error: error.message }),
+      body: JSON.stringify({ message: "Error retrieving threshold breakers", error: error.message }),
     };
   } finally {
     await prisma.$disconnect();
