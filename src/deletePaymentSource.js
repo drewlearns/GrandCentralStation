@@ -17,6 +17,15 @@ exports.handler = async (event) => {
     };
   }
 
+  if (!householdId) {
+    return {
+      statusCode: 400,
+      body: JSON.stringify({
+        message: 'Bad request. No householdId provided.'
+      })
+    };
+  }
+
   let deletedBy;
 
   try {
@@ -61,7 +70,7 @@ exports.handler = async (event) => {
     }
 
     if (paymentSource.householdId !== householdId) {
-      console.log(`Error: Payment source ${sourceId} does not belong to household ${householdId}`);
+      console.log(`Error: Payment source ${sourceId} belongs to household ${paymentSource.householdId}, not ${householdId}`);
       return {
         statusCode: 403,
         body: JSON.stringify({

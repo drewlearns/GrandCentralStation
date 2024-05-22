@@ -16,6 +16,10 @@ exports.handler = async (event) => {
     ipAddress = parsedBody.ipAddress;
     deviceDetails = parsedBody.deviceDetails;
     householdId = parsedBody.householdId;
+
+    if (!householdId) {
+      throw new Error('householdId is required.');
+    }
   } catch (error) {
     console.error('Error parsing event body:', error);
     return {
