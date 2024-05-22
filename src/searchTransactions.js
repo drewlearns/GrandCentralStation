@@ -1,28 +1,24 @@
-const { PrismaClient } = require("@prisma/client");
-const { LambdaClient, InvokeCommand } = require("@aws-sdk/client-lambda");
-const { v4: uuidv4 } = require("uuid");
+const { PrismaClient } = require('@prisma/client');
+const { LambdaClient, InvokeCommand } = require('@aws-sdk/client-lambda');
 
 const prisma = new PrismaClient();
 const lambdaClient = new LambdaClient({ region: process.env.AWS_REGION });
 
 exports.handler = async (event) => {
-  const { authorizationToken, query, page = 1, limit = 10, ipAddress, deviceDetails } = JSON.parse(event.body);
+  const { authorizationToken, query } = JSON.parse(event.body);
 
   if (!authorizationToken) {
     return {
       statusCode: 401,
-      body: JSON.stringify({ message: 'Access denied. No token provided.' })
-    };
-  }
-
-  if (!query) {
-    return {
-      statusCode: 400,
-      body: JSON.stringify({ message: "Missing search query parameter" }),
+      body: JSON.stringify({
+        message: 'Access denied. No token provided.'
+      })
     };
   }
 
   let username;
+  let userUuid;
+
   try {
     const verifyTokenCommand = new InvokeCommand({
       FunctionName: 'verifyToken',
@@ -31,7 +27,7 @@ exports.handler = async (event) => {
 
     const verifyTokenResponse = await lambdaClient.send(verifyTokenCommand);
     const payload = JSON.parse(new TextDecoder('utf-8').decode(verifyTokenResponse.Payload));
-    
+
     if (verifyTokenResponse.FunctionError) {
       throw new Error(payload.errorMessage || 'Token verification failed.');
     }
@@ -44,84 +40,83 @@ exports.handler = async (event) => {
     console.error('Token verification failed:', error);
     return {
       statusCode: 401,
-      body: JSON.stringify({ message: 'Invalid token.', error: error.message }),
+      body: JSON.stringify({
+        message: 'Invalid token.',
+        error: error.message,
+      }),
     };
   }
 
   try {
-    const offset = (page - 1) * limit;
+    // Get the user UUID
+    const user = await prisma.user.findFirst({
+      where: { username: username },
+    });
 
-    const transactions = await prisma.transaction.findMany({
+    if (!user) {
+      throw new Error('User not found.');
+    }
+
+    userUuid = user.uuid;
+
+    // Find households the user is associated with
+    const userHouseholds = await prisma.household.findMany({
       where: {
-        OR: [
-          { amount: parseFloat(query) || undefined },
-          { description: { contains: query, mode: 'insensitive' } }
-        ]
-      },
-      include: {
-        ledger: {
-          include: {
-            attachments: true
+        members: {
+          some: {
+            memberUuid: userUuid,
           }
-        },
-        source: true
+        }
       },
-      skip: offset,
-      take: limit
+      select: {
+        householdId: true
+      }
     });
 
-    const ledgerTransactions = await prisma.ledger.findMany({
-      where: {
-        OR: [
-          { amount: parseFloat(query) || undefined },
-          { category: { contains: query, mode: 'insensitive' } },
-          { description: { contains: query, mode: 'insensitive' } }
-        ]
-      },
-      include: {
-        attachments: true
-      },
-      skip: offset,
-      take: limit
-    });
+    const householdIds = userHouseholds.map(household => household.householdId);
 
-    if (transactions.length === 0 && ledgerTransactions.length === 0) {
+    if (householdIds.length === 0) {
       return {
         statusCode: 404,
-        body: JSON.stringify({ message: "No transactions found matching the search criteria" }),
+        body: JSON.stringify({ message: "No associated households found" }),
       };
     }
 
-    // Combine results from both tables
-    const combinedResults = [...transactions, ...ledgerTransactions];
-
-    // Log to audit trail
-    await prisma.auditTrail.create({
-      data: {
-        auditId: uuidv4(),
-        tableAffected: 'Transaction, Ledger',
-        actionType: 'Read',
-        oldValue: '',
-        newValue: JSON.stringify({ transactions: combinedResults }),
-        changedBy: username,
-        changeDate: new Date(),
-        timestamp: new Date(),
-        device: deviceDetails,
-        ipAddress: ipAddress,
-        deviceType: '',
-        ssoEnabled: 'false',
+    // Search ledgers
+    const ledgers = await prisma.ledger.findMany({
+      where: {
+        householdId: { in: householdIds },
+        OR: [
+          { amount: { equals: parseFloat(query) } },
+          { description: { contains: query, mode: 'insensitive' } },
+          { tags: { contains: query, mode: 'insensitive' } },
+          { category: { contains: query, mode: 'insensitive' } },
+        ],
       },
     });
 
+    if (ledgers.length === 0) {
+      return {
+        statusCode: 404,
+        body: JSON.stringify({ message: "No transactions found matching the query" }),
+      };
+    }
+
     return {
       statusCode: 200,
-      body: JSON.stringify({ transactions: combinedResults }),
+      body: JSON.stringify({
+        message: "Transactions retrieved successfully",
+        transactions: ledgers,
+      }),
     };
   } catch (error) {
-    console.error('Error retrieving transactions:', error);
+    console.error(`Error retrieving transactions: ${error.message}`);
     return {
       statusCode: 500,
-      body: JSON.stringify({ message: "Error retrieving transactions", error: error.message }),
+      body: JSON.stringify({
+        message: "Error retrieving transactions",
+        error: error.message,
+      }),
     };
   } finally {
     await prisma.$disconnect();
