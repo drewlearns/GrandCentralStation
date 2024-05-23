@@ -6,103 +6,106 @@ const prisma = new PrismaClient();
 const lambdaClient = new LambdaClient({ region: process.env.AWS_REGION });
 
 exports.handler = async (event) => {
-  const { authorizationToken, householdId, paymentSourceId, ipAddress, deviceDetails } = JSON.parse(event.body);
+  const {
+    authorizationToken,
+    householdId,
+    threshold,
+    paymentSourceId,
+    ipAddress,
+    deviceDetails,
+  } = JSON.parse(event.body);
 
   if (!authorizationToken) {
     return {
       statusCode: 401,
-      body: JSON.stringify({ message: 'Access denied. No token provided.' })
+      body: JSON.stringify({ message: "Access denied. No token provided." }),
     };
   }
 
   let username;
   try {
     const verifyTokenCommand = new InvokeCommand({
-      FunctionName: 'verifyToken',
-      Payload: JSON.stringify({ authorizationToken })
+      FunctionName: "verifyToken",
+      Payload: JSON.stringify({ authorizationToken }),
     });
 
     const verifyTokenResponse = await lambdaClient.send(verifyTokenCommand);
-    const payload = JSON.parse(new TextDecoder('utf-8').decode(verifyTokenResponse.Payload));
+    const payload = JSON.parse(
+      new TextDecoder("utf-8").decode(verifyTokenResponse.Payload)
+    );
 
     if (verifyTokenResponse.FunctionError) {
-      throw new Error(payload.errorMessage || 'Token verification failed.');
+      throw new Error(payload.errorMessage || "Token verification failed.");
     }
 
     username = payload.username;
     if (!username) {
-      throw new Error('Token verification did not return a valid username.');
+      throw new Error("Token verification did not return a valid username.");
     }
   } catch (error) {
-    console.error('Token verification failed:', error);
+    console.error("Token verification failed:", error);
     return {
       statusCode: 401,
-      body: JSON.stringify({ message: 'Invalid token.', error: error.message }),
+      body: JSON.stringify({ message: "Invalid token.", error: error.message }),
     };
   }
 
   try {
-    if (!householdId || !paymentSourceId) {
+    if (!householdId || !threshold || !paymentSourceId) {
       return {
         statusCode: 400,
-        body: JSON.stringify({ message: "Missing householdId or paymentSourceId parameter" }),
+        body: JSON.stringify({
+          message:
+            "Missing householdId, threshold, or paymentSourceId parameter",
+        }),
       };
     }
-
-    // Fetch threshold for the household
-    const thresholdRecord = await prisma.threshold.findUnique({
-      where: { householdId: householdId }
-    });
-
-    if (!thresholdRecord) {
-      return {
-        statusCode: 404,
-        body: JSON.stringify({ message: "Threshold not found" }),
-      };
-    }
-
-    const threshold = thresholdRecord.value;
 
     // Fetch ledger entries with running total for the specified paymentSourceId
     const ledgerEntries = await prisma.ledger.findMany({
       where: { householdId: householdId, paymentSourceId: paymentSourceId },
-      orderBy: { date: 'asc' },
+      orderBy: { transactionDate: "asc" }, // Update to a valid field from your schema
       select: {
-        date: true,
+        transactionDate: true, // Update to a valid field from your schema
         amount: true,
-        runningTotal: true
-      }
+        runningTotal: true,
+      },
     });
 
-    const entriesAboveThreshold = ledgerEntries.filter(entry => entry.runningTotal > threshold);
+    const entriesBelowThreshold = ledgerEntries.filter(
+      (entry) => entry.runningTotal < threshold
+    );
 
     // Log to audit trail
     await prisma.auditTrail.create({
       data: {
         auditId: uuidv4(),
-        tableAffected: 'Threshold',
-        actionType: 'Read',
-        oldValue: '',
-        newValue: JSON.stringify({ entriesAboveThreshold }),
+        tableAffected: "Ledger",
+        actionType: "Read",
+        oldValue: "",
+        newValue: JSON.stringify({ entriesBelowThreshold }),
         changedBy: username,
         changeDate: new Date(),
         timestamp: new Date(),
         device: deviceDetails,
         ipAddress: ipAddress,
-        deviceType: '',
-        ssoEnabled: 'false',
+        deviceType: "",
+        ssoEnabled: "false",
       },
     });
 
     return {
       statusCode: 200,
-      body: JSON.stringify({ entries: entriesAboveThreshold }),
+      body: JSON.stringify({ entries: entriesBelowThreshold }),
     };
   } catch (error) {
-    console.error('Error retrieving threshold breakers:', error);
+    console.error("Error processing request:", error);
     return {
       statusCode: 500,
-      body: JSON.stringify({ message: "Error retrieving threshold breakers", error: error.message }),
+      body: JSON.stringify({
+        message: "Error processing request",
+        error: error.message,
+      }),
     };
   } finally {
     await prisma.$disconnect();

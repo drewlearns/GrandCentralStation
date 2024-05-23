@@ -1,12 +1,12 @@
 const { PrismaClient } = require("@prisma/client");
 const { LambdaClient, InvokeCommand } = require("@aws-sdk/client-lambda");
-const { v4: uuidv4 } = require("uuid");
+const { v4: uuidv4 } = require('uuid');
 
 const prisma = new PrismaClient();
 const lambdaClient = new LambdaClient({ region: process.env.AWS_REGION });
 
 exports.handler = async (event) => {
-  const { authorizationToken, householdId, newThreshold, ipAddress, deviceDetails } = JSON.parse(event.body);
+  const { authorizationToken, householdId, ipAddress, deviceDetails } = JSON.parse(event.body);
 
   if (!authorizationToken) {
     return {
@@ -42,28 +42,27 @@ exports.handler = async (event) => {
   }
 
   try {
-    if (!householdId || !newThreshold) {
+    if (!householdId) {
       return {
         statusCode: 400,
-        body: JSON.stringify({ message: "Missing householdId or newThreshold parameter" }),
+        body: JSON.stringify({ message: "Missing householdId parameter" }),
       };
     }
 
-    // Update the threshold in the preferences table
-    const updatedPreference = await prisma.preferences.updateMany({
+    // Fetch the threshold preference for the specified household
+    const preference = await prisma.preferences.findUnique({
       where: {
-        householdId: householdId,
-        preferenceType: 'threshold' // Use the unique constraint fields
-      },
-      data: {
-        preferenceValue: newThreshold.toString() // Assuming threshold value should be stored as string
+        householdId_preferenceType: {
+          householdId: householdId,
+          preferenceType: 'threshold'
+        }
       }
     });
 
-    if (updatedPreference.count === 0) {
+    if (!preference) {
       return {
         statusCode: 404,
-        body: JSON.stringify({ message: 'No matching record found to update.' }),
+        body: JSON.stringify({ message: 'Threshold preference not found.' }),
       };
     }
 
@@ -72,9 +71,9 @@ exports.handler = async (event) => {
       data: {
         auditId: uuidv4(),
         tableAffected: 'Preferences',
-        actionType: 'Update',
+        actionType: 'Read',
         oldValue: '',
-        newValue: JSON.stringify({ householdId, newThreshold }),
+        newValue: JSON.stringify({ householdId, threshold: preference.preferenceValue }),
         changedBy: username,
         changeDate: new Date(),
         timestamp: new Date(),
@@ -87,7 +86,7 @@ exports.handler = async (event) => {
 
     return {
       statusCode: 200,
-      body: JSON.stringify({ message: 'Threshold updated successfully.' }),
+      body: JSON.stringify({ threshold: preference.preferenceValue }),
     };
   } catch (error) {
     console.error('Error processing request:', error);

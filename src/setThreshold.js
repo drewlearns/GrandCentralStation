@@ -6,7 +6,7 @@ const prisma = new PrismaClient();
 const lambdaClient = new LambdaClient({ region: process.env.AWS_REGION });
 
 exports.handler = async (event) => {
-  const { authorizationToken, householdId, threshold, paymentSourceId, ipAddress, deviceDetails } = JSON.parse(event.body);
+  const { authorizationToken, householdId, threshold, ipAddress, deviceDetails } = JSON.parse(event.body);
 
   if (!authorizationToken) {
     return {
@@ -42,34 +42,50 @@ exports.handler = async (event) => {
   }
 
   try {
-    if (!householdId || !threshold || !paymentSourceId) {
+    if (!householdId || !threshold) {
       return {
         statusCode: 400,
-        body: JSON.stringify({ message: "Missing householdId, threshold, or paymentSourceId parameter" }),
+        body: JSON.stringify({ message: "Missing householdId or threshold parameter" }),
       };
     }
 
-    // Fetch ledger entries with running total for the specified paymentSourceId
-    const ledgerEntries = await prisma.ledger.findMany({
-      where: { householdId: householdId, paymentSourceId: paymentSourceId },
-      orderBy: { date: 'asc' },
-      select: {
-        date: true,
-        amount: true,
-        runningTotal: true
+    // Check if a threshold preference already exists for the household
+    const existingPreference = await prisma.preferences.findUnique({
+      where: {
+        householdId_preferenceType: {
+          householdId: householdId,
+          preferenceType: 'threshold'
+        }
       }
     });
 
-    const entriesBelowThreshold = ledgerEntries.filter(entry => entry.runningTotal < threshold);
+    if (existingPreference) {
+      return {
+        statusCode: 409,
+        body: JSON.stringify({ message: 'Threshold preference already exists.' }),
+      };
+    }
+
+    // Create a new threshold preference
+    await prisma.preferences.create({
+      data: {
+        preferenceId: uuidv4(),
+        householdId: householdId,
+        preferenceType: 'threshold',
+        preferenceValue: threshold.toString(),
+        createdAt: new Date(),
+        updatedAt: new Date()
+      }
+    });
 
     // Log to audit trail
     await prisma.auditTrail.create({
       data: {
         auditId: uuidv4(),
-        tableAffected: 'Ledger',
-        actionType: 'Read',
+        tableAffected: 'Preferences',
+        actionType: 'Create',
         oldValue: '',
-        newValue: JSON.stringify({ entriesBelowThreshold }),
+        newValue: JSON.stringify({ householdId, threshold }),
         changedBy: username,
         changeDate: new Date(),
         timestamp: new Date(),
@@ -81,8 +97,8 @@ exports.handler = async (event) => {
     });
 
     return {
-      statusCode: 200,
-      body: JSON.stringify({ entries: entriesBelowThreshold }),
+      statusCode: 201,
+      body: JSON.stringify({ message: 'Threshold preference created successfully.' }),
     };
   } catch (error) {
     console.error('Error processing request:', error);
