@@ -1,12 +1,12 @@
 const { PrismaClient } = require("@prisma/client");
 const { LambdaClient, InvokeCommand } = require("@aws-sdk/client-lambda");
-const { v4: uuidv4 } = require("uuid");
+const { v4: uuidv4 } = require('uuid');
 
 const prisma = new PrismaClient();
 const lambdaClient = new LambdaClient({ region: process.env.AWS_REGION });
 
 exports.handler = async (event) => {
-  const { authorizationToken, householdId, newPaymentSourceId, ipAddress, deviceDetails } = JSON.parse(event.body);
+  const { authorizationToken, householdId, paymentSourceId, ipAddress, deviceDetails } = JSON.parse(event.body);
 
   if (!authorizationToken) {
     return {
@@ -47,44 +47,22 @@ exports.handler = async (event) => {
   }
 
   try {
-    if (!householdId || !newPaymentSourceId) {
+    if (!householdId || !paymentSourceId) {
       return {
         statusCode: 400,
-        body: JSON.stringify({ message: "Missing householdId or newPaymentSourceId parameter" }),
+        body: JSON.stringify({ message: "Missing householdId or paymentSourceId parameter" }),
       };
     }
 
     const preferenceType = 'defaultPaymentSource';
+    const preferenceValue = paymentSourceId;
 
-    // Fetch the existing preference
-    const existingPreference = await prisma.preferences.findUnique({
+    const preference = await prisma.preferences.updateMany({
       where: {
-        householdId_preferenceType: {
-          householdId: householdId,
-          preferenceType: preferenceType
-        }
-      }
-    });
-
-    if (!existingPreference) {
-      return {
-        statusCode: 404,
-        body: JSON.stringify({ message: "Default payment source preference not found" }),
-      };
-    }
-
-    // Update the preference
-    const updatedPreference = await prisma.preferences.update({
-      where: {
-        householdId_preferenceType: {
-          householdId: householdId,
-          preferenceType: preferenceType
-        }
+        householdId: householdId,
+        preferenceType: preferenceType
       },
-      data: {
-        preferenceValue: newPaymentSourceId,
-        updatedAt: new Date()
-      }
+      data: { preferenceValue, updatedAt: new Date() }
     });
 
     // Log to audit trail
@@ -93,13 +71,13 @@ exports.handler = async (event) => {
         auditId: uuidv4(),
         tableAffected: 'Preferences',
         actionType: 'Update',
-        oldValue: JSON.stringify({ preference: existingPreference }),
-        newValue: JSON.stringify({ preference: updatedPreference }),
+        oldValue: '',
+        newValue: JSON.stringify({ preference }),
         changedBy: username,
         changeDate: new Date(),
         timestamp: new Date(),
         device: deviceDetails,
-        ipAddress: ipAddress,
+        ipAddress,
         deviceType: '',
         ssoEnabled: 'false',
       },
@@ -107,7 +85,7 @@ exports.handler = async (event) => {
 
     return {
       statusCode: 200,
-      body: JSON.stringify({ preference: updatedPreference }),
+      body: JSON.stringify({ preference }),
     };
   } catch (error) {
     console.error('Error editing default payment source:', error);
