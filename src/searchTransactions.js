@@ -82,16 +82,25 @@ exports.handler = async (event) => {
       };
     }
 
+    // Determine if the query is a number
+    const amountQuery = parseFloat(query);
+    const isAmountQueryValid = !isNaN(amountQuery);
+
     // Search ledgers
+    const ledgerSearchConditions = [
+      { description: { contains: query, mode: 'insensitive' } },
+      { tags: { contains: query, mode: 'insensitive' } },
+      { category: { contains: query, mode: 'insensitive' } },
+    ];
+
+    if (isAmountQueryValid) {
+      ledgerSearchConditions.unshift({ amount: { equals: amountQuery } });
+    }
+
     const ledgers = await prisma.ledger.findMany({
       where: {
         householdId: { in: householdIds },
-        OR: [
-          { amount: { equals: parseFloat(query) } },
-          { description: { contains: query, mode: 'insensitive' } },
-          { tags: { contains: query, mode: 'insensitive' } },
-          { category: { contains: query, mode: 'insensitive' } },
-        ],
+        OR: ledgerSearchConditions,
       },
     });
 
