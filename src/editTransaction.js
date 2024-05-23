@@ -1,15 +1,8 @@
-const Busboy = require("busboy");
 const { PrismaClient } = require("@prisma/client");
 const { v4: uuidv4 } = require("uuid");
-const {
-  S3Client,
-  PutObjectCommand,
-  HeadBucketCommand,
-} = require("@aws-sdk/client-s3");
+const { S3Client, PutObjectCommand, HeadBucketCommand, DeleteObjectCommand } = require("@aws-sdk/client-s3");
 const { LambdaClient, InvokeCommand } = require("@aws-sdk/client-lambda");
-const fs = require("fs");
-const path = require("path");
-const os = require("os");
+const { Buffer } = require("buffer");
 
 const prisma = new PrismaClient();
 const lambdaClient = new LambdaClient({ region: process.env.AWS_REGION });
@@ -17,249 +10,136 @@ const s3Client = new S3Client({ region: process.env.AWS_REGION });
 
 const BUCKET = process.env.BUCKET;
 
-const uploadToS3 = async (bucket, key, body) => {
+const uploadToS3 = async (bucket, key, base64String) => {
   try {
     await s3Client.send(new HeadBucketCommand({ Bucket: bucket }));
-    console.log(`Verified access to bucket ${bucket}`);
   } catch (err) {
-    console.error(`Bucket ${bucket} does not exist or you have no access.`, err);
     throw new Error(`Bucket ${bucket} does not exist or you have no access.`);
   }
+
+  const buffer = Buffer.from(base64String, 'base64');
 
   const params = {
     Bucket: bucket,
     Key: key,
-    Body: body,
+    Body: buffer,
+    ContentEncoding: 'base64',
+    ContentType: 'image/jpeg',
   };
 
   try {
     await s3Client.send(new PutObjectCommand(params));
-    console.log(`Successfully uploaded data to ${bucket}/${key}`);
   } catch (err) {
-    console.error(`Error uploading to S3: ${err.message}`, err);
     throw new Error(`Error uploading to S3: ${err.message}`);
   }
 };
 
-exports.handler = async (event) => {
-  const result = {
-    fields: {},
-    files: [],
-  };
-
-  const processForm = async () => {
-    return new Promise((resolve, reject) => {
-      console.log("Headers:", JSON.stringify(event.headers, null, 2));
-
-      let buffer;
-      try {
-        buffer = Buffer.from(
-          event.body,
-          event.isBase64Encoded ? "base64" : "utf8"
-        );
-        console.log("Body length:", buffer.length);
-      } catch (err) {
-        console.error("Error parsing request body:", err);
-        return reject(new Error("Failed to parse request body"));
-      }
-
-      const headers = {
-        "content-type":
-          event.headers["content-type"] || event.headers["Content-Type"],
-        "content-length": buffer.length,
-      };
-
-      console.log("Calculated Content-Length:", buffer.length);
-
-      const busboy = Busboy({ headers });
-
-      busboy.on("file", (fieldname, file, filename, encoding) => {
-        console.log(`Processing file: ${filename}`);
-        console.log(`File encoding: ${encoding}`);
-        const filepath = path.join(os.tmpdir(), uuidv4());
-        console.log(`Generated filepath: ${filepath}`);
-        const writeStream = fs.createWriteStream(filepath);
-        file.pipe(writeStream);
-        file.on("end", () => {
-          console.log(`File [${filename}] saved to [${filepath}]`);
-          result.files.push({
-            fieldname,
-            originalFilename: filename,
-            filepath,
-            encoding,
-          });
-        });
-        file.on("error", (error) => {
-          console.error(`Error processing file [${filename}]:`, error);
-          reject(new Error("Failed to process file"));
-        });
-      });
-
-      busboy.on("field", (fieldname, val) => {
-        console.log(`Processing field: ${fieldname} = ${val}`);
-        result.fields[fieldname] = val;
-      });
-
-      busboy.on("finish", () => {
-        console.log("Finished processing form");
-        resolve(result);
-      });
-
-      busboy.on("error", (error) => {
-        console.error("Busboy error:", error);
-        reject(error);
-      });
-
-      busboy.end(buffer);
-    });
-  };
-
+const deleteFromS3 = async (bucket, key) => {
   try {
-    const { fields, files } = await processForm();
-    console.log("Fields:", JSON.stringify(fields, null, 2));
-    console.log("Files:", JSON.stringify(files, null, 2));
+    await s3Client.send(new DeleteObjectCommand({ Bucket: bucket, Key: key }));
+  } catch (err) {
+    throw new Error(`Error deleting from S3: ${err.message}`);
+  }
+};
 
-    const { authorizationToken, transactionId, householdId, amount, transactionType, transactionDate, category, description, ipAddress, deviceDetails, status, sourceId, tags } = fields;
+exports.handler = async (event) => {
+  try {
+    const body = JSON.parse(event.body);
+    const { authorizationToken, transactionId, householdId, amount, transactionType, transactionDate, category, description, ipAddress, deviceDetails, status, sourceId, tags, image } = body;
 
     if (!authorizationToken) {
-      return {
-        statusCode: 401,
-        body: JSON.stringify({
-          message: 'Access denied. No token provided.'
-        })
-      };
+      return { statusCode: 401, body: JSON.stringify({ message: 'Access denied. No token provided.' }) };
     }
 
-    let updatedBy;
+    const verifyTokenCommand = new InvokeCommand({ FunctionName: 'verifyToken', Payload: JSON.stringify({ authorizationToken }) });
+    const verifyTokenResponse = await lambdaClient.send(verifyTokenCommand);
+    const payload = JSON.parse(new TextDecoder('utf-8').decode(verifyTokenResponse.Payload));
 
-    try {
-      const verifyTokenCommand = new InvokeCommand({
-        FunctionName: 'verifyToken',
-        Payload: JSON.stringify({ authorizationToken })
-      });
-
-      const verifyTokenResponse = await lambdaClient.send(verifyTokenCommand);
-      const payload = JSON.parse(new TextDecoder('utf-8').decode(verifyTokenResponse.Payload));
-
-      if (verifyTokenResponse.FunctionError) {
-        throw new Error(payload.errorMessage || 'Token verification failed.');
-      }
-
-      updatedBy = payload.username;
-      if (!updatedBy) {
-        throw new Error('Token verification did not return a valid username.');
-      }
-    } catch (error) {
-      console.error('Token verification failed:', error);
-      return {
-        statusCode: 401,
-        body: JSON.stringify({
-          message: 'Invalid token.',
-          error: error.message,
-        }),
-      };
+    if (verifyTokenResponse.FunctionError) {
+      throw new Error(payload.errorMessage || 'Token verification failed.');
     }
 
-    const householdExists = await prisma.household.findUnique({
-      where: { householdId: householdId },
-    });
+    const updatedBy = payload.username;
+    if (!updatedBy) throw new Error('Token verification did not return a valid username.');
 
-    if (!householdExists) {
-      console.log(`Error: Household ${householdId} does not exist`);
-      return {
-        statusCode: 404,
-        body: JSON.stringify({ message: "Household not found" }),
-      };
-    }
+    const transactionExists = await prisma.transaction.findUnique({ where: { transactionId } });
+    if (!transactionExists) return { statusCode: 404, body: JSON.stringify({ message: "Transaction not found" }) };
 
-    const paymentSourceExists = await prisma.paymentSource.findUnique({
-      where: { sourceId: sourceId },
-    });
+    const householdExists = await prisma.household.findUnique({ where: { householdId } });
+    if (!householdExists) return { statusCode: 404, body: JSON.stringify({ message: "Household not found" }) };
 
-    if (!paymentSourceExists) {
-      console.log(`Error: Payment source ${sourceId} does not exist`);
-      return {
-        statusCode: 404,
-        body: JSON.stringify({ message: "Payment source not found" }),
-      };
-    }
+    const paymentSourceExists = await prisma.paymentSource.findUnique({ where: { sourceId } });
+    if (!paymentSourceExists) return { statusCode: 404, body: JSON.stringify({ message: "Payment source not found" }) };
 
-    const transactionExists = await prisma.transaction.findUnique({
-      where: { transactionId: transactionId },
-    });
-
-    if (!transactionExists) {
-      console.log(`Error: Transaction ${transactionId} does not exist`);
-      return {
-        statusCode: 404,
-        body: JSON.stringify({ message: "Transaction not found" }),
-      };
-    }
-
-    const imageFile = files.find((file) => file.fieldname === "image");
     let filePath = null;
+    let attachmentId = null;
+    if (image) {
+      const imageKey = `transaction-images/${uuidv4()}.jpg`;
+      await uploadToS3(BUCKET, imageKey, image);
 
-    if (imageFile) {
-      console.log("Image file details:", imageFile);
-      const fileStream = fs.createReadStream(imageFile.filepath);
-      const imageKey = `transaction-images/${uuidv4()}`;
-
-      console.log(`Uploading to S3: Bucket=${BUCKET}, Key=${imageKey}`);
-
-      await uploadToS3(BUCKET, imageKey, fileStream);
+      const existingAttachment = await prisma.attachment.findFirst({ where: { ledgerId: transactionExists.ledgerId } });
+      if (existingAttachment) {
+        await deleteFromS3(BUCKET, existingAttachment.filePath);
+        const updatedAttachment = await prisma.attachment.update({
+          where: { attachmentId: existingAttachment.attachmentId },
+          data: { filePath: imageKey, updatedAt: new Date() }
+        });
+        attachmentId = updatedAttachment.attachmentId;
+      } else {
+        const newAttachment = await prisma.attachment.create({
+          data: {
+            attachmentId: uuidv4(),
+            ledgerId: transactionExists.ledgerId,
+            fileType: "receipt",
+            filePath: imageKey,
+            uploadDate: new Date(),
+            createdAt: new Date(),
+            updatedAt: new Date()
+          }
+        });
+        attachmentId = newAttachment.attachmentId;
+      }
       filePath = imageKey;
     }
 
     const runningTotal = await getRunningTotal(householdId, sourceId);
 
-    // Update Ledger Table Entry
     const updatedLedger = await prisma.ledger.update({
       where: { ledgerId: transactionExists.ledgerId },
       data: {
+        householdId,
+        paymentSourceId: sourceId,
         amount: parseFloat(amount),
-        transactionType: transactionType,
+        transactionType,
         transactionDate: new Date(transactionDate),
-        category: category,
-        description: description,
+        category,
+        description,
         updatedAt: new Date(),
-        updatedBy: updatedBy,
+        updatedBy,
         runningTotal: transactionType.toLowerCase() === 'debit' ? runningTotal - parseFloat(amount) : runningTotal + parseFloat(amount),
-        attachments: imageFile
-          ? {
-              create: {
-                attachmentId: uuidv4(),
-                fileType: "receipt",
-                filePath: filePath,
-                uploadDate: new Date(),
-                createdAt: new Date(),
-                updatedAt: new Date(),
-              },
-            }
-          : undefined,
-        status: status === "true", // Ensure status is provided
-        tags: tags || null, // Add the tags field here
+        status: status === "true",
+        tags: tags || null,
       },
     });
 
-    // Update Transaction Table Entry
+    if (attachmentId) {
+      await prisma.attachment.update({
+        where: { attachmentId },
+        data: { ledgerId: updatedLedger.ledgerId }
+      });
+    }
+
     const updatedTransaction = await prisma.transaction.update({
-      where: { transactionId: transactionId },
+      where: { transactionId },
       data: {
+        ledgerId: updatedLedger.ledgerId,
+        sourceId,
         amount: parseFloat(amount),
         transactionDate: new Date(transactionDate),
-        description: description,
+        description,
         updatedAt: new Date(),
-        tags: tags || null, // Add the tags field here
       },
     });
-
-    // Invoke the secondary Lambda function to update running totals
-    const updateTotalsCommand = new InvokeCommand({
-      FunctionName: "updateRunningTotal",
-      Payload: JSON.stringify({ householdId: householdId, paymentSourceId: sourceId }),
-    });
-
-    await lambdaClient.send(updateTotalsCommand);
 
     await prisma.auditTrail.create({
       data: {
@@ -272,61 +152,26 @@ exports.handler = async (event) => {
         changeDate: new Date(),
         timestamp: new Date(),
         device: deviceDetails,
-        ipAddress: ipAddress,
+        ipAddress,
         deviceType: '',
         ssoEnabled: 'false',
       },
     });
 
-    console.log(`Success: Transaction updated in ledger and transaction table for household ${householdId}`);
-    return {
-      statusCode: 200,
-      body: JSON.stringify({
-        message: "Transaction updated successfully",
-        transaction: updatedTransaction,
-      }),
-    };
+    return { statusCode: 200, body: JSON.stringify({ message: "Transaction updated successfully", transaction: updatedTransaction }) };
   } catch (error) {
-    console.error(`Error handling request: ${error.message}`, {
-      errorDetails: error,
-    });
-
-    return {
-        statusCode: 500,
-        body: JSON.stringify({
-          message: "Error processing request",
-          error: error.message,
-        }),
-      };
+    return { statusCode: 500, body: JSON.stringify({ message: "Error processing request", error: error.message }) };
   } finally {
     await prisma.$disconnect();
-    result.files.forEach((file) => {
-      if (typeof file.filepath === "string") {
-        try {
-          fs.unlinkSync(file.filepath);
-        } catch (err) {
-          console.error(`Error deleting file [${file.filepath}]:`, err);
-        }
-      } else {
-        console.error(`Invalid filepath: ${file.filepath}`);
-      }
-    });
   }
 };
 
 async function getRunningTotal(householdId, paymentSourceId) {
   const transactions = await prisma.ledger.findMany({
-    where: {
-      householdId: householdId,
-      paymentSourceId: paymentSourceId,
-    },
+    where: { householdId, paymentSourceId },
   });
 
   return transactions.reduce((total, transaction) => {
-    if (transaction.transactionType.toLowerCase() === 'debit') {
-      return total - transaction.amount;
-    } else {
-      return total + transaction.amount;
-    }
+    return transaction.transactionType.toLowerCase() === 'debit' ? total - transaction.amount : total + transaction.amount;
   }, 0);
 }
