@@ -28,7 +28,7 @@ exports.handler = async (event) => {
     };
   }
 
-  const s3Bucket = process.env.S3_BUCKET_NAME;
+  const s3Bucket = process.env.BUCKET;
   const s3Key = `ledger-exports/${uuidv4()}.csv`;
 
   let username;
