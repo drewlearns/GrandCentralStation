@@ -60,16 +60,16 @@ exports.handler = async (event) => {
     const preference = await prisma.preferences.upsert({
       where: {
         householdId_preferenceType: {
-          householdId: householdId,
-          preferenceType: preferenceType
+          householdId,
+          preferenceType
         }
       },
-      update: { preferenceValue: preferenceValue },
+      update: { preferenceValue },
       create: {
         preferenceId: uuidv4(),
-        householdId: householdId,
-        preferenceType: preferenceType,
-        preferenceValue: preferenceValue,
+        householdId,
+        preferenceType,
+        preferenceValue,
         createdAt: new Date(),
         updatedAt: new Date()
       }
@@ -82,12 +82,12 @@ exports.handler = async (event) => {
         tableAffected: 'Preferences',
         actionType: 'Update',
         oldValue: '',
-        newValue: JSON.stringify({ preference: preference }),
+        newValue: JSON.stringify({ preference }),
         changedBy: username,
         changeDate: new Date(),
         timestamp: new Date(),
         device: deviceDetails,
-        ipAddress: ipAddress,
+        ipAddress,
         deviceType: '',
         ssoEnabled: 'false',
       },
@@ -95,7 +95,7 @@ exports.handler = async (event) => {
 
     return {
       statusCode: 200,
-      body: JSON.stringify({ preference: preference }),
+      body: JSON.stringify({ preference }),
     };
   } catch (error) {
     console.error('Error setting default payment source:', error);

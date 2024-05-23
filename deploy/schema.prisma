@@ -142,10 +142,12 @@ model Preferences {
   householdId     String
   preferenceType  String
   preferenceValue String
-  createdAt       DateTime
+  createdAt       DateTime @default(now())
   updatedAt       DateTime
 
   household Household @relation(fields: [householdId], references: [householdId])
+  @@unique([householdId, preferenceType])
+
 }
 
 model Invitations {
