@@ -1,12 +1,12 @@
 const { PrismaClient } = require("@prisma/client");
 const { LambdaClient, InvokeCommand } = require("@aws-sdk/client-lambda");
-const { v4: uuidv4 } = require('uuid'); // Import uuidv4
+const { v4: uuidv4 } = require('uuid');
 
 const prisma = new PrismaClient();
 const lambdaClient = new LambdaClient({ region: process.env.AWS_REGION });
 
 exports.handler = async (event) => {
-  const { authorizationToken, householdId, paymentSourceId, ipAddress, deviceDetails } = JSON.parse(event.body);
+  const { authorizationToken, householdId, paymentSourceId, ipAddress, deviceDetails, page = 1, limit = 10 } = JSON.parse(event.body);
 
   if (!authorizationToken) {
     return {
@@ -54,23 +54,24 @@ exports.handler = async (event) => {
   }
 
   try {
-    const transactions = await prisma.transaction.findMany({
+    const skip = (page - 1) * limit;
+    
+    const ledgerEntries = await prisma.ledger.findMany({
       where: {
-        sourceId: paymentSourceId,
-        ledger: {
-          householdId: householdId
-        }
+        paymentSourceId: paymentSourceId,
+        householdId: householdId
       },
-      include: {
-        ledger: true,
-        source: true
-      }
+      orderBy: {
+        transactionDate: 'asc'
+      },
+      skip: skip,
+      take: limit
     });
 
-    if (transactions.length === 0) {
+    if (ledgerEntries.length === 0) {
       return {
         statusCode: 404,
-        body: JSON.stringify({ message: "No transactions found for the specified payment source" }),
+        body: JSON.stringify({ message: "No ledger entries found for the specified payment source" }),
       };
     }
 
@@ -78,10 +79,10 @@ exports.handler = async (event) => {
     await prisma.auditTrail.create({
       data: {
         auditId: uuidv4(),
-        tableAffected: 'Transaction',
+        tableAffected: 'Ledger',
         actionType: 'Read',
         oldValue: '',
-        newValue: JSON.stringify({ transactions: transactions }),
+        newValue: JSON.stringify({ ledgerEntries: ledgerEntries }),
         changedBy: username,
         changeDate: new Date(),
         timestamp: new Date(),
@@ -94,13 +95,13 @@ exports.handler = async (event) => {
 
     return {
       statusCode: 200,
-      body: JSON.stringify({ transactions: transactions }),
+      body: JSON.stringify({ ledgerEntries: ledgerEntries }),
     };
   } catch (error) {
-    console.error('Error retrieving transactions:', error);
+    console.error('Error retrieving ledger entries:', error);
     return {
       statusCode: 500,
-      body: JSON.stringify({ message: "Error retrieving transactions", error: error.message }),
+      body: JSON.stringify({ message: "Error retrieving ledger entries", error: error.message }),
     };
   } finally {
     await prisma.$disconnect();
