@@ -1,12 +1,11 @@
 const { PrismaClient } = require("@prisma/client");
 const { LambdaClient, InvokeCommand } = require("@aws-sdk/client-lambda");
-const { v4: uuidv4 } = require("uuid");
 
 const prisma = new PrismaClient();
 const lambdaClient = new LambdaClient({ region: process.env.AWS_REGION });
 
 exports.handler = async (event) => {
-  const { authorizationToken, householdId, ipAddress, deviceDetails } = JSON.parse(event.body);
+  const { authorizationToken, householdId } = JSON.parse(event.body);
 
   if (!authorizationToken) {
     return {
@@ -63,37 +62,19 @@ exports.handler = async (event) => {
     if (!preference) {
       return {
         statusCode: 404,
-        body: JSON.stringify({ message: "Preference not found" }),
+        body: JSON.stringify({ message: "Currency preference not found" }),
       };
     }
-
-    // Log to audit trail
-    await prisma.auditTrail.create({
-      data: {
-        auditId: uuidv4(),
-        tableAffected: 'Preferences',
-        actionType: 'Read',
-        oldValue: '',
-        newValue: JSON.stringify({ preference: preference }),
-        changedBy: username,
-        changeDate: new Date(),
-        timestamp: new Date(),
-        device: deviceDetails,
-        ipAddress: ipAddress,
-        deviceType: '',
-        ssoEnabled: 'false',
-      },
-    });
 
     return {
       statusCode: 200,
       body: JSON.stringify({ preference: preference }),
     };
   } catch (error) {
-    console.error('Error retrieving preference:', error);
+    console.error('Error fetching currency preference:', error);
     return {
       statusCode: 500,
-      body: JSON.stringify({ message: "Error retrieving preference", error: error.message }),
+      body: JSON.stringify({ message: "Error fetching currency preference", error: error.message }),
     };
   } finally {
     await prisma.$disconnect();

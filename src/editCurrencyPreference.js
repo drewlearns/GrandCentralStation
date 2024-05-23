@@ -1,12 +1,12 @@
 const { PrismaClient } = require("@prisma/client");
 const { LambdaClient, InvokeCommand } = require("@aws-sdk/client-lambda");
-const { v4: uuidv4 } = require("uuid");
+const { v4: uuidv4 } = require('uuid');
 
 const prisma = new PrismaClient();
 const lambdaClient = new LambdaClient({ region: process.env.AWS_REGION });
 
 exports.handler = async (event) => {
-  const { authorizationToken, householdId, newCurrencySymbol, ipAddress, deviceDetails } = JSON.parse(event.body);
+  const { authorizationToken, householdId, currencySymbol, ipAddress, deviceDetails } = JSON.parse(event.body);
 
   if (!authorizationToken) {
     return {
@@ -42,34 +42,16 @@ exports.handler = async (event) => {
   }
 
   try {
-    if (!householdId || !newCurrencySymbol) {
+    if (!householdId || !currencySymbol) {
       return {
         statusCode: 400,
-        body: JSON.stringify({ message: "Missing householdId or newCurrencySymbol parameter" }),
+        body: JSON.stringify({ message: "Missing householdId or currencySymbol parameter" }),
       };
     }
 
     const preferenceType = 'preferredCurrencySymbol';
 
-    // Fetch the existing preference
-    const existingPreference = await prisma.preferences.findUnique({
-      where: {
-        householdId_preferenceType: {
-          householdId: householdId,
-          preferenceType: preferenceType
-        }
-      }
-    });
-
-    if (!existingPreference) {
-      return {
-        statusCode: 404,
-        body: JSON.stringify({ message: "Currency preference not found" }),
-      };
-    }
-
-    // Update the preference
-    const updatedPreference = await prisma.preferences.update({
+    const preference = await prisma.preferences.update({
       where: {
         householdId_preferenceType: {
           householdId: householdId,
@@ -77,7 +59,7 @@ exports.handler = async (event) => {
         }
       },
       data: {
-        preferenceValue: newCurrencySymbol,
+        preferenceValue: currencySymbol,
         updatedAt: new Date()
       }
     });
@@ -88,8 +70,8 @@ exports.handler = async (event) => {
         auditId: uuidv4(),
         tableAffected: 'Preferences',
         actionType: 'Update',
-        oldValue: JSON.stringify({ preference: existingPreference }),
-        newValue: JSON.stringify({ preference: updatedPreference }),
+        oldValue: '',
+        newValue: JSON.stringify({ preference: preference }),
         changedBy: username,
         changeDate: new Date(),
         timestamp: new Date(),
@@ -102,13 +84,13 @@ exports.handler = async (event) => {
 
     return {
       statusCode: 200,
-      body: JSON.stringify({ preference: updatedPreference }),
+      body: JSON.stringify({ preference: preference }),
     };
   } catch (error) {
-    console.error('Error editing currency preference:', error);
+    console.error('Error updating currency preference:', error);
     return {
       statusCode: 500,
-      body: JSON.stringify({ message: "Error editing currency preference", error: error.message }),
+      body: JSON.stringify({ message: "Error updating currency preference", error: error.message }),
     };
   } finally {
     await prisma.$disconnect();
