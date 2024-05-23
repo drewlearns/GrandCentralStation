@@ -72,7 +72,6 @@ exports.handler = async (event) => {
     if (!paymentSourceExists) return { statusCode: 404, body: JSON.stringify({ message: "Payment source not found" }) };
 
     let filePath = null;
-    let attachmentId = null;
     if (image) {
       const imageKey = `transaction-images/${uuidv4()}.jpg`;
       await uploadToS3(BUCKET, imageKey, image);
@@ -80,13 +79,12 @@ exports.handler = async (event) => {
       const existingAttachment = await prisma.attachment.findFirst({ where: { ledgerId: transactionExists.ledgerId } });
       if (existingAttachment) {
         await deleteFromS3(BUCKET, existingAttachment.filePath);
-        const updatedAttachment = await prisma.attachment.update({
+        await prisma.attachment.update({
           where: { attachmentId: existingAttachment.attachmentId },
           data: { filePath: imageKey, updatedAt: new Date() }
         });
-        attachmentId = updatedAttachment.attachmentId;
       } else {
-        const newAttachment = await prisma.attachment.create({
+        await prisma.attachment.create({
           data: {
             attachmentId: uuidv4(),
             ledgerId: transactionExists.ledgerId,
@@ -97,7 +95,6 @@ exports.handler = async (event) => {
             updatedAt: new Date()
           }
         });
-        attachmentId = newAttachment.attachmentId;
       }
       filePath = imageKey;
     }
@@ -122,13 +119,6 @@ exports.handler = async (event) => {
       },
     });
 
-    if (attachmentId) {
-      await prisma.attachment.update({
-        where: { attachmentId },
-        data: { ledgerId: updatedLedger.ledgerId }
-      });
-    }
-
     const updatedTransaction = await prisma.transaction.update({
       where: { transactionId },
       data: {
@@ -140,6 +130,30 @@ exports.handler = async (event) => {
         updatedAt: new Date(),
       },
     });
+
+    if (filePath) {
+      await prisma.attachment.upsert({
+        where: {
+          ledgerId_fileType: {
+            ledgerId: updatedLedger.ledgerId,
+            fileType: "receipt"
+          }
+        },
+        update: {
+          filePath: filePath,
+          updatedAt: new Date()
+        },
+        create: {
+          attachmentId: uuidv4(),
+          ledgerId: updatedLedger.ledgerId,
+          fileType: "receipt",
+          filePath: filePath,
+          uploadDate: new Date(),
+          createdAt: new Date(),
+          updatedAt: new Date()
+        }
+      });
+    }
 
     await prisma.auditTrail.create({
       data: {
