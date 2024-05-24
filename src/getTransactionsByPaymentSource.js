@@ -55,7 +55,7 @@ exports.handler = async (event) => {
 
   try {
     const skip = (page - 1) * limit;
-    
+
     const ledgerEntries = await prisma.ledger.findMany({
       where: {
         paymentSourceId: paymentSourceId,

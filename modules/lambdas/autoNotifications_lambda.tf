@@ -7,7 +7,7 @@ resource "aws_lambda_function" "auto_notifications" {
   runtime       = "nodejs20.x"
   environment {
     variables = {
-      TPPB_DOMAIN = var.domain_name
+      TPPB_DOMAIN  = var.domain_name
       DATABASE_URL = var.database_url
     }
   }

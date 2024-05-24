@@ -99,41 +99,41 @@ This endpoint allows you to add a new bill to the system. The request should be 
 ### Request Body
 
 - `authorizationToken` (string): The authorization token for the request.
-    
+
 - `householdId` (string): The ID of the household to which the bill belongs.
-    
+
 - `category` (string): The category of the bill.
-    
+
 - `billName` (string): The name of the bill.
-    
+
 - `amount` (string): The amount of the bill.
-    
+
 - `dayOfMonth` (string): The day of the month on which the bill is due.
-    
+
 - `frequency` (string): The frequency of the bill (e.g., monthly, yearly).
-    
+
 - `isDebt` (boolean): Indicates whether the bill is a debt or not.
-    
+
 - `interestRate` (null): The interest rate for the bill, if applicable.
-    
+
 - `cashBack` (null): The cashback amount, if applicable.
-    
+
 - `description` (string): Description of the bill.
-    
+
 - `status` (string): The status of the bill.
-    
+
 - `url` (string): The URL related to the bill.
-    
+
 - `username` (string): The username for the bill, if applicable.
-    
+
 - `password` (string): The password for the bill, if applicable.
-    
+
 - `ipAddress` (string): The IP address related to the bill.
-    
+
 - `deviceDetails` (string): Details of the device related to the bill.
-    
+
 - `paymentSourceId` (string): The ID of the payment source for the bill.
-    
+
 
 ### Response
 
@@ -159,7 +159,7 @@ URL: api.dev.thepurplepiggybank.com/addBill
 
 ***Body:***
 
-```js        
+```js
 {
     "authorizationToken": "eyJraWQiOiJrZ1FJcEZkYUlVRUhETGQ4NmIyYkh0a1lvbitKOVRsbkdzSUZoaElld0VzPSIsImFsZyI6IlJTMjU2In0.eyJzdWIiOiI1NDA4NDQxOC1kMDkxLTcwZmEtMzYzMC0yNzM4YTIwYzA0ZjkiLCJpc3MiOiJodHRwczpcL1wvY29nbml0by1pZHAudXMtZWFzdC0xLmFtYXpvbmF3cy5jb21cL3VzLWVhc3QtMV84UVA2MkdoQ0EiLCJjbGllbnRfaWQiOiJoNm81ZmhqNDAycXZnbG50MDE1MTdzaHAxIiwib3JpZ2luX2p0aSI6ImJlNWQxN2NhLTZkODctNDZjOC1hMjZmLWJkMDI1NDMxNzlhOCIsImV2ZW50X2lkIjoiNWIyMTU3ZjYtYTExMi00ZjI4LTk1MDgtN2JmODllNTAwYzYzIiwidG9rZW5fdXNlIjoiYWNjZXNzIiwic2NvcGUiOiJhd3MuY29nbml0by5zaWduaW4udXNlci5hZG1pbiIsImF1dGhfdGltZSI6MTcxNjQwNDE1OCwiZXhwIjoxNzE2NDA3NzU4LCJpYXQiOjE3MTY0MDQxNTgsImp0aSI6IjIzZWVkMWY3LThjNTktNGE1Ny1iY2VhLTY4M2ZkZWY1OWYxNSIsInVzZXJuYW1lIjoidGVzdCJ9.H0FVxhy14Le1Cdw4HtfBkXzk0AHq_rM2hNoeXvLAkb9fk4ommoHOKoDtEjTnzz3sl9TRY3d7VcA2dA0ygvN-BL5GpK8V0pVXn4DdNQGlR6OHVYz95vwO19j_Sm2lkRj7ihUAek3h145EA3AHj6EIoil01wQOVsDYTol2Xh4nkq9J73iqdu3DBadJq4kkGVv3hPYp8-2qGM96GWMgl3hojJy3Lx9dGqaqIB-78APg3rHQ2rD6G5NOQQXTwMtC5zc0t5J_N8EbASTT9s95wS1Hv_gGSgo4aFx6lm2TNsj7hb8xCAg19-5Hz3wUNcNIgBYHYclUdDi-t9c5SdNrJR2pYQ",
     "householdId": "f109960f-b082-44d7-bd86-0a85f3fe24a0",
@@ -194,13 +194,13 @@ The `deleteBill` endpoint is a POST request that is used to delete a bill from T
 #### Request Body
 
 - `authorizationToken` (string): The authorization token for the request.
-    
+
 - `billId` (string): The ID of the bill to be deleted.
-    
+
 - `ipAddress` (string): The IP address of the device making the request.
-    
+
 - `deviceDetails` (string): Details of the device making the request.
-    
+
 
 #### Response
 
@@ -241,7 +241,7 @@ URL: api.dev.thepurplepiggybank.com/deleteBill
 
 ***Body:***
 
-```js        
+```js
 {
     "authorizationToken": "eyJraWQiOiJrZ1FJcEZkYUlVRUhETGQ4NmIyYkh0a1lvbitKOVRsbkdzSUZoaElld0VzPSIsImFsZyI6IlJTMjU2In0.eyJzdWIiOiI1NDQ4YjQ5OC1lMGYxLTcwNjUtNjBhMC1iNGIyZGQzMTdkODEiLCJpc3MiOiJodHRwczpcL1wvY29nbml0by1pZHAudXMtZWFzdC0xLmFtYXpvbmF3cy5jb21cL3VzLWVhc3QtMV84UVA2MkdoQ0EiLCJjbGllbnRfaWQiOiJoNm81ZmhqNDAycXZnbG50MDE1MTdzaHAxIiwib3JpZ2luX2p0aSI6ImFkMWM2NjBmLTJjMTMtNDI3Yi05OTBkLWYyOTQ4ODFhYjU0ZiIsImV2ZW50X2lkIjoiMDA1NmUxYzUtYTBkYS00ZTU4LWIwMzgtM2NhNGJkN2RlNWU3IiwidG9rZW5fdXNlIjoiYWNjZXNzIiwic2NvcGUiOiJhd3MuY29nbml0by5zaWduaW4udXNlci5hZG1pbiIsImF1dGhfdGltZSI6MTcxNjE1MzE3NywiZXhwIjoxNzE2MTU2Nzc3LCJpYXQiOjE3MTYxNTMxNzcsImp0aSI6IjJjODExOTEwLTQ1ZTktNGQ2Zi04NTQ4LTMyOTEyZTg2ZTg1MyIsInVzZXJuYW1lIjoidGVzdCJ9.ojK-PmmolribnK32xgJ1yNCCcTTq97sw9Lnqnt_hLWu1X80Tkgr58UUU0w3OnZCTXedRyIpmDZrS8E74bjCRWzFkP1fEsY0TdfD4fT3RxI4XXNdV3FZlPn3qT4EiENjuondzDO4PkxoDK717GzAgVza95aBJnyQHDl35EM11yKqlHRr0TiVJ9QrsrF5h-zxwXu7HTr3laDZ3QQ-mEcPrXsSJp5aJGG7kMWKwGKbyZKB5IqWuBbZRzeY84YQ3YtI8JECuLeZZ6u6nmtJZBOHvX3ac4yKupRXdvoH2Ryyin9TzOMkORBzeOIKa40AnTe0w8vAaTnWy5R4Edfbqy1SpHQ",
     "billId": "367e3486-8429-47d1-b3dd-631a22350b66",
@@ -281,7 +281,7 @@ URL: api.dev.thepurplepiggybank.com/editBill
 
 ***Body:***
 
-```js        
+```js
 {
     "authorizationToken": "eyJraWQiOiJrZ1FJcEZkYUlVRUhETGQ4NmIyYkh0a1lvbitKOVRsbkdzSUZoaElld0VzPSIsImFsZyI6IlJTMjU2In0.eyJzdWIiOiI1NDA4NDQxOC1kMDkxLTcwZmEtMzYzMC0yNzM4YTIwYzA0ZjkiLCJpc3MiOiJodHRwczpcL1wvY29nbml0by1pZHAudXMtZWFzdC0xLmFtYXpvbmF3cy5jb21cL3VzLWVhc3QtMV84UVA2MkdoQ0EiLCJjbGllbnRfaWQiOiJoNm81ZmhqNDAycXZnbG50MDE1MTdzaHAxIiwib3JpZ2luX2p0aSI6IjNhNDNmZDcwLWUwNGItNDgxZS1iZjhjLWFjYmYyMzUwMDdmZiIsImV2ZW50X2lkIjoiYTRmNGUxMGItNWYwZS00NzYzLThmM2YtMTM0YzVhNzU3YzJmIiwidG9rZW5fdXNlIjoiYWNjZXNzIiwic2NvcGUiOiJhd3MuY29nbml0by5zaWduaW4udXNlci5hZG1pbiIsImF1dGhfdGltZSI6MTcxNjQwODA1OSwiZXhwIjoxNzE2NDExNjU5LCJpYXQiOjE3MTY0MDgwNTksImp0aSI6ImVjNDg1YTQ5LTZjMGItNGQ3OS04YWZkLTkzYjhmMWM5ZWUzYiIsInVzZXJuYW1lIjoidGVzdCJ9.MMwur4DlEBJK1-CjLLirb-uc1-W1_SklGmEf3C22Q5XL4w8VfRZ122xIZfMCTHIkzbeFZ9UMX7SzV1wSQev8VoaAaoe0tTGMWqPp3AUUs1oaAulH9-ZC9UJ-8ap_mC_Ny1gohZYd5JkOqu-VMY8VKHIikbhIiZSJ54UMh3pbKOveLJZJGIUYMfscvFWu4BA0HQJhw3GalbhXrA3U7Zx4I7UvniqNTA3f7kfG-ECCkZLTacP1q4VXcXmKmPQCfQ8R3JUa_ALZ5mpHswiBkif4Sp8i_1o8jHlPQYB7zCUQlmHMEf--qUr0clieFahKmrpkFfMR_TAq_5g1b01l0gQRgQ",
     "billId": "8af9dad4-dbf2-4ad4-90f6-ae702dddb445",
@@ -350,7 +350,7 @@ URL: api.dev.thepurplepiggybank.com/getBillPassword
 
 ***Body:***
 
-```js        
+```js
 {
     "authorizationToken": "eyJraWQiOiJrZ1FJcEZkYUlVRUhETGQ4NmIyYkh0a1lvbitKOVRsbkdzSUZoaElld0VzPSIsImFsZyI6IlJTMjU2In0.eyJzdWIiOiI1NDA4NDQxOC1kMDkxLTcwZmEtMzYzMC0yNzM4YTIwYzA0ZjkiLCJpc3MiOiJodHRwczpcL1wvY29nbml0by1pZHAudXMtZWFzdC0xLmFtYXpvbmF3cy5jb21cL3VzLWVhc3QtMV84UVA2MkdoQ0EiLCJjbGllbnRfaWQiOiJoNm81ZmhqNDAycXZnbG50MDE1MTdzaHAxIiwib3JpZ2luX2p0aSI6ImJlNWQxN2NhLTZkODctNDZjOC1hMjZmLWJkMDI1NDMxNzlhOCIsImV2ZW50X2lkIjoiNWIyMTU3ZjYtYTExMi00ZjI4LTk1MDgtN2JmODllNTAwYzYzIiwidG9rZW5fdXNlIjoiYWNjZXNzIiwic2NvcGUiOiJhd3MuY29nbml0by5zaWduaW4udXNlci5hZG1pbiIsImF1dGhfdGltZSI6MTcxNjQwNDE1OCwiZXhwIjoxNzE2NDA3NzU4LCJpYXQiOjE3MTY0MDQxNTgsImp0aSI6IjIzZWVkMWY3LThjNTktNGE1Ny1iY2VhLTY4M2ZkZWY1OWYxNSIsInVzZXJuYW1lIjoidGVzdCJ9.H0FVxhy14Le1Cdw4HtfBkXzk0AHq_rM2hNoeXvLAkb9fk4ommoHOKoDtEjTnzz3sl9TRY3d7VcA2dA0ygvN-BL5GpK8V0pVXn4DdNQGlR6OHVYz95vwO19j_Sm2lkRj7ihUAek3h145EA3AHj6EIoil01wQOVsDYTol2Xh4nkq9J73iqdu3DBadJq4kkGVv3hPYp8-2qGM96GWMgl3hojJy3Lx9dGqaqIB-78APg3rHQ2rD6G5NOQQXTwMtC5zc0t5J_N8EbASTT9s95wS1Hv_gGSgo4aFx6lm2TNsj7hb8xCAg19-5Hz3wUNcNIgBYHYclUdDi-t9c5SdNrJR2pYQ",
     "billId": "4a541bfe-b87b-44c7-9291-0817502e9726",
@@ -426,7 +426,7 @@ URL: api.dev.thepurplepiggybank.com/getBills
 
 ***Body:***
 
-```js        
+```js
 {
     "authorizationToken": "eyJraWQiOiJrZ1FJcEZkYUlVRUhETGQ4NmIyYkh0a1lvbitKOVRsbkdzSUZoaElld0VzPSIsImFsZyI6IlJTMjU2In0.eyJzdWIiOiI1NDA4NDQxOC1kMDkxLTcwZmEtMzYzMC0yNzM4YTIwYzA0ZjkiLCJpc3MiOiJodHRwczpcL1wvY29nbml0by1pZHAudXMtZWFzdC0xLmFtYXpvbmF3cy5jb21cL3VzLWVhc3QtMV84UVA2MkdoQ0EiLCJjbGllbnRfaWQiOiJoNm81ZmhqNDAycXZnbG50MDE1MTdzaHAxIiwib3JpZ2luX2p0aSI6IjNhNDNmZDcwLWUwNGItNDgxZS1iZjhjLWFjYmYyMzUwMDdmZiIsImV2ZW50X2lkIjoiYTRmNGUxMGItNWYwZS00NzYzLThmM2YtMTM0YzVhNzU3YzJmIiwidG9rZW5fdXNlIjoiYWNjZXNzIiwic2NvcGUiOiJhd3MuY29nbml0by5zaWduaW4udXNlci5hZG1pbiIsImF1dGhfdGltZSI6MTcxNjQwODA1OSwiZXhwIjoxNzE2NDExNjU5LCJpYXQiOjE3MTY0MDgwNTksImp0aSI6ImVjNDg1YTQ5LTZjMGItNGQ3OS04YWZkLTkzYjhmMWM5ZWUzYiIsInVzZXJuYW1lIjoidGVzdCJ9.MMwur4DlEBJK1-CjLLirb-uc1-W1_SklGmEf3C22Q5XL4w8VfRZ122xIZfMCTHIkzbeFZ9UMX7SzV1wSQev8VoaAaoe0tTGMWqPp3AUUs1oaAulH9-ZC9UJ-8ap_mC_Ny1gohZYd5JkOqu-VMY8VKHIikbhIiZSJ54UMh3pbKOveLJZJGIUYMfscvFWu4BA0HQJhw3GalbhXrA3U7Zx4I7UvniqNTA3f7kfG-ECCkZLTacP1q4VXcXmKmPQCfQ8R3JUa_ALZ5mpHswiBkif4Sp8i_1o8jHlPQYB7zCUQlmHMEf--qUr0clieFahKmrpkFfMR_TAq_5g1b01l0gQRgQ",
     "householdId": "f109960f-b082-44d7-bd86-0a85f3fe24a0",
@@ -447,9 +447,9 @@ This endpoint is used to retrieve the file path by providing the authorization t
 #### Request Body
 
 - `authorizationToken` (string, required): The authorization token for authentication.
-    
+
 - `transactionId` (string, required): The ID of the transaction.
-    
+
 
 #### Response
 
@@ -475,7 +475,7 @@ URL: api.dev.thepurplepiggybank.com/getFilePath
 
 ***Body:***
 
-```js        
+```js
 {
     "authorizationToken": "eyJraWQiOiJrZ1FJcEZkYUlVRUhETGQ4NmIyYkh0a1lvbitKOVRsbkdzSUZoaElld0VzPSIsImFsZyI6IlJTMjU2In0.eyJzdWIiOiI1NDQ4YjQ5OC1lMGYxLTcwNjUtNjBhMC1iNGIyZGQzMTdkODEiLCJpc3MiOiJodHRwczpcL1wvY29nbml0by1pZHAudXMtZWFzdC0xLmFtYXpvbmF3cy5jb21cL3VzLWVhc3QtMV84UVA2MkdoQ0EiLCJjbGllbnRfaWQiOiJoNm81ZmhqNDAycXZnbG50MDE1MTdzaHAxIiwib3JpZ2luX2p0aSI6IjI3ZWYxNTgzLTgzYmItNDg1NS1iN2ZiLWNiMGVhZjIyYWM1YSIsImV2ZW50X2lkIjoiNDFkNjQ3YzctZjRiYy00ZThhLTkwMmEtMjRhYWM0Y2I2MmM5IiwidG9rZW5fdXNlIjoiYWNjZXNzIiwic2NvcGUiOiJhd3MuY29nbml0by5zaWduaW4udXNlci5hZG1pbiIsImF1dGhfdGltZSI6MTcxNjE0MTcxNCwiZXhwIjoxNzE2MTQ1MzE0LCJpYXQiOjE3MTYxNDE3MTQsImp0aSI6IjQxYWY0Y2NiLWM2ODQtNDdhYS1iZWYyLWI2NTI2OWEwOTVkZSIsInVzZXJuYW1lIjoidGVzdCJ9.sW-zQyqT_J1wYS70IlFryFF3xhNx3Ik1K7DnV6QNfGa4GXGx6TTG7YX-vm4TrHgGftL6fFgk0JySuFUZ3wnHrjj8oN2YM9DC5qxwI46lhWfJWAE-w5PJmcxjL107FpaOEpTz3xj1tga_bpmMtxY5qt3-PyDZEjYKCh6A1jlGMDDPUGJkY3CR7Oet5E6Ho37OS-I9Nh8cYQ4CSzY4Bb6O38D1kegHPXK3WR_KCHGGFmo2b3A9K2zw15-HhF4Ea_QkpNmNeY8SY8b7CzYpxoz8d0xYghCvo3qVgrIHFAIhievOFfP8CvmpgLub3pw_YZkEq4iL8TouZe2PP8Wk5xXz5Q",
       "transactionId": "example-transaction-id"
@@ -527,7 +527,7 @@ URL: api.dev.thepurplepiggybank.com/acceptInvite
 
 ***Body:***
 
-```js        
+```js
 {
     "invitationId": "81edd8aa-996f-4063-9b44-2a6e06d66035",
     "ipAddress": "192.168.1.1",
@@ -559,7 +559,7 @@ The `addHousehold` endpoint is used to add a new household.
 - `account` (string, required): The account information.
 - `ipAddress` (string, required): The IP address of the device.
 - `deviceDetails` (string, required): Details of the device.
-    
+
 
 #### Response (JSON Schema)
 
@@ -600,7 +600,7 @@ URL: api.dev.thepurplepiggybank.com/addHousehold
 
 ***Body:***
 
-```js        
+```js
 {
     "householdName": "karriker",
     "authorizationToken": "eyJraWQiOiJrZ1FJcEZkYUlVRUhETGQ4NmIyYkh0a1lvbitKOVRsbkdzSUZoaElld0VzPSIsImFsZyI6IlJTMjU2In0.eyJzdWIiOiI1NDA4NDQxOC1kMDkxLTcwZmEtMzYzMC0yNzM4YTIwYzA0ZjkiLCJpc3MiOiJodHRwczpcL1wvY29nbml0by1pZHAudXMtZWFzdC0xLmFtYXpvbmF3cy5jb21cL3VzLWVhc3QtMV84UVA2MkdoQ0EiLCJjbGllbnRfaWQiOiJoNm81ZmhqNDAycXZnbG50MDE1MTdzaHAxIiwib3JpZ2luX2p0aSI6ImJlNWQxN2NhLTZkODctNDZjOC1hMjZmLWJkMDI1NDMxNzlhOCIsImV2ZW50X2lkIjoiNWIyMTU3ZjYtYTExMi00ZjI4LTk1MDgtN2JmODllNTAwYzYzIiwidG9rZW5fdXNlIjoiYWNjZXNzIiwic2NvcGUiOiJhd3MuY29nbml0by5zaWduaW4udXNlci5hZG1pbiIsImF1dGhfdGltZSI6MTcxNjQwNDE1OCwiZXhwIjoxNzE2NDA3NzU4LCJpYXQiOjE3MTY0MDQxNTgsImp0aSI6IjIzZWVkMWY3LThjNTktNGE1Ny1iY2VhLTY4M2ZkZWY1OWYxNSIsInVzZXJuYW1lIjoidGVzdCJ9.H0FVxhy14Le1Cdw4HtfBkXzk0AHq_rM2hNoeXvLAkb9fk4ommoHOKoDtEjTnzz3sl9TRY3d7VcA2dA0ygvN-BL5GpK8V0pVXn4DdNQGlR6OHVYz95vwO19j_Sm2lkRj7ihUAek3h145EA3AHj6EIoil01wQOVsDYTol2Xh4nkq9J73iqdu3DBadJq4kkGVv3hPYp8-2qGM96GWMgl3hojJy3Lx9dGqaqIB-78APg3rHQ2rD6G5NOQQXTwMtC5zc0t5J_N8EbASTT9s95wS1Hv_gGSgo4aFx6lm2TNsj7hb8xCAg19-5Hz3wUNcNIgBYHYclUdDi-t9c5SdNrJR2pYQ",
@@ -652,7 +652,7 @@ URL: api.dev.thepurplepiggybank.com/addInvite
 
 ***Body:***
 
-```js        
+```js
 {
     "householdId": "household-uuid-123",
     "invitedUserEmail": "inviteduser@example.com",
@@ -711,7 +711,7 @@ URL: api.dev.thepurplepiggybank.com/deleteHousehold
 
 ***Body:***
 
-```js        
+```js
 {
     "householdId": "5849cc41-7e74-42df-a2da-5689ca44cde3",
     "authorizationToken": "eyJraWQiOiJrZ1FJcEZkYUlVRUhETGQ4NmIyYkh0a1lvbitKOVRsbkdzSUZoaElld0VzPSIsImFsZyI6IlJTMjU2In0.eyJzdWIiOiJmNDc4ZjQwOC0wMDYxLTcwYjctMDkyNC1kODI1ZmU4YWEwYTUiLCJpc3MiOiJodHRwczpcL1wvY29nbml0by1pZHAudXMtZWFzdC0xLmFtYXpvbmF3cy5jb21cL3VzLWVhc3QtMV84UVA2MkdoQ0EiLCJjbGllbnRfaWQiOiJoNm81ZmhqNDAycXZnbG50MDE1MTdzaHAxIiwib3JpZ2luX2p0aSI6ImZmNTNiOGRlLTljZmQtNDdkYi1iNjEzLTkyMTIzNzc0M2IzOSIsImV2ZW50X2lkIjoiNzc3NjZmYzUtOGUwNC00NjVlLWE5ZTYtNzc4ODZlNGUxOTZlIiwidG9rZW5fdXNlIjoiYWNjZXNzIiwic2NvcGUiOiJhd3MuY29nbml0by5zaWduaW4udXNlci5hZG1pbiIsImF1dGhfdGltZSI6MTcxNjMzMjk4NiwiZXhwIjoxNzE2MzM2NTg2LCJpYXQiOjE3MTYzMzI5ODYsImp0aSI6Ijg5ZTk0OTA4LTkyMjItNGQ1NC1hNzMzLTk0OGQ4ZGM0ZjU1ZCIsInVzZXJuYW1lIjoidGVzdCJ9.TsiH7r9PKHJS9lkS83nKJrKYBkTkbWYiFHphb-kyqsN3NXzcO0gd0vhMLDCW4TXicL7G8Yod5Vsvy4q8DixvE_nElHLNI81qW0g2dqryydjzoY-HoCW2a0wW0trAGOoXv98NpjqWsKiDzU8D_ieGILqPXAl4sNngs_xyxwr0a74tnWChbMBiRH06OeHoWhD183rZIVZC0nYkCRphl2rYL7YmaYCzyvM9Gush0l-z6cO472ntEsYhudTW7T-ANQ8S6V4d0G6L4by8ccCtmSmzNn13osxJUEE4vjiNnIVt6DlGB6grm9bRQrusdztxRYZcvriaB1B73lJD4YXnbFrbPQ",
@@ -756,7 +756,7 @@ URL: api.dev.thepurplepiggybank.com/deleteMemberFromHousehold
 
 ***Body:***
 
-```js        
+```js
 {
     "authorizationToken": "your-jwt-token-here",
     "householdId": "household-id-here",
@@ -779,7 +779,7 @@ The `editHousehold` endpoint is used to edit the details of a household.
 #### Request
 - Method: POST
 - URL: `api.dev.thepurplepiggybank.com/editHousehold`
-- Headers: 
+- Headers:
   - Content-Type: application/json
 
 ##### Request Body Parameters
@@ -845,7 +845,7 @@ URL: api.dev.thepurplepiggybank.com/editHousehold
 
 ***Body:***
 
-```js        
+```js
 {
     "householdId": "5849cc41-7e74-42df-a2da-5689ca44cde3",
     "householdName": "Doe Family2",
@@ -914,7 +914,7 @@ URL: api.dev.thepurplepiggybank.com/getHousehold
 
 ***Body:***
 
-```js        
+```js
 {
     "authorizationToken": "eyJraWQiOiJrZ1FJcEZkYUlVRUhETGQ4NmIyYkh0a1lvbitKOVRsbkdzSUZoaElld0VzPSIsImFsZyI6IlJTMjU2In0.eyJzdWIiOiJmNDc4ZjQwOC0wMDYxLTcwYjctMDkyNC1kODI1ZmU4YWEwYTUiLCJpc3MiOiJodHRwczpcL1wvY29nbml0by1pZHAudXMtZWFzdC0xLmFtYXpvbmF3cy5jb21cL3VzLWVhc3QtMV84UVA2MkdoQ0EiLCJjbGllbnRfaWQiOiJoNm81ZmhqNDAycXZnbG50MDE1MTdzaHAxIiwib3JpZ2luX2p0aSI6ImI5ZWZmNThmLTdjYzctNGU3Ni05YzM2LTRiYjhhOTU4MWQzMSIsImV2ZW50X2lkIjoiMWQ4YWVkYmItN2E1Mi00NTk2LThlNzYtNjJhZGQ4NDZlOGUwIiwidG9rZW5fdXNlIjoiYWNjZXNzIiwic2NvcGUiOiJhd3MuY29nbml0by5zaWduaW4udXNlci5hZG1pbiIsImF1dGhfdGltZSI6MTcxNjM5OTM0NiwiZXhwIjoxNzE2NDAyOTQ2LCJpYXQiOjE3MTYzOTkzNDYsImp0aSI6IjgxN2JhOGUyLTA1YWMtNDBjNC05ZjgzLWMzOTI4NzhlM2YwYyIsInVzZXJuYW1lIjoidGVzdCJ9.bwBWuimjI24EGwHD1EA8ZP3vC25DwwyU8velugd-AdF71lY_bTcgBvNtgnEVjrbEoz5Ji-yddsC_qy2gJaOmzbntNEYVAm4rvdglJGg2KYMVy6_0iKU-EWQ6N4m2wKE3QHtmfmXYD-B4S7378KAcOkiLgkwt0Dvmcmmxa0gQdvEe9df451LR7yGRBcW1k-L_OTXmD4oLSZR_xnGc5lJuD2DPtR_VvjQToTNjpeNqUIOGwVo9ik_yuBGkqX7eOlLcgqVsIaaOsF0gvQQQnJyQ_AGuLH-b-BljGzn5b-fwfjOkf9c3rNkEFW6JJ3J0Otjo2zt2A8pMq97JrA5sxsYmzA",
     "ipAddress": "192.168.1.1",
@@ -936,7 +936,7 @@ The `api.dev.thepurplepiggybank.com/getHouseholdById` endpoint is a POST request
 - `householdId` (string): The unique identifier of the household.
 - `ipAddress` (string): The IP address of the device making the request.
 - `deviceDetails` (string): Details of the device making the request.
-    
+
 
 ### Response
 
@@ -1011,7 +1011,7 @@ URL: api.dev.thepurplepiggybank.com/getHouseholdById
 
 ***Body:***
 
-```js        
+```js
 {
     "authorizationToken": "eyJraWQiOiJrZ1FJcEZkYUlVRUhETGQ4NmIyYkh0a1lvbitKOVRsbkdzSUZoaElld0VzPSIsImFsZyI6IlJTMjU2In0.eyJzdWIiOiJmNDc4ZjQwOC0wMDYxLTcwYjctMDkyNC1kODI1ZmU4YWEwYTUiLCJpc3MiOiJodHRwczpcL1wvY29nbml0by1pZHAudXMtZWFzdC0xLmFtYXpvbmF3cy5jb21cL3VzLWVhc3QtMV84UVA2MkdoQ0EiLCJjbGllbnRfaWQiOiJoNm81ZmhqNDAycXZnbG50MDE1MTdzaHAxIiwib3JpZ2luX2p0aSI6ImE1MzVhNTZjLTEwYTUtNDRjYS1hZWUxLWYwMWFjODY5YTM4OCIsImV2ZW50X2lkIjoiYjAzNzRhMTktZDdhOS00ODMyLTljZmMtYWFmZDFiNGY1ZmQwIiwidG9rZW5fdXNlIjoiYWNjZXNzIiwic2NvcGUiOiJhd3MuY29nbml0by5zaWduaW4udXNlci5hZG1pbiIsImF1dGhfdGltZSI6MTcxNjMzMzk2OSwiZXhwIjoxNzE2MzM3NTY5LCJpYXQiOjE3MTYzMzM5NjksImp0aSI6Ijc1ZWI5YWNjLTcyZjYtNDkxNy1hZDRhLTc1NzdkODljNTY3ZCIsInVzZXJuYW1lIjoidGVzdCJ9.Cgh33ZplRSQm51vOrLocVkjumqu0MMi9UdMjZ0XOI-NwQvXLgxV6V7XoswDJcHPnbP_1tQ8iiZzSTmB2oy0Qcl_rNjlho602qvuXaxMl1FLrCLpbPE352X5MZamRRq47Z15nPCqGapoDQkHfJDhZAgYo9LXiMeE7WvSQYjTGYUGvxQ9zWOjuUzyGqV1SOtpVhEpDoClExyVaQCEskZmpjv-1LGuzoJsgMaM31NdfEDpN9fEskowW2zP_FX4SyDQCTW2nyuPh9jmb723X8Ab5g64fo70-SW9y0nf4mqU8DNQMTdDVnAjYsC4GblOedKVBqdrjbNIpA3zoMqoAMmQ0xg",
     "householdId": "43c2a801-4c50-4b64-b804-6c14dd7ffe76",
@@ -1091,7 +1091,7 @@ URL: api.dev.thepurplepiggybank.com/getHouseholdMembers
 
 ***Body:***
 
-```js        
+```js
 {
     "authorizationToken": "eyJraWQiOiJrZ1FJcEZkYUlVRUhETGQ4NmIyYkh0a1lvbitKOVRsbkdzSUZoaElld0VzPSIsImFsZyI6IlJTMjU2In0.eyJzdWIiOiJmNDc4ZjQwOC0wMDYxLTcwYjctMDkyNC1kODI1ZmU4YWEwYTUiLCJpc3MiOiJodHRwczpcL1wvY29nbml0by1pZHAudXMtZWFzdC0xLmFtYXpvbmF3cy5jb21cL3VzLWVhc3QtMV84UVA2MkdoQ0EiLCJjbGllbnRfaWQiOiJoNm81ZmhqNDAycXZnbG50MDE1MTdzaHAxIiwib3JpZ2luX2p0aSI6ImZmNTNiOGRlLTljZmQtNDdkYi1iNjEzLTkyMTIzNzc0M2IzOSIsImV2ZW50X2lkIjoiNzc3NjZmYzUtOGUwNC00NjVlLWE5ZTYtNzc4ODZlNGUxOTZlIiwidG9rZW5fdXNlIjoiYWNjZXNzIiwic2NvcGUiOiJhd3MuY29nbml0by5zaWduaW4udXNlci5hZG1pbiIsImF1dGhfdGltZSI6MTcxNjMzMjk4NiwiZXhwIjoxNzE2MzM2NTg2LCJpYXQiOjE3MTYzMzI5ODYsImp0aSI6Ijg5ZTk0OTA4LTkyMjItNGQ1NC1hNzMzLTk0OGQ4ZGM0ZjU1ZCIsInVzZXJuYW1lIjoidGVzdCJ9.TsiH7r9PKHJS9lkS83nKJrKYBkTkbWYiFHphb-kyqsN3NXzcO0gd0vhMLDCW4TXicL7G8Yod5Vsvy4q8DixvE_nElHLNI81qW0g2dqryydjzoY-HoCW2a0wW0trAGOoXv98NpjqWsKiDzU8D_ieGILqPXAl4sNngs_xyxwr0a74tnWChbMBiRH06OeHoWhD183rZIVZC0nYkCRphl2rYL7YmaYCzyvM9Gush0l-z6cO472ntEsYhudTW7T-ANQ8S6V4d0G6L4by8ccCtmSmzNn13osxJUEE4vjiNnIVt6DlGB6grm9bRQrusdztxRYZcvriaB1B73lJD4YXnbFrbPQ",
     "householdId": "5849cc41-7e74-42df-a2da-5689ca44cde3"
@@ -1186,7 +1186,7 @@ URL: api.dev.thepurplepiggybank.com/addIncome
 
 ***Body:***
 
-```js        
+```js
 {
     "authorizationToken": "eyJraWQiOiJrZ1FJcEZkYUlVRUhETGQ4NmIyYkh0a1lvbitKOVRsbkdzSUZoaElld0VzPSIsImFsZyI6IlJTMjU2In0.eyJzdWIiOiI1NDA4NDQxOC1kMDkxLTcwZmEtMzYzMC0yNzM4YTIwYzA0ZjkiLCJpc3MiOiJodHRwczpcL1wvY29nbml0by1pZHAudXMtZWFzdC0xLmFtYXpvbmF3cy5jb21cL3VzLWVhc3QtMV84UVA2MkdoQ0EiLCJjbGllbnRfaWQiOiJoNm81ZmhqNDAycXZnbG50MDE1MTdzaHAxIiwib3JpZ2luX2p0aSI6ImEwYmM0NGYzLTQ2NzctNGVmMi05ZWJiLTQ1NDQzYjg1ODU4YiIsImV2ZW50X2lkIjoiODIxYmRiNDgtY2NkYi00ZTViLTgyZjEtNTA5NDM4ZThhN2Y0IiwidG9rZW5fdXNlIjoiYWNjZXNzIiwic2NvcGUiOiJhd3MuY29nbml0by5zaWduaW4udXNlci5hZG1pbiIsImF1dGhfdGltZSI6MTcxNjQ4OTk2OSwiZXhwIjoxNzE2NDkzNTY5LCJpYXQiOjE3MTY0ODk5NjksImp0aSI6ImJjNTM1NzJiLTIzZjctNDRjOC1iYzhhLTBjOWZkYmExM2I0ZCIsInVzZXJuYW1lIjoidGVzdCJ9.rJaXxjzQRrecjJfqvaQmhtNUFC0wRVttDiVccAO9m7P5Dj3eh7PyPbQu4meA13R_LUdI14l5OvXWMJqPkSQqlMO9XoIwPximwx2RgWghLZWHh-e3e3bC4c5UIUQeM7CiOUt6jujXPw_tMTkalb6It48EZ14OpZxpSA7ypfzWmUUYotFpe86daWVDzLiq6And3knnc0WWySB2dh0GwvCPG3UUg6oN_hKg2ctyGYsUpgDcIHwuesIU_8YnFnU6dQxKYqSnrcmk5naqkXIC8LysC4g9hHuQt3tXweo3eBvUojZAGgC_tUIZCqUsT5BJFljP5Q_dPvLU1-ydSCk8TvWSzw",
    "householdId": "21d2a18d-0f98-485b-90d2-552988f190b8",
@@ -1213,21 +1213,21 @@ This endpoint is used to delete an income record.
 #### Request
 
 - Method: POST
-    
+
 - URL: `api.dev.thepurplepiggybank.com/deleteIncome`
-    
+
 - Headers:
     - Content-Type: application/json
-        
+
 - Body:
     - authorizationToken (text, required): The authorization token for the user.
-        
+
     - incomeId (text, required): The ID of the income to be deleted.
-        
+
     - ipAddress (text, optional): The IP address of the device.
-        
+
     - deviceDetails (text, optional): Details of the device.
-        
+
 
 #### Response
 
@@ -1267,7 +1267,7 @@ URL: api.dev.thepurplepiggybank.com/deleteIncome
 
 ***Body:***
 
-```js        
+```js
 {
     "authorizationToken": "eyJraWQiOiJrZ1FJcEZkYUlVRUhETGQ4NmIyYkh0a1lvbitKOVRsbkdzSUZoaElld0VzPSIsImFsZyI6IlJTMjU2In0.eyJzdWIiOiI1NDA4NDQxOC1kMDkxLTcwZmEtMzYzMC0yNzM4YTIwYzA0ZjkiLCJpc3MiOiJodHRwczpcL1wvY29nbml0by1pZHAudXMtZWFzdC0xLmFtYXpvbmF3cy5jb21cL3VzLWVhc3QtMV84UVA2MkdoQ0EiLCJjbGllbnRfaWQiOiJoNm81ZmhqNDAycXZnbG50MDE1MTdzaHAxIiwib3JpZ2luX2p0aSI6ImEwYmM0NGYzLTQ2NzctNGVmMi05ZWJiLTQ1NDQzYjg1ODU4YiIsImV2ZW50X2lkIjoiODIxYmRiNDgtY2NkYi00ZTViLTgyZjEtNTA5NDM4ZThhN2Y0IiwidG9rZW5fdXNlIjoiYWNjZXNzIiwic2NvcGUiOiJhd3MuY29nbml0by5zaWduaW4udXNlci5hZG1pbiIsImF1dGhfdGltZSI6MTcxNjQ4OTk2OSwiZXhwIjoxNzE2NDkzNTY5LCJpYXQiOjE3MTY0ODk5NjksImp0aSI6ImJjNTM1NzJiLTIzZjctNDRjOC1iYzhhLTBjOWZkYmExM2I0ZCIsInVzZXJuYW1lIjoidGVzdCJ9.rJaXxjzQRrecjJfqvaQmhtNUFC0wRVttDiVccAO9m7P5Dj3eh7PyPbQu4meA13R_LUdI14l5OvXWMJqPkSQqlMO9XoIwPximwx2RgWghLZWHh-e3e3bC4c5UIUQeM7CiOUt6jujXPw_tMTkalb6It48EZ14OpZxpSA7ypfzWmUUYotFpe86daWVDzLiq6And3knnc0WWySB2dh0GwvCPG3UUg6oN_hKg2ctyGYsUpgDcIHwuesIU_8YnFnU6dQxKYqSnrcmk5naqkXIC8LysC4g9hHuQt3tXweo3eBvUojZAGgC_tUIZCqUsT5BJFljP5Q_dPvLU1-ydSCk8TvWSzw",
     "incomeId": "1c838242-3813-45c9-96ed-09a9498eff12",
@@ -1288,27 +1288,27 @@ The `editIncome` endpoint is used to update income details.
 **Request Body**
 
 - `authorizationToken` (string, required): The authorization token for the request.
-    
+
 - `incomeId` (string, required): The ID of the income to be edited.
-    
+
 - `householdId` (string, required): The ID of the household to which the income belongs.
-    
+
 - `name` (string, required): The name of the income.
-    
+
 - `amount` (number, required): The amount of the income.
-    
+
 - `firstPayDay` (string, required): The first payday of the income.
-    
+
 - `frequency` (string, required): The frequency of the income.
-    
+
 - `description` (string, required): The description of the income.
-    
+
 - `ipAddress` (string, required): The IP address of the device making the request.
-    
+
 - `deviceDetails` (string, required): Details of the device making the request.
-    
+
 - `paymentSourceId` (string, required): The ID of the payment source for the income.
-    
+
 
 **Response**
 
@@ -1373,7 +1373,7 @@ URL: api.dev.thepurplepiggybank.com/editIncome
 
 ***Body:***
 
-```js        
+```js
 {
     "authorizationToken": "eyJraWQiOiJrZ1FJcEZkYUlVRUhETGQ4NmIyYkh0a1lvbitKOVRsbkdzSUZoaElld0VzPSIsImFsZyI6IlJTMjU2In0.eyJzdWIiOiI1NDA4NDQxOC1kMDkxLTcwZmEtMzYzMC0yNzM4YTIwYzA0ZjkiLCJpc3MiOiJodHRwczpcL1wvY29nbml0by1pZHAudXMtZWFzdC0xLmFtYXpvbmF3cy5jb21cL3VzLWVhc3QtMV84UVA2MkdoQ0EiLCJjbGllbnRfaWQiOiJoNm81ZmhqNDAycXZnbG50MDE1MTdzaHAxIiwib3JpZ2luX2p0aSI6ImEwYmM0NGYzLTQ2NzctNGVmMi05ZWJiLTQ1NDQzYjg1ODU4YiIsImV2ZW50X2lkIjoiODIxYmRiNDgtY2NkYi00ZTViLTgyZjEtNTA5NDM4ZThhN2Y0IiwidG9rZW5fdXNlIjoiYWNjZXNzIiwic2NvcGUiOiJhd3MuY29nbml0by5zaWduaW4udXNlci5hZG1pbiIsImF1dGhfdGltZSI6MTcxNjQ4OTk2OSwiZXhwIjoxNzE2NDkzNTY5LCJpYXQiOjE3MTY0ODk5NjksImp0aSI6ImJjNTM1NzJiLTIzZjctNDRjOC1iYzhhLTBjOWZkYmExM2I0ZCIsInVzZXJuYW1lIjoidGVzdCJ9.rJaXxjzQRrecjJfqvaQmhtNUFC0wRVttDiVccAO9m7P5Dj3eh7PyPbQu4meA13R_LUdI14l5OvXWMJqPkSQqlMO9XoIwPximwx2RgWghLZWHh-e3e3bC4c5UIUQeM7CiOUt6jujXPw_tMTkalb6It48EZ14OpZxpSA7ypfzWmUUYotFpe86daWVDzLiq6And3knnc0WWySB2dh0GwvCPG3UUg6oN_hKg2ctyGYsUpgDcIHwuesIU_8YnFnU6dQxKYqSnrcmk5naqkXIC8LysC4g9hHuQt3tXweo3eBvUojZAGgC_tUIZCqUsT5BJFljP5Q_dPvLU1-ydSCk8TvWSzw",
     "incomeId": "bcdc723d-5ef2-4e0e-b776-533a23df984f",
@@ -1399,13 +1399,13 @@ URL: api.dev.thepurplepiggybank.com/editIncome
 This API endpoint is a POST request to `api.dev.thepurplepiggybank.com/getIncome` to retrieve income information. The request should include the following parameters in the raw request body:
 
 - `authorizationToken` (string): The authorization token for authentication.
-    
+
 - `incomeId` (string): The ID of the income.
-    
+
 - `ipAddress` (string): The IP address of the device making the request.
-    
+
 - `deviceDetails` (string): Details of the device making the request.
-    
+
 
 ### API Response
 
@@ -1440,7 +1440,7 @@ URL: api.dev.thepurplepiggybank.com/getIncome
 
 ***Body:***
 
-```js        
+```js
 {
     "authorizationToken": "eyJraWQiOiJrZ1FJcEZkYUlVRUhETGQ4NmIyYkh0a1lvbitKOVRsbkdzSUZoaElld0VzPSIsImFsZyI6IlJTMjU2In0.eyJzdWIiOiI1NDA4NDQxOC1kMDkxLTcwZmEtMzYzMC0yNzM4YTIwYzA0ZjkiLCJpc3MiOiJodHRwczpcL1wvY29nbml0by1pZHAudXMtZWFzdC0xLmFtYXpvbmF3cy5jb21cL3VzLWVhc3QtMV84UVA2MkdoQ0EiLCJjbGllbnRfaWQiOiJoNm81ZmhqNDAycXZnbG50MDE1MTdzaHAxIiwib3JpZ2luX2p0aSI6ImEwYmM0NGYzLTQ2NzctNGVmMi05ZWJiLTQ1NDQzYjg1ODU4YiIsImV2ZW50X2lkIjoiODIxYmRiNDgtY2NkYi00ZTViLTgyZjEtNTA5NDM4ZThhN2Y0IiwidG9rZW5fdXNlIjoiYWNjZXNzIiwic2NvcGUiOiJhd3MuY29nbml0by5zaWduaW4udXNlci5hZG1pbiIsImF1dGhfdGltZSI6MTcxNjQ4OTk2OSwiZXhwIjoxNzE2NDkzNTY5LCJpYXQiOjE3MTY0ODk5NjksImp0aSI6ImJjNTM1NzJiLTIzZjctNDRjOC1iYzhhLTBjOWZkYmExM2I0ZCIsInVzZXJuYW1lIjoidGVzdCJ9.rJaXxjzQRrecjJfqvaQmhtNUFC0wRVttDiVccAO9m7P5Dj3eh7PyPbQu4meA13R_LUdI14l5OvXWMJqPkSQqlMO9XoIwPximwx2RgWghLZWHh-e3e3bC4c5UIUQeM7CiOUt6jujXPw_tMTkalb6It48EZ14OpZxpSA7ypfzWmUUYotFpe86daWVDzLiq6And3knnc0WWySB2dh0GwvCPG3UUg6oN_hKg2ctyGYsUpgDcIHwuesIU_8YnFnU6dQxKYqSnrcmk5naqkXIC8LysC4g9hHuQt3tXweo3eBvUojZAGgC_tUIZCqUsT5BJFljP5Q_dPvLU1-ydSCk8TvWSzw",
     "incomeId": "bcdc723d-5ef2-4e0e-b776-533a23df984f",
@@ -1459,13 +1459,13 @@ The `POST` request to `/getIncomes` endpoint is used to retrieve incomes from th
 ### Request Body
 
 - `authorizationToken` (string): The authorization token for authentication.
-    
+
 - `householdId` (string): The ID of the household for which incomes are being retrieved.
-    
+
 - `ipAddress` (string): The IP address of the device making the request.
-    
+
 - `deviceDetails` (string): Details of the device making the request.
-    
+
 
 ### Response
 
@@ -1498,7 +1498,7 @@ URL: api.dev.thepurplepiggybank.com/getIncomes
 
 ***Body:***
 
-```js        
+```js
 {
     "authorizationToken": "eyJraWQiOiJrZ1FJcEZkYUlVRUhETGQ4NmIyYkh0a1lvbitKOVRsbkdzSUZoaElld0VzPSIsImFsZyI6IlJTMjU2In0.eyJzdWIiOiI1NDA4NDQxOC1kMDkxLTcwZmEtMzYzMC0yNzM4YTIwYzA0ZjkiLCJpc3MiOiJodHRwczpcL1wvY29nbml0by1pZHAudXMtZWFzdC0xLmFtYXpvbmF3cy5jb21cL3VzLWVhc3QtMV84UVA2MkdoQ0EiLCJjbGllbnRfaWQiOiJoNm81ZmhqNDAycXZnbG50MDE1MTdzaHAxIiwib3JpZ2luX2p0aSI6ImEwYmM0NGYzLTQ2NzctNGVmMi05ZWJiLTQ1NDQzYjg1ODU4YiIsImV2ZW50X2lkIjoiODIxYmRiNDgtY2NkYi00ZTViLTgyZjEtNTA5NDM4ZThhN2Y0IiwidG9rZW5fdXNlIjoiYWNjZXNzIiwic2NvcGUiOiJhd3MuY29nbml0by5zaWduaW4udXNlci5hZG1pbiIsImF1dGhfdGltZSI6MTcxNjQ4OTk2OSwiZXhwIjoxNzE2NDkzNTY5LCJpYXQiOjE3MTY0ODk5NjksImp0aSI6ImJjNTM1NzJiLTIzZjctNDRjOC1iYzhhLTBjOWZkYmExM2I0ZCIsInVzZXJuYW1lIjoidGVzdCJ9.rJaXxjzQRrecjJfqvaQmhtNUFC0wRVttDiVccAO9m7P5Dj3eh7PyPbQu4meA13R_LUdI14l5OvXWMJqPkSQqlMO9XoIwPximwx2RgWghLZWHh-e3e3bC4c5UIUQeM7CiOUt6jujXPw_tMTkalb6It48EZ14OpZxpSA7ypfzWmUUYotFpe86daWVDzLiq6And3knnc0WWySB2dh0GwvCPG3UUg6oN_hKg2ctyGYsUpgDcIHwuesIU_8YnFnU6dQxKYqSnrcmk5naqkXIC8LysC4g9hHuQt3tXweo3eBvUojZAGgC_tUIZCqUsT5BJFljP5Q_dPvLU1-ydSCk8TvWSzw",
     "householdId": "21d2a18d-0f98-485b-90d2-552988f190b8",
@@ -1523,14 +1523,14 @@ This endpoint is used to add a notification, which is triggered anytime a new bi
 #### Request
 
 - Method: POST
-    
+
 - URL: `api.dev.thepurplepiggybank.com/addNotification`
-    
+
 
 ##### Request Body
 
 - Type: JSON
-    
+
 
 | Key | Type | Description |
 | --- | --- | --- |
@@ -1557,11 +1557,11 @@ The response for this request is a JSON object following the schema below:
  ```
 
 - `notificationId`: The ID of the added notification
-    
+
 - `timestamp`: The timestamp when the notification was added
-    
+
 - `status`: The status of the notification request
-    
+
 - `message`: A message indicating the result of the notification request
 
 
@@ -1577,7 +1577,7 @@ URL: api.dev.thepurplepiggybank.com/addNotification
 
 ***Body:***
 
-```js        
+```js
 {
     //This is called anytime a new bill is created
   "authorizationToken": "your-authorization-token",
@@ -1601,13 +1601,13 @@ The `POST` request to `/deleteNotification` endpoint is used to delete a specifi
 ### Request Body
 
 - `authorizationToken` (string): The authorization token for authentication.
-    
+
 - `notificationId` (string): The unique identifier of the notification to be deleted.
-    
+
 - `deviceDetails` (string): Information about the device from which the request is made.
-    
+
 - `ipAddress` (string): The IP address of the device making the request.
-    
+
 
 ### Response (JSON Schema)
 
@@ -1639,7 +1639,7 @@ URL: api.dev.thepurplepiggybank.com/deleteNotification
 
 ***Body:***
 
-```js        
+```js
 {
         //This is called anytime a deleteBill is called
 
@@ -1667,19 +1667,19 @@ This endpoint allows you to edit a notification, typically used for updating a b
 #### Request Body
 
 - `authorizationToken` (string, required): The authorization token for the request.
-    
+
 - `notificationId` (string, required): The unique identifier of the notification to be edited.
-    
+
 - `title` (string, required): The updated title for the notification.
-    
+
 - `message` (string, required): The updated message content for the notification.
-    
+
 - `read` (boolean, required): Indicates whether the notification has been read or not.
-    
+
 - `deviceDetails` (string, required): Details of the device from which the edit action is initiated.
-    
+
 - `ipAddress` (string, required): The IP address of the device initiating the edit action.
-    
+
 
 #### Response (JSON Schema)
 
@@ -1711,7 +1711,7 @@ URL: api.dev.thepurplepiggybank.com/editNotification
 
 ***Body:***
 
-```js        
+```js
 {
         //This is called anytime a edit bill is called
 
@@ -1738,11 +1738,11 @@ This endpoint is used to retrieve notifications from the server.
 #### Request Body
 
 - `authorizationToken` (string, required): The authorization token for the request.
-    
+
 - `deviceDetails` (string, required): Details of the device making the request.
-    
+
 - `ipAddress` (string, required): The IP address of the device making the request.
-    
+
 
 #### Response
 
@@ -1776,7 +1776,7 @@ URL: api.dev.thepurplepiggybank.com/getNotifications
 
 ***Body:***
 
-```js        
+```js
 {
   "authorizationToken": "your-authorization-token",
   "deviceDetails": "Device XYZ, OS ABC",
@@ -1807,7 +1807,7 @@ This endpoint allows users to add a payment source to their account.
 - `details` (string): Additional details about the payment source, e.g., "Joint Account".
 - `ipAddress` (string): The IP address of the device making the request.
 - `deviceDetails` (string): Details of the device used for the request.
-    
+
 
 #### Response (201 - Created)
 
@@ -1848,7 +1848,7 @@ URL: api.dev.thepurplepiggybank.com/addPaymentSource
 
 ***Body:***
 
-```js        
+```js
 {
   "authorizationToken": "eyJraWQiOiJrZ1FJcEZkYUlVRUhETGQ4NmIyYkh0a1lvbitKOVRsbkdzSUZoaElld0VzPSIsImFsZyI6IlJTMjU2In0.eyJzdWIiOiI1NDA4NDQxOC1kMDkxLTcwZmEtMzYzMC0yNzM4YTIwYzA0ZjkiLCJpc3MiOiJodHRwczpcL1wvY29nbml0by1pZHAudXMtZWFzdC0xLmFtYXpvbmF3cy5jb21cL3VzLWVhc3QtMV84UVA2MkdoQ0EiLCJjbGllbnRfaWQiOiJoNm81ZmhqNDAycXZnbG50MDE1MTdzaHAxIiwib3JpZ2luX2p0aSI6IjQ1Zjk4YTM5LTc1OTMtNDA5NC1hNjQ0LTFkZjA2Zjc0ODMwNCIsImV2ZW50X2lkIjoiZTBmMjBiN2YtMzIyYS00MjI4LWExOTEtMDk5MTQ4MWI1MmU2IiwidG9rZW5fdXNlIjoiYWNjZXNzIiwic2NvcGUiOiJhd3MuY29nbml0by5zaWduaW4udXNlci5hZG1pbiIsImF1dGhfdGltZSI6MTcxNjQ5MDgwNywiZXhwIjoxNzE2NDk0NDA3LCJpYXQiOjE3MTY0OTA4MDcsImp0aSI6ImFkYjVmMTllLTZlNzYtNGVmOS04OGRmLTM2YmVmZTE1MDU3OCIsInVzZXJuYW1lIjoidGVzdCJ9.ErmuIRD3BBVCDrKKhThgfCKKKnmyj4IiX7M8WnhdQR_ttHWjH0uNb3vOk1TfHL4ScQaQmg_iSj24lACwKgimsO1LoVLq5TDLhIV8iLtAx794LovPJQshJ4EtaDXzh8iB9Cv8qq-jmWtec0EMrxwzrpfX5ogCuicMwoGLGRK9yekV4nMfg3I6VfuVSO2oMtHOw-ATlDHyTLMp-bCPYEFUEjTa5TXBpqhBrBqpH8a9iYi6Cog5fe9fC7306iWOpDAUTnXomOU-dXnPj0R-Gvz4gxuk18lhydE9e6x0uBZfazJdFPS-UxHQiuIuUxq1v1lwO64FD8Re-t7kDl9tZJD7rg",
   "householdId": "f109960f-b082-44d7-bd86-0a85f3fe24a0",
@@ -1871,15 +1871,15 @@ URL: api.dev.thepurplepiggybank.com/addPaymentSource
 This API endpoint is used to delete a payment source. The request should be sent as an HTTP POST to `api.dev.thepurplepiggybank.com/deletePaymentSource`. The request body should be in raw JSON format and should include the following parameters:
 
 - `authorizationToken` (string): The authorization token for the request.
-    
+
 - `sourceId` (string): The ID of the payment source to be deleted.
-    
+
 - `householdId` (string): The ID of the household associated with the payment source.
-    
+
 - `ipAddress` (string): The IP address of the device making the request.
-    
+
 - `deviceDetails` (string): Details of the device making the request.
-    
+
 
 ### API Response
 
@@ -1894,7 +1894,7 @@ The response to this request will be in JSON format and should follow the schema
  ```
 
 - `status` (string): Indicates the status of the request, whether it was successful or not.
-    
+
 - `message` (string): Provides additional information about the status of the request.
 
 
@@ -1910,7 +1910,7 @@ URL: api.dev.thepurplepiggybank.com/deletePaymentSource
 
 ***Body:***
 
-```js        
+```js
 {
   "authorizationToken": "eyJraWQiOiJrZ1FJcEZkYUlVRUhETGQ4NmIyYkh0a1lvbitKOVRsbkdzSUZoaElld0VzPSIsImFsZyI6IlJTMjU2In0.eyJzdWIiOiJmNDc4ZjQwOC0wMDYxLTcwYjctMDkyNC1kODI1ZmU4YWEwYTUiLCJpc3MiOiJodHRwczpcL1wvY29nbml0by1pZHAudXMtZWFzdC0xLmFtYXpvbmF3cy5jb21cL3VzLWVhc3QtMV84UVA2MkdoQ0EiLCJjbGllbnRfaWQiOiJoNm81ZmhqNDAycXZnbG50MDE1MTdzaHAxIiwib3JpZ2luX2p0aSI6IjRmMjBkN2IwLTBkYTEtNDZkMy1iOGY1LTg3NGI0M2UyN2NlNSIsImV2ZW50X2lkIjoiNDI3NTJjYzctYTUxOS00ODQxLTkwNzktYTlmNmE5OGZhYzAzIiwidG9rZW5fdXNlIjoiYWNjZXNzIiwic2NvcGUiOiJhd3MuY29nbml0by5zaWduaW4udXNlci5hZG1pbiIsImF1dGhfdGltZSI6MTcxNjMzNjc1NiwiZXhwIjoxNzE2MzQwMzU2LCJpYXQiOjE3MTYzMzY3NTYsImp0aSI6IjYzZDM5YWM0LTc5NjYtNGU1OC1iMmU3LWZmYjYyMDE3YTA3NCIsInVzZXJuYW1lIjoidGVzdCJ9.sgUu2uirwwYQazrcpwNwEa8pCwF53j3GbeOy4rAnpuT4UP_tv4vnMV3v-NRR7qOsN9hTKQEwUdPdtH2ZVqpCvXMV3UZwa-95ksvYVYMshMLXPsPMaBdwcL3sKqcXKPWmTFCiWUl2qRTat4gF0agPCTj2F_nYAXvTVtjufv9N5hutzuGyHl7xL6VGDnFUePjSWQ2J4MwvAy1P_qcXkoKWgNc5dLteFTVn5UUPrRs5_7NL-eoIR3BqlCD3j-g7e11wJV-rILtsp2B2FnQv5GYh7f4iv5rOpYT_j8yZTL7nnAutxc07sLubyvvaL0NFnBlCdYYG6tsXNGuRJSQx_5JfqA",
   "sourceId": "bde3c57a-1b93-45aa-b908-8c642d0ee72b",
@@ -1990,7 +1990,7 @@ The response is in JSON format and has the following schema:
 
 - Status: 200
 - Content-Type: application/json
-    
+
 
 The response includes a `message` field and a `paymentSource` object with updated details of the payment source, including `sourceId`, `householdId`, `sourceName`, `sourceType`, `details`, `createdAt`, and `updatedAt`.
 
@@ -2007,7 +2007,7 @@ URL: api.dev.thepurplepiggybank.com/editPaymentSource
 
 ***Body:***
 
-```js        
+```js
 {
     "sourceId": "188d7d04-ffe9-4b28-98f5-b811a145afb7",
     "authorizationToken": "eyJraWQiOiJrZ1FJcEZkYUlVRUhETGQ4NmIyYkh0a1lvbitKOVRsbkdzSUZoaElld0VzPSIsImFsZyI6IlJTMjU2In0.eyJzdWIiOiJmNDc4ZjQwOC0wMDYxLTcwYjctMDkyNC1kODI1ZmU4YWEwYTUiLCJpc3MiOiJodHRwczpcL1wvY29nbml0by1pZHAudXMtZWFzdC0xLmFtYXpvbmF3cy5jb21cL3VzLWVhc3QtMV84UVA2MkdoQ0EiLCJjbGllbnRfaWQiOiJoNm81ZmhqNDAycXZnbG50MDE1MTdzaHAxIiwib3JpZ2luX2p0aSI6ImQ0YzZlMjM4LWNlY2ItNDM0Mi1hNDE3LWMwOTZlOGZhMTYzOCIsImV2ZW50X2lkIjoiN2E2NjkyZjktMzZmNy00ZTM2LWFhODEtMTFjNDliOTg1OTcyIiwidG9rZW5fdXNlIjoiYWNjZXNzIiwic2NvcGUiOiJhd3MuY29nbml0by5zaWduaW4udXNlci5hZG1pbiIsImF1dGhfdGltZSI6MTcxNjMzNzcwMSwiZXhwIjoxNzE2MzQxMzAxLCJpYXQiOjE3MTYzMzc3MDEsImp0aSI6IjI0NjRhM2Y0LWEwNTYtNDI0Mi1iOWQxLWMwMjExNzljMjgyNCIsInVzZXJuYW1lIjoidGVzdCJ9.sXMPaIjwl5N7PIi_E2hbVj3Zub5gpgksjbAMB5jx5I_V_XuHM1vlRpjWT6d1I6ByALPVGwcYVBtPrgoDx5GdkthzZabWttOWLUH6yHGeYnSchm7wy6P4V8cWkm2hwy_yusqfTGxXrf4pSw7NCf6hAiHT3e-PMv1QZuaAK4VCuEJeoafQ6aNuHAAU4hEsGv7aQ-bsP4K3qwzNbmRZgRXCKhBfJNnsifFDq8wwktQXvUGrzX6wZTwrMJrORrsO8yDVMyNvtidZRGnRJ5SAUJ7Efe4b0AcXxCgrJG6J3cc0zpGfsFDIqkdlvY0W3D0HP9Iz0KdK3w1t10zv3UZxpAOQtA",
@@ -2032,33 +2032,33 @@ This endpoint is used to retrieve payment sources associated with a specific hou
 #### Request Body
 
 - `authorizationToken` (text, required): The authorization token for accessing the payment sources.
-    
+
 - `householdId` (text, required): The ID of the household for which payment sources are to be retrieved.
-    
+
 - `ipAddress` (text, required): The IP address of the device from which the request is made.
-    
+
 - `deviceDetails` (text, required): Details of the device used for the request.
-    
+
 
 #### Response
 
 Upon a successful request, the server responds with a status code of 200 and a JSON object containing the following fields:
 
 - `message` (string): A message related to the request.
-    
+
 - `paymentSources` (array): An array of payment sources, each containing the following information:
     - `sourceId` (string): The ID of the payment source.
-        
+
     - `householdId` (string): The ID of the household to which the payment source belongs.
-        
+
     - `sourceName` (string): The name of the payment source.
-        
+
     - `sourceType` (string): The type of the payment source.
-        
+
     - `details` (string): Details of the payment source.
-        
+
     - `createdAt` (string): The date and time when the payment source was created.
-        
+
     - `updatedAt` (string): The date and time when the payment source was last updated.
 
 
@@ -2074,7 +2074,7 @@ URL: api.dev.thepurplepiggybank.com/getPaymentSource
 
 ***Body:***
 
-```js        
+```js
 {
   "authorizationToken": "eyJraWQiOiJrZ1FJcEZkYUlVRUhETGQ4NmIyYkh0a1lvbitKOVRsbkdzSUZoaElld0VzPSIsImFsZyI6IlJTMjU2In0.eyJzdWIiOiI1NDA4NDQxOC1kMDkxLTcwZmEtMzYzMC0yNzM4YTIwYzA0ZjkiLCJpc3MiOiJodHRwczpcL1wvY29nbml0by1pZHAudXMtZWFzdC0xLmFtYXpvbmF3cy5jb21cL3VzLWVhc3QtMV84UVA2MkdoQ0EiLCJjbGllbnRfaWQiOiJoNm81ZmhqNDAycXZnbG50MDE1MTdzaHAxIiwib3JpZ2luX2p0aSI6IjgyMjliMGVlLWM0MWEtNDY3NS1hZTk4LTZiNjhjY2M4M2I4OCIsImV2ZW50X2lkIjoiMWNhMzFlNjktOGI0Zi00NWQxLTljMDQtZjMzOGNjZGNjYTVlIiwidG9rZW5fdXNlIjoiYWNjZXNzIiwic2NvcGUiOiJhd3MuY29nbml0by5zaWduaW4udXNlci5hZG1pbiIsImF1dGhfdGltZSI6MTcxNjQ4Nzg2MCwiZXhwIjoxNzE2NDkxNDYwLCJpYXQiOjE3MTY0ODc4NjAsImp0aSI6IjA2YTFkMmFkLWU5NTEtNDFiMS05YWYwLTBjNjIxODA0MGIxMSIsInVzZXJuYW1lIjoidGVzdCJ9.sUHvc5nYW_couQU8GEIdcEv5LsYEWN6msbVT1sOxNQmceCvbb-9Eghe0d8BmUVFEtzbKChTfY_K-B-CobfzVOLeMm2SnAbWtQ42Bezr2U9YkAOYdf1eI7joe2N35yPhYefUZaT_k8LscRheC5A6gvfuAoEPNrVcu2HQ42sLk2ceYi8405Et6anTSSGmZ_zeY6aX1koAUfcuz_utpuEQgL_wkZwSj4SfYvUk9CovUCi9DdAtrSOfmFaoBt70n4QPtu1IQn3geIwsxmU94yJp5oCA6_vJMNekviW86MONy0bogC0MGuqo4MhHl4xki5A_kBJqm-ay5tbm-LFIhX1UaGQ",
    "householdId": "21d2a18d-0f98-485b-90d2-552988f190b8",
@@ -2127,7 +2127,7 @@ URL: api.dev.thepurplepiggybank.com/editCurrencyPreference
 
 ***Body:***
 
-```js        
+```js
 {
   "authorizationToken": "eyJraWQiOiJrZ1FJcEZkYUlVRUhETGQ4NmIyYkh0a1lvbitKOVRsbkdzSUZoaElld0VzPSIsImFsZyI6IlJTMjU2In0.eyJzdWIiOiI1NDA4NDQxOC1kMDkxLTcwZmEtMzYzMC0yNzM4YTIwYzA0ZjkiLCJpc3MiOiJodHRwczpcL1wvY29nbml0by1pZHAudXMtZWFzdC0xLmFtYXpvbmF3cy5jb21cL3VzLWVhc3QtMV84UVA2MkdoQ0EiLCJjbGllbnRfaWQiOiJoNm81ZmhqNDAycXZnbG50MDE1MTdzaHAxIiwib3JpZ2luX2p0aSI6IjgwNzExM2QwLTRlOGQtNDcxZS1hNDI5LTBiZTEzZGNkNGQxOSIsImV2ZW50X2lkIjoiMjliZTk1YmYtNTYyYS00Zjk2LWI1MjgtNmM0NjFjMWYyZjlkIiwidG9rZW5fdXNlIjoiYWNjZXNzIiwic2NvcGUiOiJhd3MuY29nbml0by5zaWduaW4udXNlci5hZG1pbiIsImF1dGhfdGltZSI6MTcxNjQ4NDI0OSwiZXhwIjoxNzE2NDg3ODQ5LCJpYXQiOjE3MTY0ODQyNDksImp0aSI6IjBmNTdmOTMyLTg5YjAtNGJjNi05YWY4LTQ2NjMwMTAwNmRjMiIsInVzZXJuYW1lIjoidGVzdCJ9.HHVUQ4MFUdppPFqjwAbSS905BM-_swJSUva2aYU0E5amVXDTBJM8eXxWTXcR23zQ1pWq5wkRxu3Y43lVsr5icRCKGo9lwvZBbMMWIjTCYHt1X2H4g7rqcQSgu1resvT5qQKRn-Pk64n5nSYTNwGV2MoRFxoZMQkFhwfOh4CTyMFSKvo7HVxUtrAA-gVOt077kVqIW2jyD0T2AyNPmzb7prjI2EeEaILn0eNgMT5eEiz9XWiKNpC8gUtWyCxkb1vWo0mOfjKpdy84zzuwRtm3WVllv9rjozudkV1cbmYTKxHBaztjaOFwHu1Z0zBuycaboUarpdLbCwRgdDd1edNhTA",
    "householdId": "21d2a18d-0f98-485b-90d2-552988f190b8",
@@ -2150,23 +2150,23 @@ This endpoint is used to edit the default payment source for a household.
 #### Request
 
 - Method: POST
-    
+
 - URL: `api.dev.thepurplepiggybank.com/editDefaultPaymentSource`
-    
+
 - Headers:
     - Content-Type: application/json
-        
+
 - Body:
     - `authorizationToken` (string): The authorization token for the request.
-        
+
     - `householdId` (string): The ID of the household for which the default payment source is to be edited.
-        
+
     - `paymentSourceId` (string): The ID of the payment source to be set as default.
-        
+
     - `ipAddress` (string): The IP address of the device making the request.
-        
+
     - `deviceDetails` (string): Details of the device making the request.
-        
+
 
 #### Response
 
@@ -2190,18 +2190,18 @@ The response is in JSON format with the following schema:
  ```
 
 - Status: 200
-    
+
 - Content-Type: application/json
-    
+
 - Body:
-    
+
     ``` json
     {
       "preference": {
         "count": 0
       }
     }
-    
+
      ```
 
 
@@ -2217,7 +2217,7 @@ URL: api.dev.thepurplepiggybank.com/editDefaultPaymentSource
 
 ***Body:***
 
-```js        
+```js
 {
   "authorizationToken": "eyJraWQiOiJrZ1FJcEZkYUlVRUhETGQ4NmIyYkh0a1lvbitKOVRsbkdzSUZoaElld0VzPSIsImFsZyI6IlJTMjU2In0.eyJzdWIiOiI1NDA4NDQxOC1kMDkxLTcwZmEtMzYzMC0yNzM4YTIwYzA0ZjkiLCJpc3MiOiJodHRwczpcL1wvY29nbml0by1pZHAudXMtZWFzdC0xLmFtYXpvbmF3cy5jb21cL3VzLWVhc3QtMV84UVA2MkdoQ0EiLCJjbGllbnRfaWQiOiJoNm81ZmhqNDAycXZnbG50MDE1MTdzaHAxIiwib3JpZ2luX2p0aSI6IjgwNzExM2QwLTRlOGQtNDcxZS1hNDI5LTBiZTEzZGNkNGQxOSIsImV2ZW50X2lkIjoiMjliZTk1YmYtNTYyYS00Zjk2LWI1MjgtNmM0NjFjMWYyZjlkIiwidG9rZW5fdXNlIjoiYWNjZXNzIiwic2NvcGUiOiJhd3MuY29nbml0by5zaWduaW4udXNlci5hZG1pbiIsImF1dGhfdGltZSI6MTcxNjQ4NDI0OSwiZXhwIjoxNzE2NDg3ODQ5LCJpYXQiOjE3MTY0ODQyNDksImp0aSI6IjBmNTdmOTMyLTg5YjAtNGJjNi05YWY4LTQ2NjMwMTAwNmRjMiIsInVzZXJuYW1lIjoidGVzdCJ9.HHVUQ4MFUdppPFqjwAbSS905BM-_swJSUva2aYU0E5amVXDTBJM8eXxWTXcR23zQ1pWq5wkRxu3Y43lVsr5icRCKGo9lwvZBbMMWIjTCYHt1X2H4g7rqcQSgu1resvT5qQKRn-Pk64n5nSYTNwGV2MoRFxoZMQkFhwfOh4CTyMFSKvo7HVxUtrAA-gVOt077kVqIW2jyD0T2AyNPmzb7prjI2EeEaILn0eNgMT5eEiz9XWiKNpC8gUtWyCxkb1vWo0mOfjKpdy84zzuwRtm3WVllv9rjozudkV1cbmYTKxHBaztjaOFwHu1Z0zBuycaboUarpdLbCwRgdDd1edNhTA",
    "householdId": "21d2a18d-0f98-485b-90d2-552988f190b8",
@@ -2273,7 +2273,7 @@ URL: api.dev.thepurplepiggybank.com/editThreshold
 
 ***Body:***
 
-```js        
+```js
 {
   "authorizationToken": "eyJraWQiOiJrZ1FJcEZkYUlVRUhETGQ4NmIyYkh0a1lvbitKOVRsbkdzSUZoaElld0VzPSIsImFsZyI6IlJTMjU2In0.eyJzdWIiOiI1NDA4NDQxOC1kMDkxLTcwZmEtMzYzMC0yNzM4YTIwYzA0ZjkiLCJpc3MiOiJodHRwczpcL1wvY29nbml0by1pZHAudXMtZWFzdC0xLmFtYXpvbmF3cy5jb21cL3VzLWVhc3QtMV84UVA2MkdoQ0EiLCJjbGllbnRfaWQiOiJoNm81ZmhqNDAycXZnbG50MDE1MTdzaHAxIiwib3JpZ2luX2p0aSI6IjgyMjliMGVlLWM0MWEtNDY3NS1hZTk4LTZiNjhjY2M4M2I4OCIsImV2ZW50X2lkIjoiMWNhMzFlNjktOGI0Zi00NWQxLTljMDQtZjMzOGNjZGNjYTVlIiwidG9rZW5fdXNlIjoiYWNjZXNzIiwic2NvcGUiOiJhd3MuY29nbml0by5zaWduaW4udXNlci5hZG1pbiIsImF1dGhfdGltZSI6MTcxNjQ4Nzg2MCwiZXhwIjoxNzE2NDkxNDYwLCJpYXQiOjE3MTY0ODc4NjAsImp0aSI6IjA2YTFkMmFkLWU5NTEtNDFiMS05YWYwLTBjNjIxODA0MGIxMSIsInVzZXJuYW1lIjoidGVzdCJ9.sUHvc5nYW_couQU8GEIdcEv5LsYEWN6msbVT1sOxNQmceCvbb-9Eghe0d8BmUVFEtzbKChTfY_K-B-CobfzVOLeMm2SnAbWtQ42Bezr2U9YkAOYdf1eI7joe2N35yPhYefUZaT_k8LscRheC5A6gvfuAoEPNrVcu2HQ42sLk2ceYi8405Et6anTSSGmZ_zeY6aX1koAUfcuz_utpuEQgL_wkZwSj4SfYvUk9CovUCi9DdAtrSOfmFaoBt70n4QPtu1IQn3geIwsxmU94yJp5oCA6_vJMNekviW86MONy0bogC0MGuqo4MhHl4xki5A_kBJqm-ay5tbm-LFIhX1UaGQ",
    "householdId": "21d2a18d-0f98-485b-90d2-552988f190b8",
@@ -2297,13 +2297,13 @@ The `GET` request is used to retrieve the currency preference for a household.
 #### Request Body
 
 - `authorizationToken` (text, required): The authorization token for the request.
-    
+
 - `householdId` (text, required): The ID of the household for which the currency preference is being retrieved.
-    
+
 - `ipAddress` (text, required): The IP address of the device making the request.
-    
+
 - `deviceDetails` (text, required): Details of the device making the request.
-    
+
 
 #### Response
 
@@ -2336,7 +2336,7 @@ URL: api.dev.thepurplepiggybank.com/getCurrencyPreference
 
 ***Body:***
 
-```js        
+```js
 {
   "authorizationToken": "eyJraWQiOiJrZ1FJcEZkYUlVRUhETGQ4NmIyYkh0a1lvbitKOVRsbkdzSUZoaElld0VzPSIsImFsZyI6IlJTMjU2In0.eyJzdWIiOiI1NDA4NDQxOC1kMDkxLTcwZmEtMzYzMC0yNzM4YTIwYzA0ZjkiLCJpc3MiOiJodHRwczpcL1wvY29nbml0by1pZHAudXMtZWFzdC0xLmFtYXpvbmF3cy5jb21cL3VzLWVhc3QtMV84UVA2MkdoQ0EiLCJjbGllbnRfaWQiOiJoNm81ZmhqNDAycXZnbG50MDE1MTdzaHAxIiwib3JpZ2luX2p0aSI6IjgwNzExM2QwLTRlOGQtNDcxZS1hNDI5LTBiZTEzZGNkNGQxOSIsImV2ZW50X2lkIjoiMjliZTk1YmYtNTYyYS00Zjk2LWI1MjgtNmM0NjFjMWYyZjlkIiwidG9rZW5fdXNlIjoiYWNjZXNzIiwic2NvcGUiOiJhd3MuY29nbml0by5zaWduaW4udXNlci5hZG1pbiIsImF1dGhfdGltZSI6MTcxNjQ4NDI0OSwiZXhwIjoxNzE2NDg3ODQ5LCJpYXQiOjE3MTY0ODQyNDksImp0aSI6IjBmNTdmOTMyLTg5YjAtNGJjNi05YWY4LTQ2NjMwMTAwNmRjMiIsInVzZXJuYW1lIjoidGVzdCJ9.HHVUQ4MFUdppPFqjwAbSS905BM-_swJSUva2aYU0E5amVXDTBJM8eXxWTXcR23zQ1pWq5wkRxu3Y43lVsr5icRCKGo9lwvZBbMMWIjTCYHt1X2H4g7rqcQSgu1resvT5qQKRn-Pk64n5nSYTNwGV2MoRFxoZMQkFhwfOh4CTyMFSKvo7HVxUtrAA-gVOt077kVqIW2jyD0T2AyNPmzb7prjI2EeEaILn0eNgMT5eEiz9XWiKNpC8gUtWyCxkb1vWo0mOfjKpdy84zzuwRtm3WVllv9rjozudkV1cbmYTKxHBaztjaOFwHu1Z0zBuycaboUarpdLbCwRgdDd1edNhTA",
    "householdId": "21d2a18d-0f98-485b-90d2-552988f190b8",
@@ -2379,7 +2379,7 @@ URL: api.dev.thepurplepiggybank.com/getDefaultPaymentSourcePreference
 
 ***Body:***
 
-```js        
+```js
 {
   "authorizationToken": "eyJraWQiOiJrZ1FJcEZkYUlVRUhETGQ4NmIyYkh0a1lvbitKOVRsbkdzSUZoaElld0VzPSIsImFsZyI6IlJTMjU2In0.eyJzdWIiOiI1NDA4NDQxOC1kMDkxLTcwZmEtMzYzMC0yNzM4YTIwYzA0ZjkiLCJpc3MiOiJodHRwczpcL1wvY29nbml0by1pZHAudXMtZWFzdC0xLmFtYXpvbmF3cy5jb21cL3VzLWVhc3QtMV84UVA2MkdoQ0EiLCJjbGllbnRfaWQiOiJoNm81ZmhqNDAycXZnbG50MDE1MTdzaHAxIiwib3JpZ2luX2p0aSI6IjgwNzExM2QwLTRlOGQtNDcxZS1hNDI5LTBiZTEzZGNkNGQxOSIsImV2ZW50X2lkIjoiMjliZTk1YmYtNTYyYS00Zjk2LWI1MjgtNmM0NjFjMWYyZjlkIiwidG9rZW5fdXNlIjoiYWNjZXNzIiwic2NvcGUiOiJhd3MuY29nbml0by5zaWduaW4udXNlci5hZG1pbiIsImF1dGhfdGltZSI6MTcxNjQ4NDI0OSwiZXhwIjoxNzE2NDg3ODQ5LCJpYXQiOjE3MTY0ODQyNDksImp0aSI6IjBmNTdmOTMyLTg5YjAtNGJjNi05YWY4LTQ2NjMwMTAwNmRjMiIsInVzZXJuYW1lIjoidGVzdCJ9.HHVUQ4MFUdppPFqjwAbSS905BM-_swJSUva2aYU0E5amVXDTBJM8eXxWTXcR23zQ1pWq5wkRxu3Y43lVsr5icRCKGo9lwvZBbMMWIjTCYHt1X2H4g7rqcQSgu1resvT5qQKRn-Pk64n5nSYTNwGV2MoRFxoZMQkFhwfOh4CTyMFSKvo7HVxUtrAA-gVOt077kVqIW2jyD0T2AyNPmzb7prjI2EeEaILn0eNgMT5eEiz9XWiKNpC8gUtWyCxkb1vWo0mOfjKpdy84zzuwRtm3WVllv9rjozudkV1cbmYTKxHBaztjaOFwHu1Z0zBuycaboUarpdLbCwRgdDd1edNhTA",
   "householdId": "21d2a18d-0f98-485b-90d2-552988f190b8",
@@ -2401,17 +2401,17 @@ The `POST` request is used to retrieve threshold breakers from the API.
 #### Request Body
 
 - `authorizationToken` (text, required): The authorization token for authentication.
-    
+
 - `householdId` (text, required): The ID of the household.
-    
+
 - `threshold` (number, required): The threshold value.
-    
+
 - `paymentSourceId` (text, required): The ID of the payment source.
-    
+
 - `ipAddress` (text, required): The IP address of the device.
-    
+
 - `deviceDetails` (text, required): Details of the device.
-    
+
 
 #### Response
 
@@ -2433,13 +2433,13 @@ The response will be in JSON format with the following schema:
 The response will contain an array of `entries`, where each entry will have:
 
 - `transactionDate` (string): The date of the transaction.
-    
-- `amount` (number): The amount of the transaction.
-    
-- `runningTotal` (number): The running total at the time of the transaction.
-    
 
-Status Code: 200  
+- `amount` (number): The amount of the transaction.
+
+- `runningTotal` (number): The running total at the time of the transaction.
+
+
+Status Code: 200
 Content Type: application/json
 
 
@@ -2455,7 +2455,7 @@ URL: api.dev.thepurplepiggybank.com/getThresholdBreakers
 
 ***Body:***
 
-```js        
+```js
 {
   "authorizationToken": "eyJraWQiOiJrZ1FJcEZkYUlVRUhETGQ4NmIyYkh0a1lvbitKOVRsbkdzSUZoaElld0VzPSIsImFsZyI6IlJTMjU2In0.eyJzdWIiOiI1NDA4NDQxOC1kMDkxLTcwZmEtMzYzMC0yNzM4YTIwYzA0ZjkiLCJpc3MiOiJodHRwczpcL1wvY29nbml0by1pZHAudXMtZWFzdC0xLmFtYXpvbmF3cy5jb21cL3VzLWVhc3QtMV84UVA2MkdoQ0EiLCJjbGllbnRfaWQiOiJoNm81ZmhqNDAycXZnbG50MDE1MTdzaHAxIiwib3JpZ2luX2p0aSI6IjgyMjliMGVlLWM0MWEtNDY3NS1hZTk4LTZiNjhjY2M4M2I4OCIsImV2ZW50X2lkIjoiMWNhMzFlNjktOGI0Zi00NWQxLTljMDQtZjMzOGNjZGNjYTVlIiwidG9rZW5fdXNlIjoiYWNjZXNzIiwic2NvcGUiOiJhd3MuY29nbml0by5zaWduaW4udXNlci5hZG1pbiIsImF1dGhfdGltZSI6MTcxNjQ4Nzg2MCwiZXhwIjoxNzE2NDkxNDYwLCJpYXQiOjE3MTY0ODc4NjAsImp0aSI6IjA2YTFkMmFkLWU5NTEtNDFiMS05YWYwLTBjNjIxODA0MGIxMSIsInVzZXJuYW1lIjoidGVzdCJ9.sUHvc5nYW_couQU8GEIdcEv5LsYEWN6msbVT1sOxNQmceCvbb-9Eghe0d8BmUVFEtzbKChTfY_K-B-CobfzVOLeMm2SnAbWtQ42Bezr2U9YkAOYdf1eI7joe2N35yPhYefUZaT_k8LscRheC5A6gvfuAoEPNrVcu2HQ42sLk2ceYi8405Et6anTSSGmZ_zeY6aX1koAUfcuz_utpuEQgL_wkZwSj4SfYvUk9CovUCi9DdAtrSOfmFaoBt70n4QPtu1IQn3geIwsxmU94yJp5oCA6_vJMNekviW86MONy0bogC0MGuqo4MhHl4xki5A_kBJqm-ay5tbm-LFIhX1UaGQ",
    "householdId": "21d2a18d-0f98-485b-90d2-552988f190b8",
@@ -2477,13 +2477,13 @@ URL: api.dev.thepurplepiggybank.com/getThresholdBreakers
 This endpoint allows the client to retrieve the threshold preference by making an HTTP POST request to `api.dev.thepurplepiggybank.com/getThresholdPreference`. The request should include the following parameters in the raw request body:
 
 - `authorizationToken` (string): The authorization token for authentication.
-    
+
 - `householdId` (string): The ID of the household for which the threshold preference is being retrieved.
-    
+
 - `ipAddress` (string): The IP address of the device making the request.
-    
+
 - `deviceDetails` (string): Details of the device making the request.
-    
+
 
 ### API Response
 
@@ -2511,7 +2511,7 @@ URL: api.dev.thepurplepiggybank.com/getThresholdPreference
 
 ***Body:***
 
-```js        
+```js
 {
   "authorizationToken": "eyJraWQiOiJrZ1FJcEZkYUlVRUhETGQ4NmIyYkh0a1lvbitKOVRsbkdzSUZoaElld0VzPSIsImFsZyI6IlJTMjU2In0.eyJzdWIiOiI1NDA4NDQxOC1kMDkxLTcwZmEtMzYzMC0yNzM4YTIwYzA0ZjkiLCJpc3MiOiJodHRwczpcL1wvY29nbml0by1pZHAudXMtZWFzdC0xLmFtYXpvbmF3cy5jb21cL3VzLWVhc3QtMV84UVA2MkdoQ0EiLCJjbGllbnRfaWQiOiJoNm81ZmhqNDAycXZnbG50MDE1MTdzaHAxIiwib3JpZ2luX2p0aSI6IjgyMjliMGVlLWM0MWEtNDY3NS1hZTk4LTZiNjhjY2M4M2I4OCIsImV2ZW50X2lkIjoiMWNhMzFlNjktOGI0Zi00NWQxLTljMDQtZjMzOGNjZGNjYTVlIiwidG9rZW5fdXNlIjoiYWNjZXNzIiwic2NvcGUiOiJhd3MuY29nbml0by5zaWduaW4udXNlci5hZG1pbiIsImF1dGhfdGltZSI6MTcxNjQ4Nzg2MCwiZXhwIjoxNzE2NDkxNDYwLCJpYXQiOjE3MTY0ODc4NjAsImp0aSI6IjA2YTFkMmFkLWU5NTEtNDFiMS05YWYwLTBjNjIxODA0MGIxMSIsInVzZXJuYW1lIjoidGVzdCJ9.sUHvc5nYW_couQU8GEIdcEv5LsYEWN6msbVT1sOxNQmceCvbb-9Eghe0d8BmUVFEtzbKChTfY_K-B-CobfzVOLeMm2SnAbWtQ42Bezr2U9YkAOYdf1eI7joe2N35yPhYefUZaT_k8LscRheC5A6gvfuAoEPNrVcu2HQ42sLk2ceYi8405Et6anTSSGmZ_zeY6aX1koAUfcuz_utpuEQgL_wkZwSj4SfYvUk9CovUCi9DdAtrSOfmFaoBt70n4QPtu1IQn3geIwsxmU94yJp5oCA6_vJMNekviW86MONy0bogC0MGuqo4MhHl4xki5A_kBJqm-ay5tbm-LFIhX1UaGQ",
    "householdId": "21d2a18d-0f98-485b-90d2-552988f190b8",
@@ -2533,17 +2533,17 @@ This endpoint allows the user to set their currency preference for the Purple Pi
 **Request Body**
 
 - `authorizationToken` (text): The authorization token for the user.
-    
-- `householdId` (text): The ID of the user's household.
-    
-- `currencySymbol` (text): The currency symbol to set as preference.
-    
-- `ipAddress` (text): The IP address of the user's device.
-    
-- `deviceDetails` (text): Details of the user's device.
-    
 
-**Response**  
+- `householdId` (text): The ID of the user's household.
+
+- `currencySymbol` (text): The currency symbol to set as preference.
+
+- `ipAddress` (text): The IP address of the user's device.
+
+- `deviceDetails` (text): Details of the user's device.
+
+
+**Response**
 Upon a successful request, the server responds with a status code of 200 and a JSON object containing the preference details:
 
 ``` json
@@ -2573,7 +2573,7 @@ URL: api.dev.thepurplepiggybank.com/setCurrencyPreference
 
 ***Body:***
 
-```js        
+```js
 {
   "authorizationToken": "eyJraWQiOiJrZ1FJcEZkYUlVRUhETGQ4NmIyYkh0a1lvbitKOVRsbkdzSUZoaElld0VzPSIsImFsZyI6IlJTMjU2In0.eyJzdWIiOiI1NDA4NDQxOC1kMDkxLTcwZmEtMzYzMC0yNzM4YTIwYzA0ZjkiLCJpc3MiOiJodHRwczpcL1wvY29nbml0by1pZHAudXMtZWFzdC0xLmFtYXpvbmF3cy5jb21cL3VzLWVhc3QtMV84UVA2MkdoQ0EiLCJjbGllbnRfaWQiOiJoNm81ZmhqNDAycXZnbG50MDE1MTdzaHAxIiwib3JpZ2luX2p0aSI6IjgwNzExM2QwLTRlOGQtNDcxZS1hNDI5LTBiZTEzZGNkNGQxOSIsImV2ZW50X2lkIjoiMjliZTk1YmYtNTYyYS00Zjk2LWI1MjgtNmM0NjFjMWYyZjlkIiwidG9rZW5fdXNlIjoiYWNjZXNzIiwic2NvcGUiOiJhd3MuY29nbml0by5zaWduaW4udXNlci5hZG1pbiIsImF1dGhfdGltZSI6MTcxNjQ4NDI0OSwiZXhwIjoxNzE2NDg3ODQ5LCJpYXQiOjE3MTY0ODQyNDksImp0aSI6IjBmNTdmOTMyLTg5YjAtNGJjNi05YWY4LTQ2NjMwMTAwNmRjMiIsInVzZXJuYW1lIjoidGVzdCJ9.HHVUQ4MFUdppPFqjwAbSS905BM-_swJSUva2aYU0E5amVXDTBJM8eXxWTXcR23zQ1pWq5wkRxu3Y43lVsr5icRCKGo9lwvZBbMMWIjTCYHt1X2H4g7rqcQSgu1resvT5qQKRn-Pk64n5nSYTNwGV2MoRFxoZMQkFhwfOh4CTyMFSKvo7HVxUtrAA-gVOt077kVqIW2jyD0T2AyNPmzb7prjI2EeEaILn0eNgMT5eEiz9XWiKNpC8gUtWyCxkb1vWo0mOfjKpdy84zzuwRtm3WVllv9rjozudkV1cbmYTKxHBaztjaOFwHu1Z0zBuycaboUarpdLbCwRgdDd1edNhTA",
    "householdId": "21d2a18d-0f98-485b-90d2-552988f190b8",
@@ -2631,7 +2631,7 @@ URL: api.dev.thepurplepiggybank.com/setDefaultPaymentSource
 
 ***Body:***
 
-```js        
+```js
 {
   "authorizationToken": "eyJraWQiOiJrZ1FJcEZkYUlVRUhETGQ4NmIyYkh0a1lvbitKOVRsbkdzSUZoaElld0VzPSIsImFsZyI6IlJTMjU2In0.eyJzdWIiOiI1NDA4NDQxOC1kMDkxLTcwZmEtMzYzMC0yNzM4YTIwYzA0ZjkiLCJpc3MiOiJodHRwczpcL1wvY29nbml0by1pZHAudXMtZWFzdC0xLmFtYXpvbmF3cy5jb21cL3VzLWVhc3QtMV84UVA2MkdoQ0EiLCJjbGllbnRfaWQiOiJoNm81ZmhqNDAycXZnbG50MDE1MTdzaHAxIiwib3JpZ2luX2p0aSI6ImFjZTAxOTFhLWY1ZGYtNGFhYS1hNmMyLTQzOGQxOWJkN2QyZSIsImV2ZW50X2lkIjoiNGI5YTIzMGItNzM4YS00MGJkLTliYjQtNjlhZjM5NWMwMDBiIiwidG9rZW5fdXNlIjoiYWNjZXNzIiwic2NvcGUiOiJhd3MuY29nbml0by5zaWduaW4udXNlci5hZG1pbiIsImF1dGhfdGltZSI6MTcxNjQ4MzE0MiwiZXhwIjoxNzE2NDg2NzQyLCJpYXQiOjE3MTY0ODMxNDIsImp0aSI6IjJkMDgyY2E2LWQ4ZjMtNGMxNi04MWE5LTk2YmQxM2M2MTk1OCIsInVzZXJuYW1lIjoidGVzdCJ9.ciQtLeVSvWLa6e4-MeM0nlaXSzYYF7R47IxLfh-Phmh2or4_45O8xgxJAoTaQzgOT2TISG1g4uLRCBQ2tOTjkJ3jlp9NRG8RhG65QDux1dOv2UHasIgp-DyYFQszxcTh_qMcb90DR0tJmTg68QflvouZ1I4AZ3GBNubiQf02gWCN5ruHTyVw5UAGxd0Y2V79gR_Q3bqdbIS3MOo2RWKmy6wZtlgePAL5IKdXYG3eYZlGvUbio0K3aSWkFvmpWALu-99Ah5P8-tcArRr7b2QFm7cIi5JNqPWLH9qukO05IrT5RY8oeBKY-z_8bRYq63Rkr2tMOgtGHA37QfVdAZoFig",
   "householdId": "21d2a18d-0f98-485b-90d2-552988f190b8",
@@ -2651,17 +2651,17 @@ The `POST` request to `/setThreshold` endpoint is used to set a threshold for a 
 ### Request Body
 
 - `authorizationToken` (string): The authorization token for the request.
-    
+
 - `householdId` (string): The unique identifier of the household for which the threshold is being set.
-    
+
 - `threshold` (number): The threshold value to be set.
-    
+
 - `paymentSourceId` (string): The identifier of the payment source.
-    
+
 - `ipAddress` (string): The IP address of the device making the request.
-    
+
 - `deviceDetails` (string): Details of the device making the request.
-    
+
 
 ### Response
 
@@ -2694,7 +2694,7 @@ URL: api.dev.thepurplepiggybank.com/setThreshold
 
 ***Body:***
 
-```js        
+```js
 {
   "authorizationToken": "eyJraWQiOiJrZ1FJcEZkYUlVRUhETGQ4NmIyYkh0a1lvbitKOVRsbkdzSUZoaElld0VzPSIsImFsZyI6IlJTMjU2In0.eyJzdWIiOiI1NDA4NDQxOC1kMDkxLTcwZmEtMzYzMC0yNzM4YTIwYzA0ZjkiLCJpc3MiOiJodHRwczpcL1wvY29nbml0by1pZHAudXMtZWFzdC0xLmFtYXpvbmF3cy5jb21cL3VzLWVhc3QtMV84UVA2MkdoQ0EiLCJjbGllbnRfaWQiOiJoNm81ZmhqNDAycXZnbG50MDE1MTdzaHAxIiwib3JpZ2luX2p0aSI6IjgyMjliMGVlLWM0MWEtNDY3NS1hZTk4LTZiNjhjY2M4M2I4OCIsImV2ZW50X2lkIjoiMWNhMzFlNjktOGI0Zi00NWQxLTljMDQtZjMzOGNjZGNjYTVlIiwidG9rZW5fdXNlIjoiYWNjZXNzIiwic2NvcGUiOiJhd3MuY29nbml0by5zaWduaW4udXNlci5hZG1pbiIsImF1dGhfdGltZSI6MTcxNjQ4Nzg2MCwiZXhwIjoxNzE2NDkxNDYwLCJpYXQiOjE3MTY0ODc4NjAsImp0aSI6IjA2YTFkMmFkLWU5NTEtNDFiMS05YWYwLTBjNjIxODA0MGIxMSIsInVzZXJuYW1lIjoidGVzdCJ9.sUHvc5nYW_couQU8GEIdcEv5LsYEWN6msbVT1sOxNQmceCvbb-9Eghe0d8BmUVFEtzbKChTfY_K-B-CobfzVOLeMm2SnAbWtQ42Bezr2U9YkAOYdf1eI7joe2N35yPhYefUZaT_k8LscRheC5A6gvfuAoEPNrVcu2HQ42sLk2ceYi8405Et6anTSSGmZ_zeY6aX1koAUfcuz_utpuEQgL_wkZwSj4SfYvUk9CovUCi9DdAtrSOfmFaoBt70n4QPtu1IQn3geIwsxmU94yJp5oCA6_vJMNekviW86MONy0bogC0MGuqo4MhHl4xki5A_kBJqm-ay5tbm-LFIhX1UaGQ",
    "householdId": "21d2a18d-0f98-485b-90d2-552988f190b8",
@@ -2722,15 +2722,15 @@ This endpoint allows you to export the ledger to a CSV file.
 #### Request Body
 
 - `authorizationToken` (string, required): The authorization token for accessing the API.
-    
+
 - `householdId` (string, required): The ID of the household for which the ledger is to be exported.
-    
+
 - `paymentSourceId` (string, required): The ID of the payment source.
-    
+
 - `ipAddress` (string, required): The IP address of the device making the request.
-    
+
 - `deviceDetails` (string, required): Details of the device making the request.
-    
+
 
 #### Response
 
@@ -2752,7 +2752,7 @@ The response is in JSON format with the following schema:
  ```
 
 - `message` (string): A message related to the export process.
-    
+
 - `presignedUrl` (string): The presigned URL for downloading the exported CSV file.
 
 
@@ -2775,7 +2775,7 @@ URL: api.dev.thepurplepiggybank.com/exportLedgerToCsv
 
 ***Body:***
 
-```js        
+```js
 {
     "authorizationToken": "eyJraWQiOiJrZ1FJcEZkYUlVRUhETGQ4NmIyYkh0a1lvbitKOVRsbkdzSUZoaElld0VzPSIsImFsZyI6IlJTMjU2In0.eyJzdWIiOiI1NDA4NDQxOC1kMDkxLTcwZmEtMzYzMC0yNzM4YTIwYzA0ZjkiLCJpc3MiOiJodHRwczpcL1wvY29nbml0by1pZHAudXMtZWFzdC0xLmFtYXpvbmF3cy5jb21cL3VzLWVhc3QtMV84UVA2MkdoQ0EiLCJjbGllbnRfaWQiOiJoNm81ZmhqNDAycXZnbG50MDE1MTdzaHAxIiwib3JpZ2luX2p0aSI6IjQ1Zjk4YTM5LTc1OTMtNDA5NC1hNjQ0LTFkZjA2Zjc0ODMwNCIsImV2ZW50X2lkIjoiZTBmMjBiN2YtMzIyYS00MjI4LWExOTEtMDk5MTQ4MWI1MmU2IiwidG9rZW5fdXNlIjoiYWNjZXNzIiwic2NvcGUiOiJhd3MuY29nbml0by5zaWduaW4udXNlci5hZG1pbiIsImF1dGhfdGltZSI6MTcxNjQ5MDgwNywiZXhwIjoxNzE2NDk0NDA3LCJpYXQiOjE3MTY0OTA4MDcsImp0aSI6ImFkYjVmMTllLTZlNzYtNGVmOS04OGRmLTM2YmVmZTE1MDU3OCIsInVzZXJuYW1lIjoidGVzdCJ9.ErmuIRD3BBVCDrKKhThgfCKKKnmyj4IiX7M8WnhdQR_ttHWjH0uNb3vOk1TfHL4ScQaQmg_iSj24lACwKgimsO1LoVLq5TDLhIV8iLtAx794LovPJQshJ4EtaDXzh8iB9Cv8qq-jmWtec0EMrxwzrpfX5ogCuicMwoGLGRK9yekV4nMfg3I6VfuVSO2oMtHOw-ATlDHyTLMp-bCPYEFUEjTa5TXBpqhBrBqpH8a9iYi6Cog5fe9fC7306iWOpDAUTnXomOU-dXnPj0R-Gvz4gxuk18lhydE9e6x0uBZfazJdFPS-UxHQiuIuUxq1v1lwO64FD8Re-t7kDl9tZJD7rg",
     "householdId": "21d2a18d-0f98-485b-90d2-552988f190b8",
@@ -2795,24 +2795,24 @@ The `POST /exportLedgerToQBO` endpoint is used to export the ledger to QuickBook
 ### Request Body
 
 - `authorizationToken` (string): The authorization token for authentication.
-    
+
 - `householdId` (string): The ID of the household for which the ledger is being exported.
-    
+
 - `paymentSourceId` (string): The ID of the payment source.
-    
+
 - `ipAddress` (string): The IP address of the device initiating the request.
-    
+
 - `deviceDetails` (string): Details of the device initiating the request.
-    
+
 
 ### Response
 
 The response is a JSON object with the following properties:
 
 - `message` (string): A message indicating the result of the export process.
-    
+
 - `presignedUrl` (string): The presigned URL for downloading the exported ledger file.
-    
+
 
 ### JSON Schema
 
@@ -2851,7 +2851,7 @@ URL: api.dev.thepurplepiggybank.com/exportLedgerToQBO
 
 ***Body:***
 
-```js        
+```js
 {
     "authorizationToken": "eyJraWQiOiJrZ1FJcEZkYUlVRUhETGQ4NmIyYkh0a1lvbitKOVRsbkdzSUZoaElld0VzPSIsImFsZyI6IlJTMjU2In0.eyJzdWIiOiI1NDA4NDQxOC1kMDkxLTcwZmEtMzYzMC0yNzM4YTIwYzA0ZjkiLCJpc3MiOiJodHRwczpcL1wvY29nbml0by1pZHAudXMtZWFzdC0xLmFtYXpvbmF3cy5jb21cL3VzLWVhc3QtMV84UVA2MkdoQ0EiLCJjbGllbnRfaWQiOiJoNm81ZmhqNDAycXZnbG50MDE1MTdzaHAxIiwib3JpZ2luX2p0aSI6IjQ1Zjk4YTM5LTc1OTMtNDA5NC1hNjQ0LTFkZjA2Zjc0ODMwNCIsImV2ZW50X2lkIjoiZTBmMjBiN2YtMzIyYS00MjI4LWExOTEtMDk5MTQ4MWI1MmU2IiwidG9rZW5fdXNlIjoiYWNjZXNzIiwic2NvcGUiOiJhd3MuY29nbml0by5zaWduaW4udXNlci5hZG1pbiIsImF1dGhfdGltZSI6MTcxNjQ5MDgwNywiZXhwIjoxNzE2NDk0NDA3LCJpYXQiOjE3MTY0OTA4MDcsImp0aSI6ImFkYjVmMTllLTZlNzYtNGVmOS04OGRmLTM2YmVmZTE1MDU3OCIsInVzZXJuYW1lIjoidGVzdCJ9.ErmuIRD3BBVCDrKKhThgfCKKKnmyj4IiX7M8WnhdQR_ttHWjH0uNb3vOk1TfHL4ScQaQmg_iSj24lACwKgimsO1LoVLq5TDLhIV8iLtAx794LovPJQshJ4EtaDXzh8iB9Cv8qq-jmWtec0EMrxwzrpfX5ogCuicMwoGLGRK9yekV4nMfg3I6VfuVSO2oMtHOw-ATlDHyTLMp-bCPYEFUEjTa5TXBpqhBrBqpH8a9iYi6Cog5fe9fC7306iWOpDAUTnXomOU-dXnPj0R-Gvz4gxuk18lhydE9e6x0uBZfazJdFPS-UxHQiuIuUxq1v1lwO64FD8Re-t7kDl9tZJD7rg",
     "householdId": "21d2a18d-0f98-485b-90d2-552988f190b8",
@@ -2931,7 +2931,7 @@ URL: api.dev.thepurplepiggybank.com/getCategories
 
 ***Body:***
 
-```js        
+```js
 {
   "authorizationToken": "eyJraWQiOiJrZ1FJcEZkYUlVRUhETGQ4NmIyYkh0a1lvbitKOVRsbkdzSUZoaElld0VzPSIsImFsZyI6IlJTMjU2In0.eyJzdWIiOiI1NDA4NDQxOC1kMDkxLTcwZmEtMzYzMC0yNzM4YTIwYzA0ZjkiLCJpc3MiOiJodHRwczpcL1wvY29nbml0by1pZHAudXMtZWFzdC0xLmFtYXpvbmF3cy5jb21cL3VzLWVhc3QtMV84UVA2MkdoQ0EiLCJjbGllbnRfaWQiOiJoNm81ZmhqNDAycXZnbG50MDE1MTdzaHAxIiwib3JpZ2luX2p0aSI6IjQ1Zjk4YTM5LTc1OTMtNDA5NC1hNjQ0LTFkZjA2Zjc0ODMwNCIsImV2ZW50X2lkIjoiZTBmMjBiN2YtMzIyYS00MjI4LWExOTEtMDk5MTQ4MWI1MmU2IiwidG9rZW5fdXNlIjoiYWNjZXNzIiwic2NvcGUiOiJhd3MuY29nbml0by5zaWduaW4udXNlci5hZG1pbiIsImF1dGhfdGltZSI6MTcxNjQ5MDgwNywiZXhwIjoxNzE2NDk0NDA3LCJpYXQiOjE3MTY0OTA4MDcsImp0aSI6ImFkYjVmMTllLTZlNzYtNGVmOS04OGRmLTM2YmVmZTE1MDU3OCIsInVzZXJuYW1lIjoidGVzdCJ9.ErmuIRD3BBVCDrKKhThgfCKKKnmyj4IiX7M8WnhdQR_ttHWjH0uNb3vOk1TfHL4ScQaQmg_iSj24lACwKgimsO1LoVLq5TDLhIV8iLtAx794LovPJQshJ4EtaDXzh8iB9Cv8qq-jmWtec0EMrxwzrpfX5ogCuicMwoGLGRK9yekV4nMfg3I6VfuVSO2oMtHOw-ATlDHyTLMp-bCPYEFUEjTa5TXBpqhBrBqpH8a9iYi6Cog5fe9fC7306iWOpDAUTnXomOU-dXnPj0R-Gvz4gxuk18lhydE9e6x0uBZfazJdFPS-UxHQiuIuUxq1v1lwO64FD8Re-t7kDl9tZJD7rg",
    "householdId": "21d2a18d-0f98-485b-90d2-552988f190b8",
@@ -3037,7 +3037,7 @@ URL: api.dev.thepurplepiggybank.com/getLedger
 
 ***Body:***
 
-```js        
+```js
 {
     "authorizationToken": "eyJraWQiOiJrZ1FJcEZkYUlVRUhETGQ4NmIyYkh0a1lvbitKOVRsbkdzSUZoaElld0VzPSIsImFsZyI6IlJTMjU2In0.eyJzdWIiOiI1NDA4NDQxOC1kMDkxLTcwZmEtMzYzMC0yNzM4YTIwYzA0ZjkiLCJpc3MiOiJodHRwczpcL1wvY29nbml0by1pZHAudXMtZWFzdC0xLmFtYXpvbmF3cy5jb21cL3VzLWVhc3QtMV84UVA2MkdoQ0EiLCJjbGllbnRfaWQiOiJoNm81ZmhqNDAycXZnbG50MDE1MTdzaHAxIiwib3JpZ2luX2p0aSI6IjQ1Zjk4YTM5LTc1OTMtNDA5NC1hNjQ0LTFkZjA2Zjc0ODMwNCIsImV2ZW50X2lkIjoiZTBmMjBiN2YtMzIyYS00MjI4LWExOTEtMDk5MTQ4MWI1MmU2IiwidG9rZW5fdXNlIjoiYWNjZXNzIiwic2NvcGUiOiJhd3MuY29nbml0by5zaWduaW4udXNlci5hZG1pbiIsImF1dGhfdGltZSI6MTcxNjQ5MDgwNywiZXhwIjoxNzE2NDk0NDA3LCJpYXQiOjE3MTY0OTA4MDcsImp0aSI6ImFkYjVmMTllLTZlNzYtNGVmOS04OGRmLTM2YmVmZTE1MDU3OCIsInVzZXJuYW1lIjoidGVzdCJ9.ErmuIRD3BBVCDrKKhThgfCKKKnmyj4IiX7M8WnhdQR_ttHWjH0uNb3vOk1TfHL4ScQaQmg_iSj24lACwKgimsO1LoVLq5TDLhIV8iLtAx794LovPJQshJ4EtaDXzh8iB9Cv8qq-jmWtec0EMrxwzrpfX5ogCuicMwoGLGRK9yekV4nMfg3I6VfuVSO2oMtHOw-ATlDHyTLMp-bCPYEFUEjTa5TXBpqhBrBqpH8a9iYi6Cog5fe9fC7306iWOpDAUTnXomOU-dXnPj0R-Gvz4gxuk18lhydE9e6x0uBZfazJdFPS-UxHQiuIuUxq1v1lwO64FD8Re-t7kDl9tZJD7rg",
     "householdId": "21d2a18d-0f98-485b-90d2-552988f190b8",
@@ -3060,13 +3060,13 @@ This endpoint is used to retrieve the running total with the provided authorizat
 #### Request Body
 
 - `authorizationToken` (string): The authorization token for authentication.
-    
+
 - `paymentSourceId` (string): The ID of the payment source.
-    
+
 - `ipAddress` (string): The IP address of the device.
-    
+
 - `deviceDetails` (string): Details of the device.
-    
+
 
 #### Response
 
@@ -3081,7 +3081,7 @@ The response is returned in JSON format with the following schema:
  ```
 
 - `paymentSourceId` (string): The ID of the payment source.
-    
+
 - `runningTotal` (number): The current running total.
 
 
@@ -3104,7 +3104,7 @@ URL: api.dev.thepurplepiggybank.com/getRunningTotal
 
 ***Body:***
 
-```js        
+```js
 {
     "authorizationToken": "eyJraWQiOiJrZ1FJcEZkYUlVRUhETGQ4NmIyYkh0a1lvbitKOVRsbkdzSUZoaElld0VzPSIsImFsZyI6IlJTMjU2In0.eyJzdWIiOiI1NDA4NDQxOC1kMDkxLTcwZmEtMzYzMC0yNzM4YTIwYzA0ZjkiLCJpc3MiOiJodHRwczpcL1wvY29nbml0by1pZHAudXMtZWFzdC0xLmFtYXpvbmF3cy5jb21cL3VzLWVhc3QtMV84UVA2MkdoQ0EiLCJjbGllbnRfaWQiOiJoNm81ZmhqNDAycXZnbG50MDE1MTdzaHAxIiwib3JpZ2luX2p0aSI6IjQ1Zjk4YTM5LTc1OTMtNDA5NC1hNjQ0LTFkZjA2Zjc0ODMwNCIsImV2ZW50X2lkIjoiZTBmMjBiN2YtMzIyYS00MjI4LWExOTEtMDk5MTQ4MWI1MmU2IiwidG9rZW5fdXNlIjoiYWNjZXNzIiwic2NvcGUiOiJhd3MuY29nbml0by5zaWduaW4udXNlci5hZG1pbiIsImF1dGhfdGltZSI6MTcxNjQ5MDgwNywiZXhwIjoxNzE2NDk0NDA3LCJpYXQiOjE3MTY0OTA4MDcsImp0aSI6ImFkYjVmMTllLTZlNzYtNGVmOS04OGRmLTM2YmVmZTE1MDU3OCIsInVzZXJuYW1lIjoidGVzdCJ9.ErmuIRD3BBVCDrKKhThgfCKKKnmyj4IiX7M8WnhdQR_ttHWjH0uNb3vOk1TfHL4ScQaQmg_iSj24lACwKgimsO1LoVLq5TDLhIV8iLtAx794LovPJQshJ4EtaDXzh8iB9Cv8qq-jmWtec0EMrxwzrpfX5ogCuicMwoGLGRK9yekV4nMfg3I6VfuVSO2oMtHOw-ATlDHyTLMp-bCPYEFUEjTa5TXBpqhBrBqpH8a9iYi6Cog5fe9fC7306iWOpDAUTnXomOU-dXnPj0R-Gvz4gxuk18lhydE9e6x0uBZfazJdFPS-UxHQiuIuUxq1v1lwO64FD8Re-t7kDl9tZJD7rg",
     "paymentSourceId": "414690b8-9678-4dbf-9851-bee2a080d7f2",
@@ -3122,23 +3122,23 @@ URL: api.dev.thepurplepiggybank.com/getRunningTotal
 
 This endpoint allows you to retrieve running totals by date.
 
-**HTTP Request**  
+**HTTP Request**
 `POST api.dev.thepurplepiggybank.com/getRunningTotalsByDate`
 
 **Request Body**
 
 - `authorizationToken` (text, required): The authorization token for access.
-    
+
 - `paymentSourceId` (text, required): The payment source ID.
-    
+
 - `month` (number, required): The month for which running totals are to be retrieved.
-    
+
 - `year` (number, required): The year for which running totals are to be retrieved.
-    
+
 - `ipAddress` (text, required): The IP address of the device.
-    
+
 - `deviceDetails` (text, required): Details of the device.
-    
+
 
 **Response**
 
@@ -3203,7 +3203,7 @@ URL: api.dev.thepurplepiggybank.com/getRunningTotalsByDate
 
 ***Body:***
 
-```js        
+```js
 {
   "authorizationToken": "eyJraWQiOiJrZ1FJcEZkYUlVRUhETGQ4NmIyYkh0a1lvbitKOVRsbkdzSUZoaElld0VzPSIsImFsZyI6IlJTMjU2In0.eyJzdWIiOiI1NDA4NDQxOC1kMDkxLTcwZmEtMzYzMC0yNzM4YTIwYzA0ZjkiLCJpc3MiOiJodHRwczpcL1wvY29nbml0by1pZHAudXMtZWFzdC0xLmFtYXpvbmF3cy5jb21cL3VzLWVhc3QtMV84UVA2MkdoQ0EiLCJjbGllbnRfaWQiOiJoNm81ZmhqNDAycXZnbG50MDE1MTdzaHAxIiwib3JpZ2luX2p0aSI6IjQ1Zjk4YTM5LTc1OTMtNDA5NC1hNjQ0LTFkZjA2Zjc0ODMwNCIsImV2ZW50X2lkIjoiZTBmMjBiN2YtMzIyYS00MjI4LWExOTEtMDk5MTQ4MWI1MmU2IiwidG9rZW5fdXNlIjoiYWNjZXNzIiwic2NvcGUiOiJhd3MuY29nbml0by5zaWduaW4udXNlci5hZG1pbiIsImF1dGhfdGltZSI6MTcxNjQ5MDgwNywiZXhwIjoxNzE2NDk0NDA3LCJpYXQiOjE3MTY0OTA4MDcsImp0aSI6ImFkYjVmMTllLTZlNzYtNGVmOS04OGRmLTM2YmVmZTE1MDU3OCIsInVzZXJuYW1lIjoidGVzdCJ9.ErmuIRD3BBVCDrKKhThgfCKKKnmyj4IiX7M8WnhdQR_ttHWjH0uNb3vOk1TfHL4ScQaQmg_iSj24lACwKgimsO1LoVLq5TDLhIV8iLtAx794LovPJQshJ4EtaDXzh8iB9Cv8qq-jmWtec0EMrxwzrpfX5ogCuicMwoGLGRK9yekV4nMfg3I6VfuVSO2oMtHOw-ATlDHyTLMp-bCPYEFUEjTa5TXBpqhBrBqpH8a9iYi6Cog5fe9fC7306iWOpDAUTnXomOU-dXnPj0R-Gvz4gxuk18lhydE9e6x0uBZfazJdFPS-UxHQiuIuUxq1v1lwO64FD8Re-t7kDl9tZJD7rg",
   "paymentSourceId": "414690b8-9678-4dbf-9851-bee2a080d7f2",
@@ -3231,17 +3231,17 @@ The `Get Audit Trail` endpoint is used to retrieve the audit trail data from the
 **Request Body**
 
 - `authorizationToken` (string, required): The authorization token for accessing the audit trail data.
-    
-- `page` (number, required): The page number for paginating the audit trail data.
-    
-- `pageSize` (number, required): The number of items to be included in each page of the audit trail data.
-    
-- `ipAddress` (string, optional): The IP address for filtering the audit trail data.
-    
-- `deviceDetails` (string, optional): Details of the device for filtering the audit trail data.
-    
 
-**Response**  
+- `page` (number, required): The page number for paginating the audit trail data.
+
+- `pageSize` (number, required): The number of items to be included in each page of the audit trail data.
+
+- `ipAddress` (string, optional): The IP address for filtering the audit trail data.
+
+- `deviceDetails` (string, optional): Details of the device for filtering the audit trail data.
+
+
+**Response**
 The response of this request is a JSON schema representing the structure of the audit trail data.
 
 Example:
@@ -3288,7 +3288,7 @@ URL: api.dev.thepurplepiggybank.com/getAuditTrail
 
 ***Body:***
 
-```js        
+```js
 {
   "authorizationToken": "eyJraWQiOiJrZ1FJcEZkYUlVRUhETGQ4NmIyYkh0a1lvbitKOVRsbkdzSUZoaElld0VzPSIsImFsZyI6IlJTMjU2In0.eyJzdWIiOiI1NDA4NDQxOC1kMDkxLTcwZmEtMzYzMC0yNzM4YTIwYzA0ZjkiLCJpc3MiOiJodHRwczpcL1wvY29nbml0by1pZHAudXMtZWFzdC0xLmFtYXpvbmF3cy5jb21cL3VzLWVhc3QtMV84UVA2MkdoQ0EiLCJjbGllbnRfaWQiOiJoNm81ZmhqNDAycXZnbG50MDE1MTdzaHAxIiwib3JpZ2luX2p0aSI6IjNhNDNmZDcwLWUwNGItNDgxZS1iZjhjLWFjYmYyMzUwMDdmZiIsImV2ZW50X2lkIjoiYTRmNGUxMGItNWYwZS00NzYzLThmM2YtMTM0YzVhNzU3YzJmIiwidG9rZW5fdXNlIjoiYWNjZXNzIiwic2NvcGUiOiJhd3MuY29nbml0by5zaWduaW4udXNlci5hZG1pbiIsImF1dGhfdGltZSI6MTcxNjQwODA1OSwiZXhwIjoxNzE2NDExNjU5LCJpYXQiOjE3MTY0MDgwNTksImp0aSI6ImVjNDg1YTQ5LTZjMGItNGQ3OS04YWZkLTkzYjhmMWM5ZWUzYiIsInVzZXJuYW1lIjoidGVzdCJ9.MMwur4DlEBJK1-CjLLirb-uc1-W1_SklGmEf3C22Q5XL4w8VfRZ122xIZfMCTHIkzbeFZ9UMX7SzV1wSQev8VoaAaoe0tTGMWqPp3AUUs1oaAulH9-ZC9UJ-8ap_mC_Ny1gohZYd5JkOqu-VMY8VKHIikbhIiZSJ54UMh3pbKOveLJZJGIUYMfscvFWu4BA0HQJhw3GalbhXrA3U7Zx4I7UvniqNTA3f7kfG-ECCkZLTacP1q4VXcXmKmPQCfQ8R3JUa_ALZ5mpHswiBkif4Sp8i_1o8jHlPQYB7zCUQlmHMEf--qUr0clieFahKmrpkFfMR_TAq_5g1b01l0gQRgQ",
   "page": 1,
@@ -3311,15 +3311,15 @@ The `POST` request to `/getSecurityLog` endpoint is used to retrieve security lo
 The request should include the following parameters in the raw request body format:
 
 - `authorizationToken` (string): The authorization token for authentication.
-    
+
 - `page` (number): The page number for paginated results.
-    
+
 - `pageSize` (number): The number of items per page.
-    
+
 - `ipAddress` (string): The IP address for filtering security logs.
-    
+
 - `deviceDetails` (string): Details of the device for filtering security logs.
-    
+
 
 ### Response
 
@@ -3338,7 +3338,7 @@ URL: api.dev.thepurplepiggybank.com/getSecurityLog
 
 ***Body:***
 
-```js        
+```js
 {
   "authorizationToken": "eyJraWQiOiJrZ1FJcEZkYUlVRUhETGQ4NmIyYkh0a1lvbitKOVRsbkdzSUZoaElld0VzPSIsImFsZyI6IlJTMjU2In0.eyJzdWIiOiI1NDA4NDQxOC1kMDkxLTcwZmEtMzYzMC0yNzM4YTIwYzA0ZjkiLCJpc3MiOiJodHRwczpcL1wvY29nbml0by1pZHAudXMtZWFzdC0xLmFtYXpvbmF3cy5jb21cL3VzLWVhc3QtMV84UVA2MkdoQ0EiLCJjbGllbnRfaWQiOiJoNm81ZmhqNDAycXZnbG50MDE1MTdzaHAxIiwib3JpZ2luX2p0aSI6IjNhNDNmZDcwLWUwNGItNDgxZS1iZjhjLWFjYmYyMzUwMDdmZiIsImV2ZW50X2lkIjoiYTRmNGUxMGItNWYwZS00NzYzLThmM2YtMTM0YzVhNzU3YzJmIiwidG9rZW5fdXNlIjoiYWNjZXNzIiwic2NvcGUiOiJhd3MuY29nbml0by5zaWduaW4udXNlci5hZG1pbiIsImF1dGhfdGltZSI6MTcxNjQwODA1OSwiZXhwIjoxNzE2NDExNjU5LCJpYXQiOjE3MTY0MDgwNTksImp0aSI6ImVjNDg1YTQ5LTZjMGItNGQ3OS04YWZkLTkzYjhmMWM5ZWUzYiIsInVzZXJuYW1lIjoidGVzdCJ9.MMwur4DlEBJK1-CjLLirb-uc1-W1_SklGmEf3C22Q5XL4w8VfRZ122xIZfMCTHIkzbeFZ9UMX7SzV1wSQev8VoaAaoe0tTGMWqPp3AUUs1oaAulH9-ZC9UJ-8ap_mC_Ny1gohZYd5JkOqu-VMY8VKHIikbhIiZSJ54UMh3pbKOveLJZJGIUYMfscvFWu4BA0HQJhw3GalbhXrA3U7Zx4I7UvniqNTA3f7kfG-ECCkZLTacP1q4VXcXmKmPQCfQ8R3JUa_ALZ5mpHswiBkif4Sp8i_1o8jHlPQYB7zCUQlmHMEf--qUr0clieFahKmrpkFfMR_TAq_5g1b01l0gQRgQ",
   "page": 1,
@@ -3364,29 +3364,29 @@ This endpoint allows you to add a new transaction to the Purple Piggy Bank.
 ### Request Body
 
 - `authorizationToken` (string, required): The authorization token for the request.
-    
+
 - `householdId` (string, required): The ID of the household for the transaction.
-    
+
 - `amount` (string, required): The amount of the transaction.
-    
+
 - `transactionType` (string, required): The type of the transaction.
-    
+
 - `transactionDate` (string, required): The date of the transaction.
-    
+
 - `category` (string, required): The category of the transaction.
-    
+
 - `description` (string, required): The description of the transaction.
-    
+
 - `ipAddress` (string, required): The IP address of the device.
-    
+
 - `deviceDetails` (string, required): Details of the device used for the transaction.
-    
+
 - `status` (string, required): The status of the transaction.
-    
+
 - `sourceId` (string, required): The ID of the source of the transaction.
-    
+
 - `tags` (string, required): Tags associated with the transaction.
-    
+
 
 ### Response (201 - Created)
 
@@ -3451,7 +3451,7 @@ URL: api.dev.thepurplepiggybank.com/addTransaction
 
 ***Body:***
 
-```js        
+```js
 {
   "authorizationToken": "eyJraWQiOiJrZ1FJcEZkYUlVRUhETGQ4NmIyYkh0a1lvbitKOVRsbkdzSUZoaElld0VzPSIsImFsZyI6IlJTMjU2In0.eyJzdWIiOiI1NDA4NDQxOC1kMDkxLTcwZmEtMzYzMC0yNzM4YTIwYzA0ZjkiLCJpc3MiOiJodHRwczpcL1wvY29nbml0by1pZHAudXMtZWFzdC0xLmFtYXpvbmF3cy5jb21cL3VzLWVhc3QtMV84UVA2MkdoQ0EiLCJjbGllbnRfaWQiOiJoNm81ZmhqNDAycXZnbG50MDE1MTdzaHAxIiwib3JpZ2luX2p0aSI6IjQ1Zjk4YTM5LTc1OTMtNDA5NC1hNjQ0LTFkZjA2Zjc0ODMwNCIsImV2ZW50X2lkIjoiZTBmMjBiN2YtMzIyYS00MjI4LWExOTEtMDk5MTQ4MWI1MmU2IiwidG9rZW5fdXNlIjoiYWNjZXNzIiwic2NvcGUiOiJhd3MuY29nbml0by5zaWduaW4udXNlci5hZG1pbiIsImF1dGhfdGltZSI6MTcxNjQ5MDgwNywiZXhwIjoxNzE2NDk0NDA3LCJpYXQiOjE3MTY0OTA4MDcsImp0aSI6ImFkYjVmMTllLTZlNzYtNGVmOS04OGRmLTM2YmVmZTE1MDU3OCIsInVzZXJuYW1lIjoidGVzdCJ9.ErmuIRD3BBVCDrKKhThgfCKKKnmyj4IiX7M8WnhdQR_ttHWjH0uNb3vOk1TfHL4ScQaQmg_iSj24lACwKgimsO1LoVLq5TDLhIV8iLtAx794LovPJQshJ4EtaDXzh8iB9Cv8qq-jmWtec0EMrxwzrpfX5ogCuicMwoGLGRK9yekV4nMfg3I6VfuVSO2oMtHOw-ATlDHyTLMp-bCPYEFUEjTa5TXBpqhBrBqpH8a9iYi6Cog5fe9fC7306iWOpDAUTnXomOU-dXnPj0R-Gvz4gxuk18lhydE9e6x0uBZfazJdFPS-UxHQiuIuUxq1v1lwO64FD8Re-t7kDl9tZJD7rg",
    "householdId": "21d2a18d-0f98-485b-90d2-552988f190b8",
@@ -3477,33 +3477,33 @@ URL: api.dev.thepurplepiggybank.com/addTransaction
 The `POST` request to `/addTransaction` endpoint is used to add a new transaction to the Purple Piggy Bank API. The request should include the following parameters in the raw request body:
 
 - `transactionId` (string): The unique identifier for the transaction.
-    
+
 - `authorizationToken` (string): The authorization token for the transaction.
-    
+
 - `householdId` (string): The identifier for the household associated with the transaction.
-    
+
 - `amount` (string): The amount of the transaction.
-    
+
 - `transactionType` (string): The type of transaction (e.g., income, expense).
-    
+
 - `transactionDate` (string): The date of the transaction.
-    
+
 - `category` (string): The category of the transaction.
-    
+
 - `description` (string): The description of the transaction.
-    
+
 - `ipAddress` (string): The IP address associated with the transaction.
-    
+
 - `deviceDetails` (string): The details of the device used for the transaction.
-    
+
 - `status` (string): The status of the transaction.
-    
+
 - `sourceId` (string): The source identifier for the transaction.
-    
+
 - `tags` (string): Any tags associated with the transaction.
-    
+
 - `image` (string): The image associated with the transaction.
-    
+
 
 The response of this request is documented as a JSON schema:
 
@@ -3545,7 +3545,7 @@ URL: api.dev.thepurplepiggybank.com/addTransaction
 
 ***Body:***
 
-```js        
+```js
 {
   "transactionId": "82b4322b-f8cc-4338-b0f2-0687c3e46f32",
   "authorizationToken": "eyJraWQiOiJrZ1FJcEZkYUlVRUhETGQ4NmIyYkh0a1lvbitKOVRsbkdzSUZoaElld0VzPSIsImFsZyI6IlJTMjU2In0.eyJzdWIiOiI1NDA4NDQxOC1kMDkxLTcwZmEtMzYzMC0yNzM4YTIwYzA0ZjkiLCJpc3MiOiJodHRwczpcL1wvY29nbml0by1pZHAudXMtZWFzdC0xLmFtYXpvbmF3cy5jb21cL3VzLWVhc3QtMV84UVA2MkdoQ0EiLCJjbGllbnRfaWQiOiJoNm81ZmhqNDAycXZnbG50MDE1MTdzaHAxIiwib3JpZ2luX2p0aSI6IjVlNDUwMzYyLWQzMDEtNDg2OC1iZGI4LWIwZTg4NDVmYTk3NiIsImV2ZW50X2lkIjoiZjE3OWUzYTUtODJlMC00Y2Q3LTgzNmYtZmVlYTAyMTU3MTNlIiwidG9rZW5fdXNlIjoiYWNjZXNzIiwic2NvcGUiOiJhd3MuY29nbml0by5zaWduaW4udXNlci5hZG1pbiIsImF1dGhfdGltZSI6MTcxNjQ3OTQwOSwiZXhwIjoxNzE2NDgzMDA5LCJpYXQiOjE3MTY0Nzk0MDksImp0aSI6IjQ3YWIxMGExLTRmYWMtNGU5Ny05ZmY5LTc0MmUzNzRiYzM0MyIsInVzZXJuYW1lIjoidGVzdCJ9.ETH0xnTgQctwovD0_AMwhdMrbCGZTgTXSipSDJqm29AJUCHstHzmwHU88kRb-NlqCJKgrD5m89ju-3MW8HJ1SY02yQQgUNv9Xf3O98Ih1eAPZHgcHqBVaRuDHEtD4QiBtlZO0edgzqWbIWPv9RH0lOaBvdSCVHcXiRHIQghZ9U9LneBmTuf_kUNzVBtR4dFy-eXIa83BpP3a3mKEhfBPMjThtgdhV0oKitZMQGtidGQfTnsxgYEpJHN64MRyu2HyVuXQ2h7or2PzMGpmPRWmq9kew64XGR0Uufni2NZAaXSjcZ1Ll1P-McOO3LKuLJqzZau5Et2U1BM3iL-zKqBEvg",
@@ -3577,9 +3577,9 @@ The `POST` request is used to retrieve the file path from the API.
 #### Request Body
 
 - `authorizationToken` (string, required): The authorization token for authentication.
-    
+
 - `transactionId` (string, required): The transaction ID for identifying the specific transaction.
-    
+
 
 #### Response (JSON Schema)
 
@@ -3601,7 +3601,7 @@ The `POST` request is used to retrieve the file path from the API.
 ```bash
 Method: POST
 Type: RAW
-URL: api.dev.thepurplepiggybank.com/getFilePath 
+URL: api.dev.thepurplepiggybank.com/getFilePath
 ```
 
 
@@ -3615,7 +3615,7 @@ URL: api.dev.thepurplepiggybank.com/getFilePath
 
 ***Body:***
 
-```js        
+```js
 {
     "authorizationToken": "eyJraWQiOiJrZ1FJcEZkYUlVRUhETGQ4NmIyYkh0a1lvbitKOVRsbkdzSUZoaElld0VzPSIsImFsZyI6IlJTMjU2In0.eyJzdWIiOiI1NDA4NDQxOC1kMDkxLTcwZmEtMzYzMC0yNzM4YTIwYzA0ZjkiLCJpc3MiOiJodHRwczpcL1wvY29nbml0by1pZHAudXMtZWFzdC0xLmFtYXpvbmF3cy5jb21cL3VzLWVhc3QtMV84UVA2MkdoQ0EiLCJjbGllbnRfaWQiOiJoNm81ZmhqNDAycXZnbG50MDE1MTdzaHAxIiwib3JpZ2luX2p0aSI6IjVlNDUwMzYyLWQzMDEtNDg2OC1iZGI4LWIwZTg4NDVmYTk3NiIsImV2ZW50X2lkIjoiZjE3OWUzYTUtODJlMC00Y2Q3LTgzNmYtZmVlYTAyMTU3MTNlIiwidG9rZW5fdXNlIjoiYWNjZXNzIiwic2NvcGUiOiJhd3MuY29nbml0by5zaWduaW4udXNlci5hZG1pbiIsImF1dGhfdGltZSI6MTcxNjQ3OTQwOSwiZXhwIjoxNzE2NDgzMDA5LCJpYXQiOjE3MTY0Nzk0MDksImp0aSI6IjQ3YWIxMGExLTRmYWMtNGU5Ny05ZmY5LTc0MmUzNzRiYzM0MyIsInVzZXJuYW1lIjoidGVzdCJ9.ETH0xnTgQctwovD0_AMwhdMrbCGZTgTXSipSDJqm29AJUCHstHzmwHU88kRb-NlqCJKgrD5m89ju-3MW8HJ1SY02yQQgUNv9Xf3O98Ih1eAPZHgcHqBVaRuDHEtD4QiBtlZO0edgzqWbIWPv9RH0lOaBvdSCVHcXiRHIQghZ9U9LneBmTuf_kUNzVBtR4dFy-eXIa83BpP3a3mKEhfBPMjThtgdhV0oKitZMQGtidGQfTnsxgYEpJHN64MRyu2HyVuXQ2h7or2PzMGpmPRWmq9kew64XGR0Uufni2NZAaXSjcZ1Ll1P-McOO3LKuLJqzZau5Et2U1BM3iL-zKqBEvg",
     "transactionId": "7ce8d661-cbd9-479f-8756-107c56937270"
@@ -3634,13 +3634,13 @@ This endpoint is used to retrieve transaction details.
 #### Request Body
 
 - `authorizationToken` (string): The authorization token for the transaction.
-    
+
 - `transactionId` (string): The ID of the transaction to retrieve.
-    
+
 - `ipAddress` (string): The IP address associated with the transaction.
-    
+
 - `deviceDetails` (string): Details of the device used for the transaction.
-    
+
 
 #### Response
 
@@ -3691,11 +3691,11 @@ URL: api.dev.thepurplepiggybank.com/getTransaction
 
 ***Body:***
 
-```js        
+```js
 {
     "authorizationToken": "eyJraWQiOiJrZ1FJcEZkYUlVRUhETGQ4NmIyYkh0a1lvbitKOVRsbkdzSUZoaElld0VzPSIsImFsZyI6IlJTMjU2In0.eyJzdWIiOiI1NDA4NDQxOC1kMDkxLTcwZmEtMzYzMC0yNzM4YTIwYzA0ZjkiLCJpc3MiOiJodHRwczpcL1wvY29nbml0by1pZHAudXMtZWFzdC0xLmFtYXpvbmF3cy5jb21cL3VzLWVhc3QtMV84UVA2MkdoQ0EiLCJjbGllbnRfaWQiOiJoNm81ZmhqNDAycXZnbG50MDE1MTdzaHAxIiwib3JpZ2luX2p0aSI6IjVlNDUwMzYyLWQzMDEtNDg2OC1iZGI4LWIwZTg4NDVmYTk3NiIsImV2ZW50X2lkIjoiZjE3OWUzYTUtODJlMC00Y2Q3LTgzNmYtZmVlYTAyMTU3MTNlIiwidG9rZW5fdXNlIjoiYWNjZXNzIiwic2NvcGUiOiJhd3MuY29nbml0by5zaWduaW4udXNlci5hZG1pbiIsImF1dGhfdGltZSI6MTcxNjQ3OTQwOSwiZXhwIjoxNzE2NDgzMDA5LCJpYXQiOjE3MTY0Nzk0MDksImp0aSI6IjQ3YWIxMGExLTRmYWMtNGU5Ny05ZmY5LTc0MmUzNzRiYzM0MyIsInVzZXJuYW1lIjoidGVzdCJ9.ETH0xnTgQctwovD0_AMwhdMrbCGZTgTXSipSDJqm29AJUCHstHzmwHU88kRb-NlqCJKgrD5m89ju-3MW8HJ1SY02yQQgUNv9Xf3O98Ih1eAPZHgcHqBVaRuDHEtD4QiBtlZO0edgzqWbIWPv9RH0lOaBvdSCVHcXiRHIQghZ9U9LneBmTuf_kUNzVBtR4dFy-eXIa83BpP3a3mKEhfBPMjThtgdhV0oKitZMQGtidGQfTnsxgYEpJHN64MRyu2HyVuXQ2h7or2PzMGpmPRWmq9kew64XGR0Uufni2NZAaXSjcZ1Ll1P-McOO3LKuLJqzZau5Et2U1BM3iL-zKqBEvg",
     "transactionId": "7ce8d661-cbd9-479f-8756-107c56937270",
-  "ipAddress": "192.168.1.1", 
+  "ipAddress": "192.168.1.1",
 	"deviceDetails": "iPhone 12, iOS 14.4"
 }
 ```
@@ -3740,11 +3740,11 @@ URL: api.dev.thepurplepiggybank.com/getTransactionsByMonth
 
 ***Body:***
 
-```js        
+```js
 {
     "authorizationToken": "eyJraWQiOiJrZ1FJcEZkYUlVRUhETGQ4NmIyYkh0a1lvbitKOVRsbkdzSUZoaElld0VzPSIsImFsZyI6IlJTMjU2In0.eyJzdWIiOiI1NDA4NDQxOC1kMDkxLTcwZmEtMzYzMC0yNzM4YTIwYzA0ZjkiLCJpc3MiOiJodHRwczpcL1wvY29nbml0by1pZHAudXMtZWFzdC0xLmFtYXpvbmF3cy5jb21cL3VzLWVhc3QtMV84UVA2MkdoQ0EiLCJjbGllbnRfaWQiOiJoNm81ZmhqNDAycXZnbG50MDE1MTdzaHAxIiwib3JpZ2luX2p0aSI6IjVlNDUwMzYyLWQzMDEtNDg2OC1iZGI4LWIwZTg4NDVmYTk3NiIsImV2ZW50X2lkIjoiZjE3OWUzYTUtODJlMC00Y2Q3LTgzNmYtZmVlYTAyMTU3MTNlIiwidG9rZW5fdXNlIjoiYWNjZXNzIiwic2NvcGUiOiJhd3MuY29nbml0by5zaWduaW4udXNlci5hZG1pbiIsImF1dGhfdGltZSI6MTcxNjQ3OTQwOSwiZXhwIjoxNzE2NDgzMDA5LCJpYXQiOjE3MTY0Nzk0MDksImp0aSI6IjQ3YWIxMGExLTRmYWMtNGU5Ny05ZmY5LTc0MmUzNzRiYzM0MyIsInVzZXJuYW1lIjoidGVzdCJ9.ETH0xnTgQctwovD0_AMwhdMrbCGZTgTXSipSDJqm29AJUCHstHzmwHU88kRb-NlqCJKgrD5m89ju-3MW8HJ1SY02yQQgUNv9Xf3O98Ih1eAPZHgcHqBVaRuDHEtD4QiBtlZO0edgzqWbIWPv9RH0lOaBvdSCVHcXiRHIQghZ9U9LneBmTuf_kUNzVBtR4dFy-eXIa83BpP3a3mKEhfBPMjThtgdhV0oKitZMQGtidGQfTnsxgYEpJHN64MRyu2HyVuXQ2h7or2PzMGpmPRWmq9kew64XGR0Uufni2NZAaXSjcZ1Ll1P-McOO3LKuLJqzZau5Et2U1BM3iL-zKqBEvg",
     "transactionId": "7ce8d661-cbd9-479f-8756-107c56937270",
-  "ipAddress": "192.168.1.1", 
+  "ipAddress": "192.168.1.1",
 	"deviceDetails": "iPhone 12, iOS 14.4",
 	"month": 5,
 	"year": 2024
@@ -3763,17 +3763,17 @@ This API endpoint is used to retrieve transactions based on the payment source.
 **Request Body**
 
 - authorizationToken (string, required): The authorization token for authentication.
-    
-- householdId (string, required): The ID of the household for which transactions are being retrieved.
-    
-- paymentSourceId (string, required): The ID of the payment source for which transactions are being retrieved.
-    
-- ipAddress (string, required): The IP address of the device making the request.
-    
-- deviceDetails (string, required): Details of the device making the request.
-    
 
-**Response**  
+- householdId (string, required): The ID of the household for which transactions are being retrieved.
+
+- paymentSourceId (string, required): The ID of the payment source for which transactions are being retrieved.
+
+- ipAddress (string, required): The IP address of the device making the request.
+
+- deviceDetails (string, required): Details of the device making the request.
+
+
+**Response**
 The response of this request is a JSON object conforming to the following schema:
 
 ``` json
@@ -3826,7 +3826,7 @@ URL: api.dev.thepurplepiggybank.com/getTransactionsByPaymentSource
 
 ***Body:***
 
-```js        
+```js
 {
     "authorizationToken": "eyJraWQiOiJrZ1FJcEZkYUlVRUhETGQ4NmIyYkh0a1lvbitKOVRsbkdzSUZoaElld0VzPSIsImFsZyI6IlJTMjU2In0.eyJzdWIiOiI1NDA4NDQxOC1kMDkxLTcwZmEtMzYzMC0yNzM4YTIwYzA0ZjkiLCJpc3MiOiJodHRwczpcL1wvY29nbml0by1pZHAudXMtZWFzdC0xLmFtYXpvbmF3cy5jb21cL3VzLWVhc3QtMV84UVA2MkdoQ0EiLCJjbGllbnRfaWQiOiJoNm81ZmhqNDAycXZnbG50MDE1MTdzaHAxIiwib3JpZ2luX2p0aSI6IjVlNDUwMzYyLWQzMDEtNDg2OC1iZGI4LWIwZTg4NDVmYTk3NiIsImV2ZW50X2lkIjoiZjE3OWUzYTUtODJlMC00Y2Q3LTgzNmYtZmVlYTAyMTU3MTNlIiwidG9rZW5fdXNlIjoiYWNjZXNzIiwic2NvcGUiOiJhd3MuY29nbml0by5zaWduaW4udXNlci5hZG1pbiIsImF1dGhfdGltZSI6MTcxNjQ3OTQwOSwiZXhwIjoxNzE2NDgzMDA5LCJpYXQiOjE3MTY0Nzk0MDksImp0aSI6IjQ3YWIxMGExLTRmYWMtNGU5Ny05ZmY5LTc0MmUzNzRiYzM0MyIsInVzZXJuYW1lIjoidGVzdCJ9.ETH0xnTgQctwovD0_AMwhdMrbCGZTgTXSipSDJqm29AJUCHstHzmwHU88kRb-NlqCJKgrD5m89ju-3MW8HJ1SY02yQQgUNv9Xf3O98Ih1eAPZHgcHqBVaRuDHEtD4QiBtlZO0edgzqWbIWPv9RH0lOaBvdSCVHcXiRHIQghZ9U9LneBmTuf_kUNzVBtR4dFy-eXIa83BpP3a3mKEhfBPMjThtgdhV0oKitZMQGtidGQfTnsxgYEpJHN64MRyu2HyVuXQ2h7or2PzMGpmPRWmq9kew64XGR0Uufni2NZAaXSjcZ1Ll1P-McOO3LKuLJqzZau5Et2U1BM3iL-zKqBEvg",
     "householdId": "21d2a18d-0f98-485b-90d2-552988f190b8",
@@ -3848,13 +3848,13 @@ This endpoint allows you to search for transactions.
 #### Request Body
 
 - `authorizationToken` (string, required): The authorization token for the request.
-    
+
 - `query` (string, required): The query string for the transaction search.
-    
+
 - `ipAddress` (string, required): The IP address of the device making the request.
-    
+
 - `deviceDetails` (string, required): Details of the device making the request.
-    
+
 
 #### Response
 
@@ -3910,7 +3910,7 @@ URL: api.dev.thepurplepiggybank.com/searchTransactions
 
 ***Body:***
 
-```js        
+```js
 {
     "authorizationToken": "eyJraWQiOiJrZ1FJcEZkYUlVRUhETGQ4NmIyYkh0a1lvbitKOVRsbkdzSUZoaElld0VzPSIsImFsZyI6IlJTMjU2In0.eyJzdWIiOiI1NDA4NDQxOC1kMDkxLTcwZmEtMzYzMC0yNzM4YTIwYzA0ZjkiLCJpc3MiOiJodHRwczpcL1wvY29nbml0by1pZHAudXMtZWFzdC0xLmFtYXpvbmF3cy5jb21cL3VzLWVhc3QtMV84UVA2MkdoQ0EiLCJjbGllbnRfaWQiOiJoNm81ZmhqNDAycXZnbG50MDE1MTdzaHAxIiwib3JpZ2luX2p0aSI6IjVlNDUwMzYyLWQzMDEtNDg2OC1iZGI4LWIwZTg4NDVmYTk3NiIsImV2ZW50X2lkIjoiZjE3OWUzYTUtODJlMC00Y2Q3LTgzNmYtZmVlYTAyMTU3MTNlIiwidG9rZW5fdXNlIjoiYWNjZXNzIiwic2NvcGUiOiJhd3MuY29nbml0by5zaWduaW4udXNlci5hZG1pbiIsImF1dGhfdGltZSI6MTcxNjQ3OTQwOSwiZXhwIjoxNzE2NDgzMDA5LCJpYXQiOjE3MTY0Nzk0MDksImp0aSI6IjQ3YWIxMGExLTRmYWMtNGU5Ny05ZmY5LTc0MmUzNzRiYzM0MyIsInVzZXJuYW1lIjoidGVzdCJ9.ETH0xnTgQctwovD0_AMwhdMrbCGZTgTXSipSDJqm29AJUCHstHzmwHU88kRb-NlqCJKgrD5m89ju-3MW8HJ1SY02yQQgUNv9Xf3O98Ih1eAPZHgcHqBVaRuDHEtD4QiBtlZO0edgzqWbIWPv9RH0lOaBvdSCVHcXiRHIQghZ9U9LneBmTuf_kUNzVBtR4dFy-eXIa83BpP3a3mKEhfBPMjThtgdhV0oKitZMQGtidGQfTnsxgYEpJHN64MRyu2HyVuXQ2h7or2PzMGpmPRWmq9kew64XGR0Uufni2NZAaXSjcZ1Ll1P-McOO3LKuLJqzZau5Et2U1BM3iL-zKqBEvg",
   "query": "0.01",
@@ -4011,7 +4011,7 @@ URL: api.dev.thepurplepiggybank.com/addUser
 
 ***Body:***
 
-```js        
+```js
 {
   "username": "test",
   "email": "drewkarriker+prod@gmail.com",
@@ -4042,7 +4042,7 @@ This endpoint is used to confirm the password reset code.
 - `newPassword` (string): The new password to be set.
 - `ipAddress` (string): The IP address of the user's device.
 - `deviceDetails` (string): Details of the user's device.
-    
+
 
 #### Response
 
@@ -4061,7 +4061,7 @@ URL: api.dev.thepurplepiggybank.com/confirmPasswordResetCode
 
 ***Body:***
 
-```js        
+```js
 {
     "username": "test",
     "code": "518201",
@@ -4085,7 +4085,7 @@ This endpoint is used to confirm the signup by sending a POST request to `api.de
 - `confirmationCode` (string): The confirmation code for the signup.
 - `ipAddress` (string): The IP address of the user.
 - `deviceDetails` (string): Details of the user's device.
-    
+
 
 ### API Response (JSON Schema)
 
@@ -4148,7 +4148,7 @@ URL: api.dev.thepurplepiggybank.com/confirmSignup
 
 ***Body:***
 
-```js        
+```js
 {
     "username": "test",
     "confirmationCode": "552651",
@@ -4170,7 +4170,7 @@ The `POST` request to `/deleteUser` endpoint is used to delete a user from the s
 - `authorizationToken` (string): The token used for authorization.
 - `ipAddress` (string): The IP address of the user.
 - `deviceDetails` (string): Details of the user's device.
-    
+
 
 ### Response
 
@@ -4215,7 +4215,7 @@ URL: api.dev.thepurplepiggybank.com/deleteUser
 
 ***Body:***
 
-```js        
+```js
 {
   "authorizationToken": "eyJraWQiOiJrZ1FJcEZkYUlVRUhETGQ4NmIyYkh0a1lvbitKOVRsbkdzSUZoaElld0VzPSIsImFsZyI6IlJTMjU2In0.eyJzdWIiOiJiNDM4ZjQwOC1lMDgxLTcwYzAtNDM4MS04ZmM4MzIwYzYwYTAiLCJpc3MiOiJodHRwczpcL1wvY29nbml0by1pZHAudXMtZWFzdC0xLmFtYXpvbmF3cy5jb21cL3VzLWVhc3QtMV84UVA2MkdoQ0EiLCJjbGllbnRfaWQiOiJoNm81ZmhqNDAycXZnbG50MDE1MTdzaHAxIiwib3JpZ2luX2p0aSI6IjRlZTJjMmMyLWU4NDYtNGI4Ni1hMGNlLTAzMDU4MmIxZmMxOCIsImV2ZW50X2lkIjoiMTc2NTI0NDctNWE4ZS00OGRhLTkyZTktZmExMDQwZGE1ZWM2IiwidG9rZW5fdXNlIjoiYWNjZXNzIiwic2NvcGUiOiJhd3MuY29nbml0by5zaWduaW4udXNlci5hZG1pbiIsImF1dGhfdGltZSI6MTcxNjMxMjA3OSwiZXhwIjoxNzE2MzE1Njc5LCJpYXQiOjE3MTYzMTIwNzksImp0aSI6IjI5Njg4MzcxLWU4YTctNDAwYS1hNWFlLWY3Y2VmMzUzOTYyMiIsInVzZXJuYW1lIjoidGVzdCJ9.PQ87zVUTWsifen2v0c1PKQiWawYY5alcx9t1Hui-kRF7x6XcB4nPU64ocQ4EIaVpNMnU0dmXpCAn2r_K_knffNqZhlGazXeN-gO6803-BNr-Ka607YFRqeSIB3-5UcRgxDQ3zHMoSUfGd4qeDlA48g0slREz8Sz0WDgA5cY72xa5bHW9QtZtSxDuNOjedavQEL_adoSjJlqGkYO4WFwuZ8S_46rB9RUUQx6kVPLxeonl8_FRmoPyIRU12sjNNWT3f8luiEs3DV_TX7w4Gr9q9HWLiQmb5IPKOJ4lyClTv49H0R--mq03EsbrDiU-yGlzFsu8MdSKQW1gNkKAPZp0dA",
   "ipAddress": "192.168.1.1",
@@ -4247,13 +4247,13 @@ This API endpoint is used to edit user details.
 - `phoneNumber` (string, required): The phone number of the user.
 - `ipAddress` (string, required): The IP address of the user.
 - `deviceDetails` (string, required): Details of the user's device.
-    
+
 
 #### Response
 
 - Status: 200
 - Content-Type: application/json
-    
+
 
 ##### Response Body (JSON Schema)
 
@@ -4340,7 +4340,7 @@ URL: api.dev.thepurplepiggybank.com/editUser
 
 ***Body:***
 
-```js        
+```js
 {
   "authorizationToken": "eyJraWQiOiJrZ1FJcEZkYUlVRUhETGQ4NmIyYkh0a1lvbitKOVRsbkdzSUZoaElld0VzPSIsImFsZyI6IlJTMjU2In0.eyJzdWIiOiJiNDM4ZjQwOC1lMDgxLTcwYzAtNDM4MS04ZmM4MzIwYzYwYTAiLCJpc3MiOiJodHRwczpcL1wvY29nbml0by1pZHAudXMtZWFzdC0xLmFtYXpvbmF3cy5jb21cL3VzLWVhc3QtMV84UVA2MkdoQ0EiLCJjbGllbnRfaWQiOiJoNm81ZmhqNDAycXZnbG50MDE1MTdzaHAxIiwib3JpZ2luX2p0aSI6IjRlZTJjMmMyLWU4NDYtNGI4Ni1hMGNlLTAzMDU4MmIxZmMxOCIsImV2ZW50X2lkIjoiMTc2NTI0NDctNWE4ZS00OGRhLTkyZTktZmExMDQwZGE1ZWM2IiwidG9rZW5fdXNlIjoiYWNjZXNzIiwic2NvcGUiOiJhd3MuY29nbml0by5zaWduaW4udXNlci5hZG1pbiIsImF1dGhfdGltZSI6MTcxNjMxMjA3OSwiZXhwIjoxNzE2MzE1Njc5LCJpYXQiOjE3MTYzMTIwNzksImp0aSI6IjI5Njg4MzcxLWU4YTctNDAwYS1hNWFlLWY3Y2VmMzUzOTYyMiIsInVzZXJuYW1lIjoidGVzdCJ9.PQ87zVUTWsifen2v0c1PKQiWawYY5alcx9t1Hui-kRF7x6XcB4nPU64ocQ4EIaVpNMnU0dmXpCAn2r_K_knffNqZhlGazXeN-gO6803-BNr-Ka607YFRqeSIB3-5UcRgxDQ3zHMoSUfGd4qeDlA48g0slREz8Sz0WDgA5cY72xa5bHW9QtZtSxDuNOjedavQEL_adoSjJlqGkYO4WFwuZ8S_46rB9RUUQx6kVPLxeonl8_FRmoPyIRU12sjNNWT3f8luiEs3DV_TX7w4Gr9q9HWLiQmb5IPKOJ4lyClTv49H0R--mq03EsbrDiU-yGlzFsu8MdSKQW1gNkKAPZp0dA",
   "email": "newemail@example.com",
@@ -4365,7 +4365,7 @@ This endpoint is used to initiate the process of resetting a user's password. Th
 - `username` (string, required): The username of the user for whom the password reset is requested.
 - `ipAddress` (string, required): The IP address of the user's device.
 - `deviceDetails` (string, required): Details of the user's device.
-    
+
 
 #### Response
 
@@ -4391,7 +4391,7 @@ URL: api.dev.thepurplepiggybank.com/forgotPassword
 
 ***Body:***
 
-```js        
+```js
 {
     "username": "test",
     "ipAddress": "192.168.1.1",
@@ -4485,7 +4485,7 @@ URL: api.dev.thepurplepiggybank.com/getUser
 
 ***Body:***
 
-```js        
+```js
 {
   "authorizationToken": "eyJraWQiOiJrZ1FJcEZkYUlVRUhETGQ4NmIyYkh0a1lvbitKOVRsbkdzSUZoaElld0VzPSIsImFsZyI6IlJTMjU2In0.eyJzdWIiOiJiNDM4ZjQwOC1lMDgxLTcwYzAtNDM4MS04ZmM4MzIwYzYwYTAiLCJpc3MiOiJodHRwczpcL1wvY29nbml0by1pZHAudXMtZWFzdC0xLmFtYXpvbmF3cy5jb21cL3VzLWVhc3QtMV84UVA2MkdoQ0EiLCJjbGllbnRfaWQiOiJoNm81ZmhqNDAycXZnbG50MDE1MTdzaHAxIiwib3JpZ2luX2p0aSI6IjRlZTJjMmMyLWU4NDYtNGI4Ni1hMGNlLTAzMDU4MmIxZmMxOCIsImV2ZW50X2lkIjoiMTc2NTI0NDctNWE4ZS00OGRhLTkyZTktZmExMDQwZGE1ZWM2IiwidG9rZW5fdXNlIjoiYWNjZXNzIiwic2NvcGUiOiJhd3MuY29nbml0by5zaWduaW4udXNlci5hZG1pbiIsImF1dGhfdGltZSI6MTcxNjMxMjA3OSwiZXhwIjoxNzE2MzE1Njc5LCJpYXQiOjE3MTYzMTIwNzksImp0aSI6IjI5Njg4MzcxLWU4YTctNDAwYS1hNWFlLWY3Y2VmMzUzOTYyMiIsInVzZXJuYW1lIjoidGVzdCJ9.PQ87zVUTWsifen2v0c1PKQiWawYY5alcx9t1Hui-kRF7x6XcB4nPU64ocQ4EIaVpNMnU0dmXpCAn2r_K_knffNqZhlGazXeN-gO6803-BNr-Ka607YFRqeSIB3-5UcRgxDQ3zHMoSUfGd4qeDlA48g0slREz8Sz0WDgA5cY72xa5bHW9QtZtSxDuNOjedavQEL_adoSjJlqGkYO4WFwuZ8S_46rB9RUUQx6kVPLxeonl8_FRmoPyIRU12sjNNWT3f8luiEs3DV_TX7w4Gr9q9HWLiQmb5IPKOJ4lyClTv49H0R--mq03EsbrDiU-yGlzFsu8MdSKQW1gNkKAPZp0dA",
   "ipAddress": "192.168.1.1",
@@ -4512,7 +4512,7 @@ This API endpoint is used to authenticate the user.
 - `ipAddress` (string): The IP address of the user.
 - `deviceDetails` (string): Details of the user's device.
 - `locationDetails` (string): Location details of the user.
-    
+
 
 #### Response
 
@@ -4563,7 +4563,7 @@ URL: api.dev.thepurplepiggybank.com/login
 
 ***Body:***
 
-```js        
+```js
 {
   "username": "test",
   "password": "SecurePassword123!",
@@ -4622,7 +4622,7 @@ URL: api.dev.thepurplepiggybank.com/refreshToken
 
 ***Body:***
 
-```js        
+```js
 {
     "authorizationToken": "eyJraWQiOiJrZ1FJcEZkYUlVRUhETGQ4NmIyYkh0a1lvbitKOVRsbkdzSUZoaElld0VzPSIsImFsZyI6IlJTMjU2In0.eyJzdWIiOiJjNGU4ZTRmOC1kMGQxLTcwYjMtOWI2NC1iM2M0YmJjOWNmYzIiLCJpc3MiOiJodHRwczpcL1wvY29nbml0by1pZHAudXMtZWFzdC0xLmFtYXpvbmF3cy5jb21cL3VzLWVhc3QtMV84UVA2MkdoQ0EiLCJjbGllbnRfaWQiOiJoNm81ZmhqNDAycXZnbG50MDE1MTdzaHAxIiwib3JpZ2luX2p0aSI6IjFkMGZlMWNiLTk2YmYtNGNhYS04NTA3LTdjMDI4N2RiZWE2YSIsImV2ZW50X2lkIjoiMDRhYzZiOGItZGM0Zi00ODc5LTk1NjgtZTlkZGMxYTEzNzA3IiwidG9rZW5fdXNlIjoiYWNjZXNzIiwic2NvcGUiOiJhd3MuY29nbml0by5zaWduaW4udXNlci5hZG1pbiIsImF1dGhfdGltZSI6MTcxNjMxNTUxMCwiZXhwIjoxNzE2MzE5NTQ2LCJpYXQiOjE3MTYzMTU5NDYsImp0aSI6ImMzMzU0YzhjLTU3YzMtNDk0Ni1iYTYzLTY3NTkxYWEwYWU3MCIsInVzZXJuYW1lIjoidGVzdDIifQ.pScMzuuDw2QbYseLDl6-8LvOMF-LZgQp-BVjcm28tbleg72zoz_i3xdPYBU-0l3Q1dxpC7dljLWKlarVPFji_YXy53_KzbQsm8k2DwYx6cZ6pIq9naOFzWZ_c1VWdD39oGIVeFIyI3FBfbuhrckEB5Lw73NN7U2m2cUZFNJZGg-x_It_L3fu5r4aBjI3l6TmZ-9_a9JK_Ci4aSSjb8sb3bOxeEHQ-eg259cy-hesODM2zD6TGlvgGmSe5mLBrDXK-Byo0xFTvgOab__7L8O3F0kWS8bzs3tlUc-ez02BAClOirE7WBnelEXIZoiyJffKHyEu45Tb9PQy-oCUYrMgew",
     "refreshToken": "eyJjdHkiOiJKV1QiLCJlbmMiOiJBMjU2R0NNIiwiYWxnIjoiUlNBLU9BRVAifQ.AI6X-Bn0fJS-xzBpSrZ-Z9lYoWPl3bVAHAitZSTreXUHu-D4G6sozW8mE19TxVIR1Bc_Z_Q2gB9nVI5YoIEl3JMCjxQF2_peV0MJ1JQGcXLUHBjR7Ubp7m6bHM_OhWipfekGEWJGFOwizHFRGYaZF0aTNSYrscsOugRSTTWDjYMqTff553jSdw3dT9YKzLdN6RRX5zn2tCpAhSGxOzEWvJvgypgXpKAEZrWReXy6fDl0-f33VAKdGp4hd91xPAbfxRwMtbcUbj0Y--ZsVJois0tNVc7HVtzzAm5TiM9mZTIMUm6Z8NVekAAg5zOjkvN3YhOriFCvD520-NP9-B0ViQ.m7V-ZGQAO8flcDaD.VXVNkENN5px2kk213NdmyG9vhhtPl3TWxAKCZQLKNhWzYC4do1a1gdngNsUlhZ3TS5Ojn9cx3xrNXmOG1ZBpI8XcpANTT5hGpbLUblpzXI1_vx7qR0khqw-BmuexgpDK2libbhO9hUAaLA5H3CYqXvpQrhJwvGOLN1pTdXdQ0cO9ikwsmZ74xVOYB1h1hUZphppAR9sjBi7UCorD_beu1_Bm3sQcbUDOL6ERwlq3euu0auAzXQD11jC5Aw_AAAip8or1dfgA1D1t6HNvBy8QBRBgrEcWsod2xC-bVI4gDYZyBaMIARF0504j_otipwLmJ5sghTV0vL-sSfDDlpn-W8eSlPDLsYBuZc9S0-mUE5Z4h6tGtnr-VOE53InrLoDg6tvrp7kTHZrO1kaN--Tk2EBqa4kO8wPfnBlJ31UmUxamrxkmNsNCUtUSObI9bk14CGDdwZTyIc45btfDMvn4P-QZp4cdwt3a42QbRPbAyNkzmNbSe3A9AlnP1t8aubpn_QfCTTAipPVvc7IpLc8u-jxkjZ6sEPYTTv76gwR7Ah_fY3n0BXIV9F6dsIab12MWJfPQZPdof5ZdAl-QZv4O0FFgRbzVYVl09tm2iA3nXnDX79v9Re_xob44UtSlR7s95JashTJnd2tOJKQBkydFLpLTjvShwRyFY57xhA9gG83RUb-v0FSz8Fv8rUqVTHEq98meLN-rbi5eavyP3TYmkvCz2tir565a3XvCVG-lUoiCnaS3-0fvdbn3K3oSwnlzdERL80TqzEIbLf533jTu7Qyr3AoP3XHHYp9iLU7zESF3XanhtuKMqr8b3sqK5u96szucra5gKJy6WOCFpYC6S_YQkX2rfZTwbUGaHfTh1TgxZWTk01LgMLmpaeZYvAP8JJVrRmi4rQ8VirytZuToiws_-CSg9wdGHnoLzMQ1NvNOt5zoB3YJKiFCVYfw2-47VPNrwpsqVthDbd3NNVI_SYoJFw5Uw59PRuvnPrwhqVBDxzgogTT2fI-PF-A0pSbTPUWtzIxgm7AisKKzjWWN-9taTWMu27z02zWjOZOVJAUsnNwcObfTxCovl6A59-6nWvNRGHMEBbH8g3vFpv4PKMeC-se5vTrZn0HR0tieKUGynbF7C8tfTTtBprXTZsYa7OcKjyKKH7oCgwQdvlP82x9wl_VdZ829GZlVfcc3JXf-mSkA9ewKEWNSMVe6TFHHhpJrqmcUY9iarU6MqXdAo86-FaYN4edtovxfyq8oXQJD2IhsPC5g4MZ3TcFfcPikaQ.JuE54rX72e-Th7PAKVkdag"
@@ -4640,7 +4640,7 @@ This endpoint is used to revoke a token by making an HTTP POST request to api.de
 
 - authorizationToken (string)
 - refreshToken (string)
-    
+
 
 ### Response
 
@@ -4671,7 +4671,7 @@ URL: api.dev.thepurplepiggybank.com/revokeToken
 
 ***Body:***
 
-```js        
+```js
 {
     "authorizationToken": "eyJraWQiOiJrZ1FJcEZkYUlVRUhETGQ4NmIyYkh0a1lvbitKOVRsbkdzSUZoaElld0VzPSIsImFsZyI6IlJTMjU2In0.eyJzdWIiOiJjNGU4ZTRmOC1kMGQxLTcwYjMtOWI2NC1iM2M0YmJjOWNmYzIiLCJpc3MiOiJodHRwczpcL1wvY29nbml0by1pZHAudXMtZWFzdC0xLmFtYXpvbmF3cy5jb21cL3VzLWVhc3QtMV84UVA2MkdoQ0EiLCJjbGllbnRfaWQiOiJoNm81ZmhqNDAycXZnbG50MDE1MTdzaHAxIiwib3JpZ2luX2p0aSI6IjFkMGZlMWNiLTk2YmYtNGNhYS04NTA3LTdjMDI4N2RiZWE2YSIsImV2ZW50X2lkIjoiMDRhYzZiOGItZGM0Zi00ODc5LTk1NjgtZTlkZGMxYTEzNzA3IiwidG9rZW5fdXNlIjoiYWNjZXNzIiwic2NvcGUiOiJhd3MuY29nbml0by5zaWduaW4udXNlci5hZG1pbiIsImF1dGhfdGltZSI6MTcxNjMxNTUxMCwiZXhwIjoxNzE2MzE5OTIyLCJpYXQiOjE3MTYzMTYzMjIsImp0aSI6Ijk2ZTBmZTAyLTM4ZGUtNDc1NC1iMjhkLTdkYjhmMjQ5MDI0MCIsInVzZXJuYW1lIjoidGVzdDIifQ.gLrKgDDn4Ptn6cuxp57aZrUQqmerNObN9CryiOidapKo5ibcYcT77VGWewBjDR4EyE972eAsDdjnncuRWk41oMp998rqB0Dzh46R5JwyUtmdTTehaNmBFv6cktpjD7C5Pf486m9aHC6G67hW8bgJy9S23n7jJ-hXUMdCnKFrqeNSh5AZZgbuxW2dBcNva2RIdeJdu0D2hIs6DwIsUF390_LmNDxCcxububLHJBHKx4-4s0jsMW1JvUvVvCdM9VLwmgr-QOenHDxus3CbGuJsGelJn31VAkxZDf7Yt9qtD_3oGENSUBSZimjBaUcuZ0N3fTNXTzC7LUolaxjS5scmiw",
     "refreshToken": "eyJjdHkiOiJKV1QiLCJlbmMiOiJBMjU2R0NNIiwiYWxnIjoiUlNBLU9BRVAifQ.AI6X-Bn0fJS-xzBpSrZ-Z9lYoWPl3bVAHAitZSTreXUHu-D4G6sozW8mE19TxVIR1Bc_Z_Q2gB9nVI5YoIEl3JMCjxQF2_peV0MJ1JQGcXLUHBjR7Ubp7m6bHM_OhWipfekGEWJGFOwizHFRGYaZF0aTNSYrscsOugRSTTWDjYMqTff553jSdw3dT9YKzLdN6RRX5zn2tCpAhSGxOzEWvJvgypgXpKAEZrWReXy6fDl0-f33VAKdGp4hd91xPAbfxRwMtbcUbj0Y--ZsVJois0tNVc7HVtzzAm5TiM9mZTIMUm6Z8NVekAAg5zOjkvN3YhOriFCvD520-NP9-B0ViQ.m7V-ZGQAO8flcDaD.VXVNkENN5px2kk213NdmyG9vhhtPl3TWxAKCZQLKNhWzYC4do1a1gdngNsUlhZ3TS5Ojn9cx3xrNXmOG1ZBpI8XcpANTT5hGpbLUblpzXI1_vx7qR0khqw-BmuexgpDK2libbhO9hUAaLA5H3CYqXvpQrhJwvGOLN1pTdXdQ0cO9ikwsmZ74xVOYB1h1hUZphppAR9sjBi7UCorD_beu1_Bm3sQcbUDOL6ERwlq3euu0auAzXQD11jC5Aw_AAAip8or1dfgA1D1t6HNvBy8QBRBgrEcWsod2xC-bVI4gDYZyBaMIARF0504j_otipwLmJ5sghTV0vL-sSfDDlpn-W8eSlPDLsYBuZc9S0-mUE5Z4h6tGtnr-VOE53InrLoDg6tvrp7kTHZrO1kaN--Tk2EBqa4kO8wPfnBlJ31UmUxamrxkmNsNCUtUSObI9bk14CGDdwZTyIc45btfDMvn4P-QZp4cdwt3a42QbRPbAyNkzmNbSe3A9AlnP1t8aubpn_QfCTTAipPVvc7IpLc8u-jxkjZ6sEPYTTv76gwR7Ah_fY3n0BXIV9F6dsIab12MWJfPQZPdof5ZdAl-QZv4O0FFgRbzVYVl09tm2iA3nXnDX79v9Re_xob44UtSlR7s95JashTJnd2tOJKQBkydFLpLTjvShwRyFY57xhA9gG83RUb-v0FSz8Fv8rUqVTHEq98meLN-rbi5eavyP3TYmkvCz2tir565a3XvCVG-lUoiCnaS3-0fvdbn3K3oSwnlzdERL80TqzEIbLf533jTu7Qyr3AoP3XHHYp9iLU7zESF3XanhtuKMqr8b3sqK5u96szucra5gKJy6WOCFpYC6S_YQkX2rfZTwbUGaHfTh1TgxZWTk01LgMLmpaeZYvAP8JJVrRmi4rQ8VirytZuToiws_-CSg9wdGHnoLzMQ1NvNOt5zoB3YJKiFCVYfw2-47VPNrwpsqVthDbd3NNVI_SYoJFw5Uw59PRuvnPrwhqVBDxzgogTT2fI-PF-A0pSbTPUWtzIxgm7AisKKzjWWN-9taTWMu27z02zWjOZOVJAUsnNwcObfTxCovl6A59-6nWvNRGHMEBbH8g3vFpv4PKMeC-se5vTrZn0HR0tieKUGynbF7C8tfTTtBprXTZsYa7OcKjyKKH7oCgwQdvlP82x9wl_VdZ829GZlVfcc3JXf-mSkA9ewKEWNSMVe6TFHHhpJrqmcUY9iarU6MqXdAo86-FaYN4edtovxfyq8oXQJD2IhsPC5g4MZ3TcFfcPikaQ.JuE54rX72e-Th7PAKVkdag"
