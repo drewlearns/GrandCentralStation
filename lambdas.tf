@@ -5,11 +5,11 @@ module "lambdas" {
   cognito_user_pool_arn         = aws_cognito_user_pool.cognito_user_pool.arn
   lambda_vpc_subnet_ids         = [aws_subnet.private1.id, aws_subnet.private2.id]
   lambda_vpc_security_group_ids = aws_security_group.lambda_sg.id
-  aurora_endpoint               = aws_rds_cluster_instance.aurora_instance.endpoint
+  aurora_endpoint               = aws_rds_cluster.aurora_cluster.endpoint
   db_password                   = aws_secretsmanager_secret_version.db_master_password_version.secret_string
   db_username                   = "root"
   db_name                       = "tppb${var.environment}"
-  database_url                  = "postgresql://root:${aws_secretsmanager_secret_version.db_master_password_version.secret_string}@${aws_rds_cluster_instance.aurora_instance.endpoint}:5432/tppb${var.environment}?schema=public"
+  database_url                  = "postgresql://root:${aws_secretsmanager_secret_version.db_master_password_version.secret_string}@${aws_rds_cluster.aurora_cluster.endpoint}:5432/tppb${var.environment}?schema=public"
   lambdas = {
     ################
     # User
@@ -22,7 +22,7 @@ module "lambdas" {
       environment = {
         USER_POOL_CLIENT_ID     = aws_cognito_user_pool_client.cognito_user_pool_client.id
         USER_POOL_CLIENT_SECRET = aws_cognito_user_pool_client.cognito_user_pool_client.client_secret
-        DATABASE_URL            = "postgresql://root:${aws_secretsmanager_secret_version.db_master_password_version.secret_string}@${aws_rds_cluster_instance.aurora_instance.endpoint}:5432/tppb${var.environment}?schema=public"
+        DATABASE_URL            = "postgresql://root:${aws_secretsmanager_secret_version.db_master_password_version.secret_string}@${aws_rds_cluster.aurora_cluster.endpoint}:5432/tppb${var.environment}?schema=public"
       }
     },
     "login" = {
@@ -33,7 +33,7 @@ module "lambdas" {
       environment = {
         USER_POOL_CLIENT_ID     = aws_cognito_user_pool_client.cognito_user_pool_client.id
         USER_POOL_CLIENT_SECRET = aws_cognito_user_pool_client.cognito_user_pool_client.client_secret
-        DATABASE_URL            = "postgresql://root:${aws_secretsmanager_secret_version.db_master_password_version.secret_string}@${aws_rds_cluster_instance.aurora_instance.endpoint}:5432/tppb${var.environment}?schema=public"
+        DATABASE_URL            = "postgresql://root:${aws_secretsmanager_secret_version.db_master_password_version.secret_string}@${aws_rds_cluster.aurora_cluster.endpoint}:5432/tppb${var.environment}?schema=public"
       }
     },
     "confirmSignup" = {
@@ -44,7 +44,7 @@ module "lambdas" {
       environment = {
         USER_POOL_CLIENT_ID     = aws_cognito_user_pool_client.cognito_user_pool_client.id
         USER_POOL_CLIENT_SECRET = aws_cognito_user_pool_client.cognito_user_pool_client.client_secret
-        DATABASE_URL            = "postgresql://root:${aws_secretsmanager_secret_version.db_master_password_version.secret_string}@${aws_rds_cluster_instance.aurora_instance.endpoint}:5432/tppb${var.environment}?schema=public"
+        DATABASE_URL            = "postgresql://root:${aws_secretsmanager_secret_version.db_master_password_version.secret_string}@${aws_rds_cluster.aurora_cluster.endpoint}:5432/tppb${var.environment}?schema=public"
       }
     },
     "confirmPasswordResetCode" = {
@@ -55,7 +55,7 @@ module "lambdas" {
       environment = {
         USER_POOL_CLIENT_ID     = aws_cognito_user_pool_client.cognito_user_pool_client.id
         USER_POOL_CLIENT_SECRET = aws_cognito_user_pool_client.cognito_user_pool_client.client_secret
-        DATABASE_URL            = "postgresql://root:${aws_secretsmanager_secret_version.db_master_password_version.secret_string}@${aws_rds_cluster_instance.aurora_instance.endpoint}:5432/tppb${var.environment}?schema=public"
+        DATABASE_URL            = "postgresql://root:${aws_secretsmanager_secret_version.db_master_password_version.secret_string}@${aws_rds_cluster.aurora_cluster.endpoint}:5432/tppb${var.environment}?schema=public"
       }
     }
     "forgotPassword" = {
@@ -66,7 +66,7 @@ module "lambdas" {
       environment = {
         USER_POOL_CLIENT_ID     = aws_cognito_user_pool_client.cognito_user_pool_client.id
         USER_POOL_CLIENT_SECRET = aws_cognito_user_pool_client.cognito_user_pool_client.client_secret
-        DATABASE_URL            = "postgresql://root:${aws_secretsmanager_secret_version.db_master_password_version.secret_string}@${aws_rds_cluster_instance.aurora_instance.endpoint}:5432/tppb${var.environment}?schema=public"
+        DATABASE_URL            = "postgresql://root:${aws_secretsmanager_secret_version.db_master_password_version.secret_string}@${aws_rds_cluster.aurora_cluster.endpoint}:5432/tppb${var.environment}?schema=public"
       }
     },
     "verifyToken" = {
@@ -78,7 +78,7 @@ module "lambdas" {
         USER_POOL_ID            = aws_cognito_user_pool.cognito_user_pool.id
         USER_POOL_CLIENT_ID     = aws_cognito_user_pool_client.cognito_user_pool_client.id
         USER_POOL_CLIENT_SECRET = aws_cognito_user_pool_client.cognito_user_pool_client.client_secret
-        DATABASE_URL            = "postgresql://root:${aws_secretsmanager_secret_version.db_master_password_version.secret_string}@${aws_rds_cluster_instance.aurora_instance.endpoint}:5432/tppb${var.environment}?schema=public"
+        DATABASE_URL            = "postgresql://root:${aws_secretsmanager_secret_version.db_master_password_version.secret_string}@${aws_rds_cluster.aurora_cluster.endpoint}:5432/tppb${var.environment}?schema=public"
       }
     },
     "revokeToken" = {
@@ -90,7 +90,7 @@ module "lambdas" {
         USER_POOL_ID            = aws_cognito_user_pool.cognito_user_pool.id
         USER_POOL_CLIENT_ID     = aws_cognito_user_pool_client.cognito_user_pool_client.id
         USER_POOL_CLIENT_SECRET = aws_cognito_user_pool_client.cognito_user_pool_client.client_secret
-        DATABASE_URL            = "postgresql://root:${aws_secretsmanager_secret_version.db_master_password_version.secret_string}@${aws_rds_cluster_instance.aurora_instance.endpoint}:5432/tppb${var.environment}?schema=public"
+        DATABASE_URL            = "postgresql://root:${aws_secretsmanager_secret_version.db_master_password_version.secret_string}@${aws_rds_cluster.aurora_cluster.endpoint}:5432/tppb${var.environment}?schema=public"
       }
     },
     "getUser" = {
@@ -101,7 +101,7 @@ module "lambdas" {
       environment = {
         USER_POOL_ID            = aws_cognito_user_pool.cognito_user_pool.id
         USER_POOL_CLIENT_SECRET = aws_cognito_user_pool_client.cognito_user_pool_client.client_secret
-        DATABASE_URL            = "postgresql://root:${aws_secretsmanager_secret_version.db_master_password_version.secret_string}@${aws_rds_cluster_instance.aurora_instance.endpoint}:5432/tppb${var.environment}?schema=public"
+        DATABASE_URL            = "postgresql://root:${aws_secretsmanager_secret_version.db_master_password_version.secret_string}@${aws_rds_cluster.aurora_cluster.endpoint}:5432/tppb${var.environment}?schema=public"
       }
     },
     "editUser" = {
@@ -112,7 +112,7 @@ module "lambdas" {
       environment = {
         USER_POOL_CLIENT_SECRET = aws_cognito_user_pool_client.cognito_user_pool_client.client_secret
         USER_POOL_ID            = aws_cognito_user_pool.cognito_user_pool.id
-        DATABASE_URL            = "postgresql://root:${aws_secretsmanager_secret_version.db_master_password_version.secret_string}@${aws_rds_cluster_instance.aurora_instance.endpoint}:5432/tppb${var.environment}?schema=public"
+        DATABASE_URL            = "postgresql://root:${aws_secretsmanager_secret_version.db_master_password_version.secret_string}@${aws_rds_cluster.aurora_cluster.endpoint}:5432/tppb${var.environment}?schema=public"
       }
     },
     "deleteUser" = {
@@ -123,7 +123,7 @@ module "lambdas" {
       environment = {
         USER_POOL_ID            = aws_cognito_user_pool.cognito_user_pool.id
         USER_POOL_CLIENT_SECRET = aws_cognito_user_pool_client.cognito_user_pool_client.client_secret
-        DATABASE_URL            = "postgresql://root:${aws_secretsmanager_secret_version.db_master_password_version.secret_string}@${aws_rds_cluster_instance.aurora_instance.endpoint}:5432/tppb${var.environment}?schema=public"
+        DATABASE_URL            = "postgresql://root:${aws_secretsmanager_secret_version.db_master_password_version.secret_string}@${aws_rds_cluster.aurora_cluster.endpoint}:5432/tppb${var.environment}?schema=public"
       }
     },
     "refreshToken" = {
@@ -135,7 +135,7 @@ module "lambdas" {
         USER_POOL_CLIENT_ID     = aws_cognito_user_pool_client.cognito_user_pool_client.id
         USER_POOL_ID            = aws_cognito_user_pool.cognito_user_pool.id
         USER_POOL_CLIENT_SECRET = aws_cognito_user_pool_client.cognito_user_pool_client.client_secret
-        DATABASE_URL            = "postgresql://root:${aws_secretsmanager_secret_version.db_master_password_version.secret_string}@${aws_rds_cluster_instance.aurora_instance.endpoint}:5432/tppb${var.environment}?schema=public"
+        DATABASE_URL            = "postgresql://root:${aws_secretsmanager_secret_version.db_master_password_version.secret_string}@${aws_rds_cluster.aurora_cluster.endpoint}:5432/tppb${var.environment}?schema=public"
       }
     },
     ######################
@@ -147,7 +147,7 @@ module "lambdas" {
       authorization = "NONE" # "NONE" OR "COGNITO_USER_POOLS"
       policy_arns   = [aws_iam_policy.lambda_invoke_policy.arn]
       environment = {
-        DATABASE_URL = "postgresql://root:${aws_secretsmanager_secret_version.db_master_password_version.secret_string}@${aws_rds_cluster_instance.aurora_instance.endpoint}:5432/tppb${var.environment}?schema=public"
+        DATABASE_URL = "postgresql://root:${aws_secretsmanager_secret_version.db_master_password_version.secret_string}@${aws_rds_cluster.aurora_cluster.endpoint}:5432/tppb${var.environment}?schema=public"
       }
     },
     "addInvite" = {
@@ -156,7 +156,7 @@ module "lambdas" {
       authorization = "NONE" # "NONE" OR "COGNITO_USER_POOLS"
       policy_arns   = [aws_iam_policy.ses_send_email_policy.arn, aws_iam_policy.lambda_invoke_policy.arn]
       environment = {
-        DATABASE_URL = "postgresql://root:${aws_secretsmanager_secret_version.db_master_password_version.secret_string}@${aws_rds_cluster_instance.aurora_instance.endpoint}:5432/tppb${var.environment}?schema=public"
+        DATABASE_URL = "postgresql://root:${aws_secretsmanager_secret_version.db_master_password_version.secret_string}@${aws_rds_cluster.aurora_cluster.endpoint}:5432/tppb${var.environment}?schema=public"
         TTPB_DOMAIN  = var.domain_name
       }
     },
@@ -166,7 +166,7 @@ module "lambdas" {
       authorization = "NONE" # "NONE" OR "COGNITO_USER_POOLS"
       policy_arns   = [aws_iam_policy.ses_send_email_policy.arn, aws_iam_policy.lambda_invoke_policy.arn]
       environment = {
-        DATABASE_URL = "postgresql://root:${aws_secretsmanager_secret_version.db_master_password_version.secret_string}@${aws_rds_cluster_instance.aurora_instance.endpoint}:5432/tppb${var.environment}?schema=public"
+        DATABASE_URL = "postgresql://root:${aws_secretsmanager_secret_version.db_master_password_version.secret_string}@${aws_rds_cluster.aurora_cluster.endpoint}:5432/tppb${var.environment}?schema=public"
       }
     },
     "deleteMemberFromHousehold" = {
@@ -175,7 +175,7 @@ module "lambdas" {
       authorization = "NONE" # "NONE" OR "COGNITO_USER_POOLS"
       policy_arns   = [aws_iam_policy.lambda_invoke_policy.arn]
       environment = {
-        DATABASE_URL = "postgresql://root:${aws_secretsmanager_secret_version.db_master_password_version.secret_string}@${aws_rds_cluster_instance.aurora_instance.endpoint}:5432/tppb${var.environment}?schema=public"
+        DATABASE_URL = "postgresql://root:${aws_secretsmanager_secret_version.db_master_password_version.secret_string}@${aws_rds_cluster.aurora_cluster.endpoint}:5432/tppb${var.environment}?schema=public"
       }
     },
     "resendInvitation" = {
@@ -184,7 +184,7 @@ module "lambdas" {
       authorization = "NONE" # "NONE" OR "COGNITO_USER_POOLS"
       policy_arns   = [aws_iam_policy.lambda_invoke_policy.arn]
       environment = {
-        DATABASE_URL = "postgresql://root:${aws_secretsmanager_secret_version.db_master_password_version.secret_string}@${aws_rds_cluster_instance.aurora_instance.endpoint}:5432/tppb${var.environment}?schema=public"
+        DATABASE_URL = "postgresql://root:${aws_secretsmanager_secret_version.db_master_password_version.secret_string}@${aws_rds_cluster.aurora_cluster.endpoint}:5432/tppb${var.environment}?schema=public"
       }
     },
     "editHousehold" = {
@@ -193,7 +193,7 @@ module "lambdas" {
       authorization = "NONE" # "NONE" OR "COGNITO_USER_POOLS"
       policy_arns   = [aws_iam_policy.lambda_invoke_policy.arn]
       environment = {
-        DATABASE_URL = "postgresql://root:${aws_secretsmanager_secret_version.db_master_password_version.secret_string}@${aws_rds_cluster_instance.aurora_instance.endpoint}:5432/tppb${var.environment}?schema=public"
+        DATABASE_URL = "postgresql://root:${aws_secretsmanager_secret_version.db_master_password_version.secret_string}@${aws_rds_cluster.aurora_cluster.endpoint}:5432/tppb${var.environment}?schema=public"
       }
     },
     "deleteHousehold" = {
@@ -202,7 +202,7 @@ module "lambdas" {
       authorization = "NONE" # "NONE" OR "COGNITO_USER_POOLS"
       policy_arns   = [aws_iam_policy.lambda_invoke_policy.arn]
       environment = {
-        DATABASE_URL = "postgresql://root:${aws_secretsmanager_secret_version.db_master_password_version.secret_string}@${aws_rds_cluster_instance.aurora_instance.endpoint}:5432/tppb${var.environment}?schema=public"
+        DATABASE_URL = "postgresql://root:${aws_secretsmanager_secret_version.db_master_password_version.secret_string}@${aws_rds_cluster.aurora_cluster.endpoint}:5432/tppb${var.environment}?schema=public"
       }
     },
     "getHousehold" = {
@@ -211,7 +211,7 @@ module "lambdas" {
       authorization = "NONE" # "NONE" OR "COGNITO_USER_POOLS"
       policy_arns   = [aws_iam_policy.lambda_invoke_policy.arn]
       environment = {
-        DATABASE_URL = "postgresql://root:${aws_secretsmanager_secret_version.db_master_password_version.secret_string}@${aws_rds_cluster_instance.aurora_instance.endpoint}:5432/tppb${var.environment}?schema=public"
+        DATABASE_URL = "postgresql://root:${aws_secretsmanager_secret_version.db_master_password_version.secret_string}@${aws_rds_cluster.aurora_cluster.endpoint}:5432/tppb${var.environment}?schema=public"
       }
     },
     "getHouseholdById" = {
@@ -220,7 +220,7 @@ module "lambdas" {
       authorization = "NONE" # "NONE" OR "COGNITO_USER_POOLS"
       policy_arns   = [aws_iam_policy.lambda_invoke_policy.arn]
       environment = {
-        DATABASE_URL = "postgresql://root:${aws_secretsmanager_secret_version.db_master_password_version.secret_string}@${aws_rds_cluster_instance.aurora_instance.endpoint}:5432/tppb${var.environment}?schema=public"
+        DATABASE_URL = "postgresql://root:${aws_secretsmanager_secret_version.db_master_password_version.secret_string}@${aws_rds_cluster.aurora_cluster.endpoint}:5432/tppb${var.environment}?schema=public"
       }
     },
     "getHouseholdMembers" = {
@@ -229,7 +229,7 @@ module "lambdas" {
       authorization = "NONE" # "NONE" OR "COGNITO_USER_POOLS"
       policy_arns   = [aws_iam_policy.lambda_invoke_policy.arn]
       environment = {
-        DATABASE_URL = "postgresql://root:${aws_secretsmanager_secret_version.db_master_password_version.secret_string}@${aws_rds_cluster_instance.aurora_instance.endpoint}:5432/tppb${var.environment}?schema=public"
+        DATABASE_URL = "postgresql://root:${aws_secretsmanager_secret_version.db_master_password_version.secret_string}@${aws_rds_cluster.aurora_cluster.endpoint}:5432/tppb${var.environment}?schema=public"
       }
     },
     ##########################
@@ -241,7 +241,7 @@ module "lambdas" {
       authorization = "NONE" # "NONE" OR "COGNITO_USER_POOLS"
       policy_arns   = [aws_iam_policy.lambda_invoke_policy.arn]
       environment = {
-        DATABASE_URL = "postgresql://root:${aws_secretsmanager_secret_version.db_master_password_version.secret_string}@${aws_rds_cluster_instance.aurora_instance.endpoint}:5432/tppb${var.environment}?schema=public"
+        DATABASE_URL = "postgresql://root:${aws_secretsmanager_secret_version.db_master_password_version.secret_string}@${aws_rds_cluster.aurora_cluster.endpoint}:5432/tppb${var.environment}?schema=public"
       }
     },
     "getTransaction" = {
@@ -250,7 +250,7 @@ module "lambdas" {
       authorization = "NONE" # "NONE" OR "COGNITO_USER_POOLS"
       policy_arns   = [aws_iam_policy.lambda_invoke_policy.arn]
       environment = {
-        DATABASE_URL = "postgresql://root:${aws_secretsmanager_secret_version.db_master_password_version.secret_string}@${aws_rds_cluster_instance.aurora_instance.endpoint}:5432/tppb${var.environment}?schema=public"
+        DATABASE_URL = "postgresql://root:${aws_secretsmanager_secret_version.db_master_password_version.secret_string}@${aws_rds_cluster.aurora_cluster.endpoint}:5432/tppb${var.environment}?schema=public"
       }
     },
     "getTransactionsByMonth" = {
@@ -259,7 +259,7 @@ module "lambdas" {
       authorization = "NONE" # "NONE" OR "COGNITO_USER_POOLS"
       policy_arns   = [aws_iam_policy.lambda_invoke_policy.arn]
       environment = {
-        DATABASE_URL = "postgresql://root:${aws_secretsmanager_secret_version.db_master_password_version.secret_string}@${aws_rds_cluster_instance.aurora_instance.endpoint}:5432/tppb${var.environment}?schema=public"
+        DATABASE_URL = "postgresql://root:${aws_secretsmanager_secret_version.db_master_password_version.secret_string}@${aws_rds_cluster.aurora_cluster.endpoint}:5432/tppb${var.environment}?schema=public"
       }
     },
     "editPaymentSource" = {
@@ -268,7 +268,7 @@ module "lambdas" {
       authorization = "NONE" # "NONE" OR "COGNITO_USER_POOLS"
       policy_arns   = [aws_iam_policy.lambda_invoke_policy.arn]
       environment = {
-        DATABASE_URL = "postgresql://root:${aws_secretsmanager_secret_version.db_master_password_version.secret_string}@${aws_rds_cluster_instance.aurora_instance.endpoint}:5432/tppb${var.environment}?schema=public"
+        DATABASE_URL = "postgresql://root:${aws_secretsmanager_secret_version.db_master_password_version.secret_string}@${aws_rds_cluster.aurora_cluster.endpoint}:5432/tppb${var.environment}?schema=public"
       }
     },
     "deletePaymentSource" = {
@@ -277,7 +277,7 @@ module "lambdas" {
       authorization = "NONE" # "NONE" OR "COGNITO_USER_POOLS"
       policy_arns   = [aws_iam_policy.lambda_invoke_policy.arn]
       environment = {
-        DATABASE_URL = "postgresql://root:${aws_secretsmanager_secret_version.db_master_password_version.secret_string}@${aws_rds_cluster_instance.aurora_instance.endpoint}:5432/tppb${var.environment}?schema=public"
+        DATABASE_URL = "postgresql://root:${aws_secretsmanager_secret_version.db_master_password_version.secret_string}@${aws_rds_cluster.aurora_cluster.endpoint}:5432/tppb${var.environment}?schema=public"
       }
     },
     "addTransaction" = {
@@ -286,7 +286,7 @@ module "lambdas" {
       authorization = "NONE" # "NONE" OR "COGNITO_USER_POOLS"
       policy_arns   = [aws_iam_policy.lambda_invoke_policy.arn, aws_iam_policy.lambda_s3_policy.arn]
       environment = {
-        DATABASE_URL = "postgresql://root:${aws_secretsmanager_secret_version.db_master_password_version.secret_string}@${aws_rds_cluster_instance.aurora_instance.endpoint}:5432/tppb${var.environment}?schema=public"
+        DATABASE_URL = "postgresql://root:${aws_secretsmanager_secret_version.db_master_password_version.secret_string}@${aws_rds_cluster.aurora_cluster.endpoint}:5432/tppb${var.environment}?schema=public"
         BUCKET       = aws_s3_bucket.receipts_bucket.bucket
       }
     },
@@ -296,7 +296,7 @@ module "lambdas" {
       authorization = "NONE" # "NONE" OR "COGNITO_USER_POOLS"
       policy_arns   = [aws_iam_policy.lambda_invoke_policy.arn]
       environment = {
-        DATABASE_URL = "postgresql://root:${aws_secretsmanager_secret_version.db_master_password_version.secret_string}@${aws_rds_cluster_instance.aurora_instance.endpoint}:5432/tppb${var.environment}?schema=public"
+        DATABASE_URL = "postgresql://root:${aws_secretsmanager_secret_version.db_master_password_version.secret_string}@${aws_rds_cluster.aurora_cluster.endpoint}:5432/tppb${var.environment}?schema=public"
         BUCKET       = aws_s3_bucket.receipts_bucket.bucket
       }
     },
@@ -306,7 +306,7 @@ module "lambdas" {
       authorization = "NONE" # "NONE" OR "COGNITO_USER_POOLS"
       policy_arns   = [aws_iam_policy.lambda_invoke_policy.arn, aws_iam_policy.lambda_s3_policy.arn]
       environment = {
-        DATABASE_URL = "postgresql://root:${aws_secretsmanager_secret_version.db_master_password_version.secret_string}@${aws_rds_cluster_instance.aurora_instance.endpoint}:5432/tppb${var.environment}?schema=public"
+        DATABASE_URL = "postgresql://root:${aws_secretsmanager_secret_version.db_master_password_version.secret_string}@${aws_rds_cluster.aurora_cluster.endpoint}:5432/tppb${var.environment}?schema=public"
         BUCKET       = aws_s3_bucket.receipts_bucket.bucket
       }
     },
@@ -316,7 +316,7 @@ module "lambdas" {
       authorization = "NONE" # "NONE" OR "COGNITO_USER_POOLS"
       policy_arns   = [aws_iam_policy.lambda_invoke_policy.arn, aws_iam_policy.lambda_s3_policy.arn]
       environment = {
-        DATABASE_URL = "postgresql://root:${aws_secretsmanager_secret_version.db_master_password_version.secret_string}@${aws_rds_cluster_instance.aurora_instance.endpoint}:5432/tppb${var.environment}?schema=public"
+        DATABASE_URL = "postgresql://root:${aws_secretsmanager_secret_version.db_master_password_version.secret_string}@${aws_rds_cluster.aurora_cluster.endpoint}:5432/tppb${var.environment}?schema=public"
         BUCKET       = aws_s3_bucket.receipts_bucket.bucket
       }
     },
@@ -326,7 +326,7 @@ module "lambdas" {
       authorization = "NONE" # "NONE" OR "COGNITO_USER_POOLS"
       policy_arns   = [aws_iam_policy.lambda_invoke_policy.arn]
       environment = {
-        DATABASE_URL = "postgresql://root:${aws_secretsmanager_secret_version.db_master_password_version.secret_string}@${aws_rds_cluster_instance.aurora_instance.endpoint}:5432/tppb${var.environment}?schema=public"
+        DATABASE_URL = "postgresql://root:${aws_secretsmanager_secret_version.db_master_password_version.secret_string}@${aws_rds_cluster.aurora_cluster.endpoint}:5432/tppb${var.environment}?schema=public"
       }
     },
     "addBill" = {
@@ -335,7 +335,7 @@ module "lambdas" {
       authorization = "NONE" # "NONE" OR "COGNITO_USER_POOLS"
       policy_arns   = [aws_iam_policy.lambda_invoke_policy.arn, aws_iam_policy.lambda_secrets_policy.arn]
       environment = {
-        DATABASE_URL = "postgresql://root:${aws_secretsmanager_secret_version.db_master_password_version.secret_string}@${aws_rds_cluster_instance.aurora_instance.endpoint}:5432/tppb${var.environment}?schema=public"
+        DATABASE_URL = "postgresql://root:${aws_secretsmanager_secret_version.db_master_password_version.secret_string}@${aws_rds_cluster.aurora_cluster.endpoint}:5432/tppb${var.environment}?schema=public"
       }
     },
     "getBillPassword" = {
@@ -344,7 +344,7 @@ module "lambdas" {
       authorization = "NONE" # "NONE" OR "COGNITO_USER_POOLS"
       policy_arns   = [aws_iam_policy.lambda_invoke_policy.arn, aws_iam_policy.lambda_secrets_policy.arn]
       environment = {
-        DATABASE_URL = "postgresql://root:${aws_secretsmanager_secret_version.db_master_password_version.secret_string}@${aws_rds_cluster_instance.aurora_instance.endpoint}:5432/tppb${var.environment}?schema=public"
+        DATABASE_URL = "postgresql://root:${aws_secretsmanager_secret_version.db_master_password_version.secret_string}@${aws_rds_cluster.aurora_cluster.endpoint}:5432/tppb${var.environment}?schema=public"
       }
     },
     "addIncome" = {
@@ -353,7 +353,7 @@ module "lambdas" {
       authorization = "NONE" # "NONE" OR "COGNITO_USER_POOLS"
       policy_arns   = [aws_iam_policy.lambda_invoke_policy.arn]
       environment = {
-        DATABASE_URL = "postgresql://root:${aws_secretsmanager_secret_version.db_master_password_version.secret_string}@${aws_rds_cluster_instance.aurora_instance.endpoint}:5432/tppb${var.environment}?schema=public"
+        DATABASE_URL = "postgresql://root:${aws_secretsmanager_secret_version.db_master_password_version.secret_string}@${aws_rds_cluster.aurora_cluster.endpoint}:5432/tppb${var.environment}?schema=public"
       }
     },
     "calculateRunningTotal" = {
@@ -362,7 +362,7 @@ module "lambdas" {
       authorization = "NONE" # "NONE" OR "COGNITO_USER_POOLS"
       policy_arns   = [aws_iam_policy.lambda_invoke_policy.arn]
       environment = {
-        DATABASE_URL = "postgresql://root:${aws_secretsmanager_secret_version.db_master_password_version.secret_string}@${aws_rds_cluster_instance.aurora_instance.endpoint}:5432/tppb${var.environment}?schema=public"
+        DATABASE_URL = "postgresql://root:${aws_secretsmanager_secret_version.db_master_password_version.secret_string}@${aws_rds_cluster.aurora_cluster.endpoint}:5432/tppb${var.environment}?schema=public"
       }
     },
     "getRunningTotal" = {
@@ -371,7 +371,7 @@ module "lambdas" {
       authorization = "NONE" # "NONE" OR "COGNITO_USER_POOLS"
       policy_arns   = [aws_iam_policy.lambda_invoke_policy.arn]
       environment = {
-        DATABASE_URL = "postgresql://root:${aws_secretsmanager_secret_version.db_master_password_version.secret_string}@${aws_rds_cluster_instance.aurora_instance.endpoint}:5432/tppb${var.environment}?schema=public"
+        DATABASE_URL = "postgresql://root:${aws_secretsmanager_secret_version.db_master_password_version.secret_string}@${aws_rds_cluster.aurora_cluster.endpoint}:5432/tppb${var.environment}?schema=public"
       }
     },
     "deleteBill" = {
@@ -380,7 +380,7 @@ module "lambdas" {
       authorization = "NONE" # "NONE" OR "COGNITO_USER_POOLS"
       policy_arns   = [aws_iam_policy.lambda_invoke_policy.arn]
       environment = {
-        DATABASE_URL = "postgresql://root:${aws_secretsmanager_secret_version.db_master_password_version.secret_string}@${aws_rds_cluster_instance.aurora_instance.endpoint}:5432/tppb${var.environment}?schema=public"
+        DATABASE_URL = "postgresql://root:${aws_secretsmanager_secret_version.db_master_password_version.secret_string}@${aws_rds_cluster.aurora_cluster.endpoint}:5432/tppb${var.environment}?schema=public"
         BUCKET       = aws_s3_bucket.receipts_bucket.bucket
       }
     },
@@ -390,7 +390,7 @@ module "lambdas" {
       authorization = "NONE" # "NONE" OR "COGNITO_USER_POOLS"
       policy_arns   = [aws_iam_policy.lambda_invoke_policy.arn]
       environment = {
-        DATABASE_URL = "postgresql://root:${aws_secretsmanager_secret_version.db_master_password_version.secret_string}@${aws_rds_cluster_instance.aurora_instance.endpoint}:5432/tppb${var.environment}?schema=public"
+        DATABASE_URL = "postgresql://root:${aws_secretsmanager_secret_version.db_master_password_version.secret_string}@${aws_rds_cluster.aurora_cluster.endpoint}:5432/tppb${var.environment}?schema=public"
       }
     },
     "editBill" = {
@@ -399,7 +399,7 @@ module "lambdas" {
       authorization = "NONE" # "NONE" OR "COGNITO_USER_POOLS"
       policy_arns   = [aws_iam_policy.lambda_invoke_policy.arn]
       environment = {
-        DATABASE_URL = "postgresql://root:${aws_secretsmanager_secret_version.db_master_password_version.secret_string}@${aws_rds_cluster_instance.aurora_instance.endpoint}:5432/tppb${var.environment}?schema=public"
+        DATABASE_URL = "postgresql://root:${aws_secretsmanager_secret_version.db_master_password_version.secret_string}@${aws_rds_cluster.aurora_cluster.endpoint}:5432/tppb${var.environment}?schema=public"
       }
     },
     "editIncome" = {
@@ -408,7 +408,7 @@ module "lambdas" {
       authorization = "NONE" # "NONE" OR "COGNITO_USER_POOLS"
       policy_arns   = [aws_iam_policy.lambda_invoke_policy.arn]
       environment = {
-        DATABASE_URL = "postgresql://root:${aws_secretsmanager_secret_version.db_master_password_version.secret_string}@${aws_rds_cluster_instance.aurora_instance.endpoint}:5432/tppb${var.environment}?schema=public"
+        DATABASE_URL = "postgresql://root:${aws_secretsmanager_secret_version.db_master_password_version.secret_string}@${aws_rds_cluster.aurora_cluster.endpoint}:5432/tppb${var.environment}?schema=public"
       }
     },
     "getBill" = {
@@ -417,7 +417,7 @@ module "lambdas" {
       authorization = "NONE" # "NONE" OR "COGNITO_USER_POOLS"
       policy_arns   = [aws_iam_policy.lambda_invoke_policy.arn]
       environment = {
-        DATABASE_URL = "postgresql://root:${aws_secretsmanager_secret_version.db_master_password_version.secret_string}@${aws_rds_cluster_instance.aurora_instance.endpoint}:5432/tppb${var.environment}?schema=public"
+        DATABASE_URL = "postgresql://root:${aws_secretsmanager_secret_version.db_master_password_version.secret_string}@${aws_rds_cluster.aurora_cluster.endpoint}:5432/tppb${var.environment}?schema=public"
       }
     },
     "getBills" = {
@@ -426,7 +426,7 @@ module "lambdas" {
       authorization = "NONE" # "NONE" OR "COGNITO_USER_POOLS"
       policy_arns   = [aws_iam_policy.lambda_invoke_policy.arn]
       environment = {
-        DATABASE_URL = "postgresql://root:${aws_secretsmanager_secret_version.db_master_password_version.secret_string}@${aws_rds_cluster_instance.aurora_instance.endpoint}:5432/tppb${var.environment}?schema=public"
+        DATABASE_URL = "postgresql://root:${aws_secretsmanager_secret_version.db_master_password_version.secret_string}@${aws_rds_cluster.aurora_cluster.endpoint}:5432/tppb${var.environment}?schema=public"
       }
     },
     "getIncomes" = {
@@ -435,7 +435,7 @@ module "lambdas" {
       authorization = "NONE" # "NONE" OR "COGNITO_USER_POOLS"
       policy_arns   = [aws_iam_policy.lambda_invoke_policy.arn]
       environment = {
-        DATABASE_URL = "postgresql://root:${aws_secretsmanager_secret_version.db_master_password_version.secret_string}@${aws_rds_cluster_instance.aurora_instance.endpoint}:5432/tppb${var.environment}?schema=public"
+        DATABASE_URL = "postgresql://root:${aws_secretsmanager_secret_version.db_master_password_version.secret_string}@${aws_rds_cluster.aurora_cluster.endpoint}:5432/tppb${var.environment}?schema=public"
       }
     },
     "getIncome" = {
@@ -444,7 +444,7 @@ module "lambdas" {
       authorization = "NONE" # "NONE" OR "COGNITO_USER_POOLS"
       policy_arns   = [aws_iam_policy.lambda_invoke_policy.arn]
       environment = {
-        DATABASE_URL = "postgresql://root:${aws_secretsmanager_secret_version.db_master_password_version.secret_string}@${aws_rds_cluster_instance.aurora_instance.endpoint}:5432/tppb${var.environment}?schema=public"
+        DATABASE_URL = "postgresql://root:${aws_secretsmanager_secret_version.db_master_password_version.secret_string}@${aws_rds_cluster.aurora_cluster.endpoint}:5432/tppb${var.environment}?schema=public"
       }
     },
     "getPaymentSource" = {
@@ -453,7 +453,7 @@ module "lambdas" {
       authorization = "NONE" # "NONE" OR "COGNITO_USER_POOLS"
       policy_arns   = [aws_iam_policy.lambda_invoke_policy.arn]
       environment = {
-        DATABASE_URL = "postgresql://root:${aws_secretsmanager_secret_version.db_master_password_version.secret_string}@${aws_rds_cluster_instance.aurora_instance.endpoint}:5432/tppb${var.environment}?schema=public"
+        DATABASE_URL = "postgresql://root:${aws_secretsmanager_secret_version.db_master_password_version.secret_string}@${aws_rds_cluster.aurora_cluster.endpoint}:5432/tppb${var.environment}?schema=public"
       }
     },
     "editPaymentSource" = {
@@ -462,7 +462,7 @@ module "lambdas" {
       authorization = "NONE" # "NONE" OR "COGNITO_USER_POOLS"
       policy_arns   = [aws_iam_policy.lambda_invoke_policy.arn]
       environment = {
-        DATABASE_URL = "postgresql://root:${aws_secretsmanager_secret_version.db_master_password_version.secret_string}@${aws_rds_cluster_instance.aurora_instance.endpoint}:5432/tppb${var.environment}?schema=public"
+        DATABASE_URL = "postgresql://root:${aws_secretsmanager_secret_version.db_master_password_version.secret_string}@${aws_rds_cluster.aurora_cluster.endpoint}:5432/tppb${var.environment}?schema=public"
       }
     },
     ##########################
@@ -474,7 +474,7 @@ module "lambdas" {
       authorization = "NONE" # "NONE" OR "COGNITO_USER_POOLS"
       policy_arns   = [aws_iam_policy.lambda_invoke_policy.arn]
       environment = {
-        DATABASE_URL = "postgresql://root:${aws_secretsmanager_secret_version.db_master_password_version.secret_string}@${aws_rds_cluster_instance.aurora_instance.endpoint}:5432/tppb${var.environment}?schema=public"
+        DATABASE_URL = "postgresql://root:${aws_secretsmanager_secret_version.db_master_password_version.secret_string}@${aws_rds_cluster.aurora_cluster.endpoint}:5432/tppb${var.environment}?schema=public"
       }
     },
     "editNotification" = {
@@ -483,7 +483,7 @@ module "lambdas" {
       authorization = "NONE" # "NONE" OR "COGNITO_USER_POOLS"
       policy_arns   = [aws_iam_policy.lambda_invoke_policy.arn]
       environment = {
-        DATABASE_URL = "postgresql://root:${aws_secretsmanager_secret_version.db_master_password_version.secret_string}@${aws_rds_cluster_instance.aurora_instance.endpoint}:5432/tppb${var.environment}?schema=public"
+        DATABASE_URL = "postgresql://root:${aws_secretsmanager_secret_version.db_master_password_version.secret_string}@${aws_rds_cluster.aurora_cluster.endpoint}:5432/tppb${var.environment}?schema=public"
       }
     },
     "deleteNotification" = {
@@ -492,7 +492,7 @@ module "lambdas" {
       authorization = "NONE" # "NONE" OR "COGNITO_USER_POOLS"
       policy_arns   = [aws_iam_policy.lambda_invoke_policy.arn]
       environment = {
-        DATABASE_URL = "postgresql://root:${aws_secretsmanager_secret_version.db_master_password_version.secret_string}@${aws_rds_cluster_instance.aurora_instance.endpoint}:5432/tppb${var.environment}?schema=public"
+        DATABASE_URL = "postgresql://root:${aws_secretsmanager_secret_version.db_master_password_version.secret_string}@${aws_rds_cluster.aurora_cluster.endpoint}:5432/tppb${var.environment}?schema=public"
       }
     },
     "getNotifications" = {
@@ -501,7 +501,7 @@ module "lambdas" {
       authorization = "NONE" # "NONE" OR "COGNITO_USER_POOLS"
       policy_arns   = [aws_iam_policy.lambda_invoke_policy.arn]
       environment = {
-        DATABASE_URL = "postgresql://root:${aws_secretsmanager_secret_version.db_master_password_version.secret_string}@${aws_rds_cluster_instance.aurora_instance.endpoint}:5432/tppb${var.environment}?schema=public"
+        DATABASE_URL = "postgresql://root:${aws_secretsmanager_secret_version.db_master_password_version.secret_string}@${aws_rds_cluster.aurora_cluster.endpoint}:5432/tppb${var.environment}?schema=public"
       }
     },
     ##########################
@@ -513,7 +513,7 @@ module "lambdas" {
       authorization = "NONE" # "NONE" OR "COGNITO_USER_POOLS"
       policy_arns   = [aws_iam_policy.lambda_invoke_policy.arn]
       environment = {
-        DATABASE_URL = "postgresql://root:${aws_secretsmanager_secret_version.db_master_password_version.secret_string}@${aws_rds_cluster_instance.aurora_instance.endpoint}:5432/tppb${var.environment}?schema=public"
+        DATABASE_URL = "postgresql://root:${aws_secretsmanager_secret_version.db_master_password_version.secret_string}@${aws_rds_cluster.aurora_cluster.endpoint}:5432/tppb${var.environment}?schema=public"
       }
     },
     "getSecurityLog" = {
@@ -522,7 +522,7 @@ module "lambdas" {
       authorization = "NONE" # "NONE" OR "COGNITO_USER_POOLS"
       policy_arns   = [aws_iam_policy.lambda_invoke_policy.arn]
       environment = {
-        DATABASE_URL = "postgresql://root:${aws_secretsmanager_secret_version.db_master_password_version.secret_string}@${aws_rds_cluster_instance.aurora_instance.endpoint}:5432/tppb${var.environment}?schema=public"
+        DATABASE_URL = "postgresql://root:${aws_secretsmanager_secret_version.db_master_password_version.secret_string}@${aws_rds_cluster.aurora_cluster.endpoint}:5432/tppb${var.environment}?schema=public"
       }
     },
     ##########################
@@ -534,7 +534,7 @@ module "lambdas" {
       authorization = "NONE" # "NONE" OR "COGNITO_USER_POOLS"
       policy_arns   = [aws_iam_policy.lambda_invoke_policy.arn]
       environment = {
-        DATABASE_URL = "postgresql://root:${aws_secretsmanager_secret_version.db_master_password_version.secret_string}@${aws_rds_cluster_instance.aurora_instance.endpoint}:5432/tppb${var.environment}?schema=public"
+        DATABASE_URL = "postgresql://root:${aws_secretsmanager_secret_version.db_master_password_version.secret_string}@${aws_rds_cluster.aurora_cluster.endpoint}:5432/tppb${var.environment}?schema=public"
       }
     },
     "getThresholdPreference" = {
@@ -543,7 +543,7 @@ module "lambdas" {
       authorization = "NONE" # "NONE" OR "COGNITO_USER_POOLS"
       policy_arns   = [aws_iam_policy.lambda_invoke_policy.arn]
       environment = {
-        DATABASE_URL = "postgresql://root:${aws_secretsmanager_secret_version.db_master_password_version.secret_string}@${aws_rds_cluster_instance.aurora_instance.endpoint}:5432/tppb${var.environment}?schema=public"
+        DATABASE_URL = "postgresql://root:${aws_secretsmanager_secret_version.db_master_password_version.secret_string}@${aws_rds_cluster.aurora_cluster.endpoint}:5432/tppb${var.environment}?schema=public"
       }
     },
     "getDefaultPaymentSourcePreference" = {
@@ -552,7 +552,7 @@ module "lambdas" {
       authorization = "NONE" # "NONE" OR "COGNITO_USER_POOLS"
       policy_arns   = [aws_iam_policy.lambda_invoke_policy.arn]
       environment = {
-        DATABASE_URL = "postgresql://root:${aws_secretsmanager_secret_version.db_master_password_version.secret_string}@${aws_rds_cluster_instance.aurora_instance.endpoint}:5432/tppb${var.environment}?schema=public"
+        DATABASE_URL = "postgresql://root:${aws_secretsmanager_secret_version.db_master_password_version.secret_string}@${aws_rds_cluster.aurora_cluster.endpoint}:5432/tppb${var.environment}?schema=public"
       }
     },
     "editDefaultPaymentSource" = {
@@ -561,7 +561,7 @@ module "lambdas" {
       authorization = "NONE" # "NONE" OR "COGNITO_USER_POOLS"
       policy_arns   = [aws_iam_policy.lambda_invoke_policy.arn]
       environment = {
-        DATABASE_URL = "postgresql://root:${aws_secretsmanager_secret_version.db_master_password_version.secret_string}@${aws_rds_cluster_instance.aurora_instance.endpoint}:5432/tppb${var.environment}?schema=public"
+        DATABASE_URL = "postgresql://root:${aws_secretsmanager_secret_version.db_master_password_version.secret_string}@${aws_rds_cluster.aurora_cluster.endpoint}:5432/tppb${var.environment}?schema=public"
       }
     },
     "getCurrencyPreference" = {
@@ -570,7 +570,7 @@ module "lambdas" {
       authorization = "NONE" # "NONE" OR "COGNITO_USER_POOLS"
       policy_arns   = [aws_iam_policy.lambda_invoke_policy.arn]
       environment = {
-        DATABASE_URL = "postgresql://root:${aws_secretsmanager_secret_version.db_master_password_version.secret_string}@${aws_rds_cluster_instance.aurora_instance.endpoint}:5432/tppb${var.environment}?schema=public"
+        DATABASE_URL = "postgresql://root:${aws_secretsmanager_secret_version.db_master_password_version.secret_string}@${aws_rds_cluster.aurora_cluster.endpoint}:5432/tppb${var.environment}?schema=public"
       }
     },
     "setCurrencyPreference" = {
@@ -579,7 +579,7 @@ module "lambdas" {
       authorization = "NONE" # "NONE" OR "COGNITO_USER_POOLS"
       policy_arns   = [aws_iam_policy.lambda_invoke_policy.arn]
       environment = {
-        DATABASE_URL = "postgresql://root:${aws_secretsmanager_secret_version.db_master_password_version.secret_string}@${aws_rds_cluster_instance.aurora_instance.endpoint}:5432/tppb${var.environment}?schema=public"
+        DATABASE_URL = "postgresql://root:${aws_secretsmanager_secret_version.db_master_password_version.secret_string}@${aws_rds_cluster.aurora_cluster.endpoint}:5432/tppb${var.environment}?schema=public"
       }
     },
     "editCurrencyPreference" = {
@@ -588,7 +588,7 @@ module "lambdas" {
       authorization = "NONE" # "NONE" OR "COGNITO_USER_POOLS"
       policy_arns   = [aws_iam_policy.lambda_invoke_policy.arn]
       environment = {
-        DATABASE_URL = "postgresql://root:${aws_secretsmanager_secret_version.db_master_password_version.secret_string}@${aws_rds_cluster_instance.aurora_instance.endpoint}:5432/tppb${var.environment}?schema=public"
+        DATABASE_URL = "postgresql://root:${aws_secretsmanager_secret_version.db_master_password_version.secret_string}@${aws_rds_cluster.aurora_cluster.endpoint}:5432/tppb${var.environment}?schema=public"
       }
     },
     "setThreshold" = {
@@ -597,7 +597,7 @@ module "lambdas" {
       authorization = "NONE" # "NONE" OR "COGNITO_USER_POOLS"
       policy_arns   = [aws_iam_policy.lambda_invoke_policy.arn]
       environment = {
-        DATABASE_URL = "postgresql://root:${aws_secretsmanager_secret_version.db_master_password_version.secret_string}@${aws_rds_cluster_instance.aurora_instance.endpoint}:5432/tppb${var.environment}?schema=public"
+        DATABASE_URL = "postgresql://root:${aws_secretsmanager_secret_version.db_master_password_version.secret_string}@${aws_rds_cluster.aurora_cluster.endpoint}:5432/tppb${var.environment}?schema=public"
       }
     },
     "getThresholdBreakers" = {
@@ -606,7 +606,7 @@ module "lambdas" {
       authorization = "NONE" # "NONE" OR "COGNITO_USER_POOLS"
       policy_arns   = [aws_iam_policy.lambda_invoke_policy.arn]
       environment = {
-        DATABASE_URL = "postgresql://root:${aws_secretsmanager_secret_version.db_master_password_version.secret_string}@${aws_rds_cluster_instance.aurora_instance.endpoint}:5432/tppb${var.environment}?schema=public"
+        DATABASE_URL = "postgresql://root:${aws_secretsmanager_secret_version.db_master_password_version.secret_string}@${aws_rds_cluster.aurora_cluster.endpoint}:5432/tppb${var.environment}?schema=public"
       }
     },
     "editThreshold" = {
@@ -615,7 +615,7 @@ module "lambdas" {
       authorization = "NONE" # "NONE" OR "COGNITO_USER_POOLS"
       policy_arns   = [aws_iam_policy.lambda_invoke_policy.arn]
       environment = {
-        DATABASE_URL = "postgresql://root:${aws_secretsmanager_secret_version.db_master_password_version.secret_string}@${aws_rds_cluster_instance.aurora_instance.endpoint}:5432/tppb${var.environment}?schema=public"
+        DATABASE_URL = "postgresql://root:${aws_secretsmanager_secret_version.db_master_password_version.secret_string}@${aws_rds_cluster.aurora_cluster.endpoint}:5432/tppb${var.environment}?schema=public"
       }
     },
     #########################
@@ -627,7 +627,7 @@ module "lambdas" {
       authorization = "NONE" # "NONE" OR "COGNITO_USER_POOLS"
       policy_arns   = [aws_iam_policy.lambda_invoke_policy.arn]
       environment = {
-        DATABASE_URL = "postgresql://root:${aws_secretsmanager_secret_version.db_master_password_version.secret_string}@${aws_rds_cluster_instance.aurora_instance.endpoint}:5432/tppb${var.environment}?schema=public"
+        DATABASE_URL = "postgresql://root:${aws_secretsmanager_secret_version.db_master_password_version.secret_string}@${aws_rds_cluster.aurora_cluster.endpoint}:5432/tppb${var.environment}?schema=public"
       }
     },
     "exportLedgerToCsv" = {
@@ -636,7 +636,7 @@ module "lambdas" {
       authorization = "NONE" # "NONE" OR "COGNITO_USER_POOLS"
       policy_arns   = [aws_iam_policy.lambda_invoke_policy.arn, aws_iam_policy.lambda_s3_policy.arn]
       environment = {
-        DATABASE_URL = "postgresql://root:${aws_secretsmanager_secret_version.db_master_password_version.secret_string}@${aws_rds_cluster_instance.aurora_instance.endpoint}:5432/tppb${var.environment}?schema=public"
+        DATABASE_URL = "postgresql://root:${aws_secretsmanager_secret_version.db_master_password_version.secret_string}@${aws_rds_cluster.aurora_cluster.endpoint}:5432/tppb${var.environment}?schema=public"
         BUCKET       = aws_s3_bucket.receipts_bucket.bucket
       }
     },
@@ -646,7 +646,7 @@ module "lambdas" {
       authorization = "NONE" # "NONE" OR "COGNITO_USER_POOLS"
       policy_arns   = [aws_iam_policy.lambda_invoke_policy.arn, aws_iam_policy.lambda_s3_policy.arn]
       environment = {
-        DATABASE_URL = "postgresql://root:${aws_secretsmanager_secret_version.db_master_password_version.secret_string}@${aws_rds_cluster_instance.aurora_instance.endpoint}:5432/tppb${var.environment}?schema=public"
+        DATABASE_URL = "postgresql://root:${aws_secretsmanager_secret_version.db_master_password_version.secret_string}@${aws_rds_cluster.aurora_cluster.endpoint}:5432/tppb${var.environment}?schema=public"
         BUCKET       = aws_s3_bucket.receipts_bucket.bucket
       }
     },
@@ -656,7 +656,7 @@ module "lambdas" {
       authorization = "NONE" # "NONE" OR "COGNITO_USER_POOLS"
       policy_arns   = [aws_iam_policy.lambda_invoke_policy.arn]
       environment = {
-        DATABASE_URL = "postgresql://root:${aws_secretsmanager_secret_version.db_master_password_version.secret_string}@${aws_rds_cluster_instance.aurora_instance.endpoint}:5432/tppb${var.environment}?schema=public"
+        DATABASE_URL = "postgresql://root:${aws_secretsmanager_secret_version.db_master_password_version.secret_string}@${aws_rds_cluster.aurora_cluster.endpoint}:5432/tppb${var.environment}?schema=public"
         BUCKET       = aws_s3_bucket.receipts_bucket.bucket
       }
     },
@@ -666,7 +666,7 @@ module "lambdas" {
       authorization = "NONE" # "NONE" OR "COGNITO_USER_POOLS"
       policy_arns   = [aws_iam_policy.lambda_invoke_policy.arn]
       environment = {
-        DATABASE_URL = "postgresql://root:${aws_secretsmanager_secret_version.db_master_password_version.secret_string}@${aws_rds_cluster_instance.aurora_instance.endpoint}:5432/tppb${var.environment}?schema=public"
+        DATABASE_URL = "postgresql://root:${aws_secretsmanager_secret_version.db_master_password_version.secret_string}@${aws_rds_cluster.aurora_cluster.endpoint}:5432/tppb${var.environment}?schema=public"
         BUCKET       = aws_s3_bucket.receipts_bucket.bucket
       }
     },
@@ -676,7 +676,7 @@ module "lambdas" {
       authorization = "NONE" # "NONE" OR "COGNITO_USER_POOLS"
       policy_arns   = [aws_iam_policy.lambda_invoke_policy.arn, ]
       environment = {
-        DATABASE_URL = "postgresql://root:${aws_secretsmanager_secret_version.db_master_password_version.secret_string}@${aws_rds_cluster_instance.aurora_instance.endpoint}:5432/tppb${var.environment}?schema=public"
+        DATABASE_URL = "postgresql://root:${aws_secretsmanager_secret_version.db_master_password_version.secret_string}@${aws_rds_cluster.aurora_cluster.endpoint}:5432/tppb${var.environment}?schema=public"
         BUCKET       = aws_s3_bucket.receipts_bucket.bucket
       }
     },
@@ -686,7 +686,7 @@ module "lambdas" {
       authorization = "NONE" # "NONE" OR "COGNITO_USER_POOLS"
       policy_arns   = [aws_iam_policy.lambda_invoke_policy.arn, ]
       environment = {
-        DATABASE_URL = "postgresql://root:${aws_secretsmanager_secret_version.db_master_password_version.secret_string}@${aws_rds_cluster_instance.aurora_instance.endpoint}:5432/tppb${var.environment}?schema=public"
+        DATABASE_URL = "postgresql://root:${aws_secretsmanager_secret_version.db_master_password_version.secret_string}@${aws_rds_cluster.aurora_cluster.endpoint}:5432/tppb${var.environment}?schema=public"
         BUCKET       = aws_s3_bucket.receipts_bucket.bucket
       }
     },

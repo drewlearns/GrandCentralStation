@@ -16,7 +16,7 @@ variable "environment" {
 variable "max_capacity" {
   description = "max capacity of instances for rds serverless v2 scaling configuration"
   type        = number
-  default     = 1
+  default     = 2
 }
 
 variable "region" {
