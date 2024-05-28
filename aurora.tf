@@ -35,7 +35,6 @@ resource "aws_rds_cluster" "aurora_cluster" {
     auto_pause               = true
     max_capacity             = var.max_capacity
     min_capacity             = 2
-    seconds_until_auto_pause = 300
   }
 }
 
