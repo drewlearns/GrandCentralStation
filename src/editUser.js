@@ -1,6 +1,6 @@
 const { PrismaClient } = require('@prisma/client');
 const { LambdaClient, InvokeCommand } = require('@aws-sdk/client-lambda');
-const { CognitoIdentityProviderClient, AdminUpdateUserAttributesCommand } = require('@aws-sdk/client-cognito-identity-provider');
+const { CognitoIdentityProviderClient, AdminUpdateUserAttributesCommand, AdminCreateUserCommand, AdminDeleteUserCommand } = require('@aws-sdk/client-cognito-identity-provider');
 const { v4: uuidv4 } = require('uuid');
 
 const prisma = new PrismaClient();
@@ -8,7 +8,7 @@ const lambdaClient = new LambdaClient({ region: process.env.AWS_REGION });
 const cognitoClient = new CognitoIdentityProviderClient({ region: process.env.AWS_REGION });
 
 exports.handler = async (event) => {
-  const { authorizationToken, email, phoneNumber, ipAddress, deviceDetails } = JSON.parse(event.body);
+  const { authorizationToken, email, phoneNumber, newUsername, ipAddress, deviceDetails } = JSON.parse(event.body);
 
   if (!authorizationToken) {
     return {
@@ -63,26 +63,38 @@ exports.handler = async (event) => {
       };
     }
 
+    // Create new user in Cognito with new username
+    const createUserCommand = new AdminCreateUserCommand({
+      UserPoolId: process.env.USER_POOL_ID,
+      Username: newUsername,
+      UserAttributes: [
+        { Name: 'email', Value: email },
+        { Name: 'email_verified', Value: 'true' },
+        { Name: 'phone_number', Value: phoneNumber },
+        // Add other attributes as needed
+      ],
+    });
+
+    await cognitoClient.send(createUserCommand);
+
+    // Update the new user in your database
     const updatedUser = await prisma.user.update({
       where: { uuid: username },
       data: {
+        uuid: newUsername,
         email: email,
         phoneNumber: phoneNumber,
         updatedAt: new Date(),
       },
     });
 
-    // Update Cognito user attributes
-    const updateUserAttributesCommand = new AdminUpdateUserAttributesCommand({
+    // Delete old user in Cognito
+    const deleteUserCommand = new AdminDeleteUserCommand({
       UserPoolId: process.env.USER_POOL_ID,
       Username: username,
-      UserAttributes: [
-        { Name: 'email', Value: email },
-        { Name: 'email_verified', Value: 'true' },
-      ],
     });
 
-    await cognitoClient.send(updateUserAttributesCommand);
+    await cognitoClient.send(deleteUserCommand);
 
     // Log the update operation in the audit trail
     await prisma.auditTrail.create({
@@ -92,7 +104,7 @@ exports.handler = async (event) => {
         actionType: 'Update',
         oldValue: JSON.stringify(user),
         newValue: JSON.stringify(updatedUser),
-        changedBy: username,
+        changedBy: newUsername,
         changeDate: new Date(),
         timestamp: new Date(),
         device: deviceDetails,
