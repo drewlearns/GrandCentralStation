@@ -60,7 +60,7 @@ exports.handler = async (event) => {
         audits: false,
         securityLogs: false,
         notifications: true,
-        tokens: true,
+        tokens: false,
       },
     });
 
