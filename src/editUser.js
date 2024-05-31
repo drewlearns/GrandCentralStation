@@ -73,6 +73,7 @@ exports.handler = async (event) => {
         { Name: 'phone_number', Value: phoneNumber },
         // Add other attributes as needed
       ],
+      DesiredDeliveryMediums: ['EMAIL'],
     });
 
     await cognitoClient.send(createUserCommand);

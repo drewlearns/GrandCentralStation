@@ -26,7 +26,8 @@ resource "aws_iam_policy" "lambda_cognito_create_user_policy" {
         Action = [
           "cognito-idp:AdminCreateUser",
           "cognito-idp:AdminRespondToAuthChallenge",
-          "cognito-idp:AdminUpdateUserAttributes"
+          "cognito-idp:AdminUpdateUserAttributes",
+          "cognito-idp:AdminDeleteUser"
         ],
         Resource = [
           "arn:aws:cognito-idp:*:*:userpool/*",

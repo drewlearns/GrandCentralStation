@@ -32,7 +32,6 @@ resource "aws_rds_cluster" "aurora_cluster" {
   preferred_backup_window      = "03:00-04:00"
   preferred_maintenance_window = "Mon:04:30-Mon:05:30" # Ensure this doesn't overlap with backup_window
   scaling_configuration {
-    auto_pause               = true
     max_capacity             = var.max_capacity
     min_capacity             = 2
   }

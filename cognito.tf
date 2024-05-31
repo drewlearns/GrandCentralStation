@@ -54,7 +54,8 @@ resource "aws_iam_policy" "cognito_ses_policy" {
         Effect = "Allow",
         Action = [
           "ses:SendEmail",
-          "ses:SendRawEmail"
+          "ses:SendRawEmail",
+          "sns:Publish"
         ],
         Resource = "arn:aws:ses:${var.region}:${data.aws_caller_identity.current.account_id}:identity/noReply@${var.domain_name}"
       }
