@@ -69,6 +69,9 @@ exports.handler = async (event) => {
         bill: true,
         income: true,
         transactions: true
+      },
+      orderBy: {
+        transactionDate: 'desc'
       }
     });
 

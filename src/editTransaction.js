@@ -1,8 +1,9 @@
 const { PrismaClient } = require("@prisma/client");
 const { v4: uuidv4 } = require("uuid");
-const { S3Client, PutObjectCommand, HeadBucketCommand, DeleteObjectCommand } = require("@aws-sdk/client-s3");
+const { S3Client, PutObjectCommand, HeadBucketCommand } = require("@aws-sdk/client-s3");
 const { LambdaClient, InvokeCommand } = require("@aws-sdk/client-lambda");
 const { Buffer } = require("buffer");
+const Decimal = require("decimal.js");
 
 const prisma = new PrismaClient();
 const lambdaClient = new LambdaClient({ region: process.env.AWS_REGION });
@@ -31,14 +32,6 @@ const uploadToS3 = async (bucket, key, base64String) => {
     await s3Client.send(new PutObjectCommand(params));
   } catch (err) {
     throw new Error(`Error uploading to S3: ${err.message}`);
-  }
-};
-
-const deleteFromS3 = async (bucket, key) => {
-  try {
-    await s3Client.send(new DeleteObjectCommand({ Bucket: bucket, Key: key }));
-  } catch (err) {
-    throw new Error(`Error deleting from S3: ${err.message}`);
   }
 };
 
@@ -106,14 +99,14 @@ exports.handler = async (event) => {
       data: {
         householdId,
         paymentSourceId: sourceId,
-        amount: parseFloat(amount),
+        amount: parseFloat(new Decimal(amount).toFixed(2)),
         transactionType,
         transactionDate: new Date(transactionDate),
         category,
         description,
         updatedAt: new Date(),
         updatedBy,
-        runningTotal: transactionType.toLowerCase() === 'debit' ? runningTotal - parseFloat(amount) : runningTotal + parseFloat(amount),
+        runningTotal: parseFloat(transactionType.toLowerCase() === 'debit' ? new Decimal(runningTotal).minus(new Decimal(amount)).toFixed(2) : new Decimal(runningTotal).plus(new Decimal(amount)).toFixed(2)),
         status: status === "true",
         tags: tags || null,
       },
@@ -124,7 +117,7 @@ exports.handler = async (event) => {
       data: {
         ledgerId: updatedLedger.ledgerId,
         sourceId,
-        amount: parseFloat(amount),
+        amount: parseFloat(new Decimal(amount).toFixed(2)),
         transactionDate: new Date(transactionDate),
         description,
         updatedAt: new Date(),
@@ -186,6 +179,6 @@ async function getRunningTotal(householdId, paymentSourceId) {
   });
 
   return transactions.reduce((total, transaction) => {
-    return transaction.transactionType.toLowerCase() === 'debit' ? total - transaction.amount : total + transaction.amount;
-  }, 0);
+    return transaction.transactionType.toLowerCase() === 'debit' ? new Decimal(total).minus(new Decimal(transaction.amount)).toFixed(2) : new Decimal(total).plus(new Decimal(transaction.amount)).toFixed(2);
+  }, new Decimal(0));
 }

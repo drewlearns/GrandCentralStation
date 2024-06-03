@@ -212,6 +212,10 @@ process_file() {
   # Include @aws-sdk/client-cognito-identity-provider module
   mkdir -p "$TMP_DIR/node_modules/@aws-sdk/client-cognito-identity-provider/"
   cp -r node_modules/@aws-sdk/client-cognito-identity-provider/* "$TMP_DIR/node_modules/@aws-sdk/client-cognito-identity-provider/"
+  
+  # Include decimal.js module
+  mkdir -p "$TMP_DIR/node_modules/decimal.js/"
+  cp -r node_modules/decimal.js/* "$TMP_DIR/node_modules/decimal.js/"
 
   if [ -d "node_modules/busboy" ]; then
     mkdir -p "$TMP_DIR/node_modules/busboy"
