@@ -8,7 +8,7 @@ const lambdaClient = new LambdaClient({ region: process.env.AWS_REGION });
 exports.handler = async (event) => {
   try {
     const body = JSON.parse(event.body);
-    const { authorizationToken, transactionId} = body;
+    const { authorizationToken, transactionId } = body;
 
     if (!authorizationToken) {
       return {

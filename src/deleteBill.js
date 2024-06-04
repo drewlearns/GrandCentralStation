@@ -65,10 +65,21 @@ exports.handler = async (event) => {
       };
     }
 
+    const ledgerEntries = await prisma.ledger.findMany({
+      where: { billId: billId },
+    });
+
     // Delete the bill
     await prisma.bill.delete({
       where: { billId: billId },
     });
+
+    // Delete ledger entries associated with the bill
+    for (const entry of ledgerEntries) {
+      await prisma.ledger.delete({
+        where: { ledgerId: entry.ledgerId },
+      });
+    }
 
     // Invoke deleteNotification.js Lambda to delete the associated notification
     const deleteNotificationCommand = new InvokeCommand({
@@ -86,9 +97,17 @@ exports.handler = async (event) => {
       throw new Error(deleteNotificationPayload.errorMessage || 'Notification deletion failed.');
     }
 
+    // Invoke the updateRunningTotal Lambda function to update running totals
+    const updateTotalsCommand = new InvokeCommand({
+      FunctionName: 'updateRunningTotal',
+      Payload: JSON.stringify({ householdId: bill.householdId, paymentSourceId: bill.paymentSourceId }),
+    });
+
+    await lambdaClient.send(updateTotalsCommand);
+
     return {
       statusCode: 200,
-      body: JSON.stringify({ message: "Bill and associated notification deleted successfully" }),
+      body: JSON.stringify({ message: "Bill, associated ledger entries, and notification deleted successfully" }),
     };
   } catch (error) {
     console.error(`Error deleting bill ${billId}:`, error);

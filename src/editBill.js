@@ -6,8 +6,7 @@ const prisma = new PrismaClient();
 const lambdaClient = new LambdaClient({ region: process.env.AWS_REGION });
 
 exports.handler = async (event) => {
-  const { authorizationToken, billId, updates} =
-    JSON.parse(event.body);
+  const { authorizationToken, billId, updates } = JSON.parse(event.body);
 
   if (!authorizationToken) {
     return {
@@ -166,6 +165,14 @@ exports.handler = async (event) => {
 
     // Log the response from editNotification
     console.log("Response from editNotification:", response);
+
+    // Calculate running totals
+    const calculateTotalsCommand = new InvokeCommand({
+      FunctionName: 'calculateRunningTotal',
+      Payload: JSON.stringify({ householdId: bill.householdId, paymentSourceId: bill.paymentSourceId }),
+    });
+
+    await lambdaClient.send(calculateTotalsCommand);
 
     return {
       statusCode: 200,

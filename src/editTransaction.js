@@ -148,6 +148,14 @@ exports.handler = async (event) => {
       });
     }
 
+    // Calculate running totals
+    const calculateTotalsCommand = new InvokeCommand({
+      FunctionName: 'calculateRunningTotal',
+      Payload: JSON.stringify({ householdId: householdId, paymentSourceId: sourceId }),
+    });
+
+    await lambdaClient.send(calculateTotalsCommand);
+
     return { statusCode: 200, body: JSON.stringify({ message: "Transaction updated successfully", transaction: updatedTransaction }) };
   } catch (error) {
     return { statusCode: 500, body: JSON.stringify({ message: "Error processing request", error: error.message }) };
