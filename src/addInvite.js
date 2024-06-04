@@ -8,7 +8,7 @@ const lambdaClient = new LambdaClient({ region: process.env.AWS_REGION });
 exports.handler = async (event) => {
   try {
     const body = typeof event.body === "string" ? JSON.parse(event.body) : event;
-    const { authorizationToken, email, householdId, ipAddress, deviceDetails } = body;
+    const { authorizationToken, email, householdId} = body;
 
     if (!authorizationToken) {
       return {
@@ -71,23 +71,6 @@ exports.handler = async (event) => {
         sentDate: new Date(),
         createdAt: new Date(),
         updatedAt: new Date(),
-      },
-    });
-
-    await prisma.auditTrail.create({
-      data: {
-        auditId: uuidv4(),
-        tableAffected: 'Invitations',
-        actionType: 'Create',
-        oldValue: '',
-        newValue: JSON.stringify(newInvitation),
-        changedBy: updatedBy,
-        changeDate: new Date(),
-        timestamp: new Date(),
-        device: deviceDetails, // Device details from request
-        ipAddress: ipAddress, // IP address from request
-        deviceType: '',
-        ssoEnabled: 'false',
       },
     });
 

@@ -8,7 +8,7 @@ const lambdaClient = new LambdaClient({ region: process.env.AWS_REGION });
 exports.handler = async (event) => {
   try {
     const body = JSON.parse(event.body);
-    const { authorizationToken, householdId, ipAddress, deviceDetails } = body;
+    const { authorizationToken, householdId } = body;
 
     if (!authorizationToken) {
       return {
@@ -70,24 +70,6 @@ exports.handler = async (event) => {
         body: JSON.stringify({ message: "No incomes found for the given householdId" }),
       };
     }
-
-    // Log to audit trail
-    await prisma.auditTrail.create({
-      data: {
-        auditId: uuidv4(),
-        tableAffected: 'Incomes',
-        actionType: 'Read',
-        oldValue: '',
-        newValue: JSON.stringify({ incomes: incomes }),
-        changedBy: username,
-        changeDate: new Date(),
-        timestamp: new Date(),
-        device: deviceDetails,
-        ipAddress: ipAddress,
-        deviceType: '',
-        ssoEnabled: 'false',
-      },
-    });
 
     return {
       statusCode: 200,

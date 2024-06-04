@@ -6,7 +6,7 @@ const prisma = new PrismaClient();
 const lambdaClient = new LambdaClient({ region: process.env.AWS_REGION });
 
 exports.handler = async (event) => {
-  const { authorizationToken, transactionId, ipAddress, deviceDetails } = JSON.parse(event.body);
+  const { authorizationToken, transactionId } = JSON.parse(event.body);
 
   if (!authorizationToken) {
     return {
@@ -68,24 +68,6 @@ exports.handler = async (event) => {
         body: JSON.stringify({ message: "Transaction not found" }),
       };
     }
-
-    // Log to audit trail
-    await prisma.auditTrail.create({
-      data: {
-        auditId: uuidv4(),
-        tableAffected: 'Transaction',
-        actionType: 'Read',
-        oldValue: '',
-        newValue: JSON.stringify({ transaction: transaction }),
-        changedBy: username,
-        changeDate: new Date(),
-        timestamp: new Date(),
-        device: deviceDetails,
-        ipAddress: ipAddress,
-        deviceType: '',
-        ssoEnabled: 'false',
-      },
-    });
 
     return {
       statusCode: 200,

@@ -8,7 +8,7 @@ const lambdaClient = new LambdaClient({ region: process.env.AWS_REGION });
 const cognitoClient = new CognitoIdentityProviderClient({ region: process.env.AWS_REGION });
 
 exports.handler = async (event) => {
-  const { authorizationToken, email, phoneNumber, newUsername, ipAddress, deviceDetails } = JSON.parse(event.body);
+  const { authorizationToken, email, phoneNumber, newUsername} = JSON.parse(event.body);
 
   if (!authorizationToken) {
     return {
@@ -95,25 +95,7 @@ exports.handler = async (event) => {
       Username: username,
     });
 
-    await cognitoClient.send(deleteUserCommand);
-
-    // Log the update operation in the audit trail
-    await prisma.auditTrail.create({
-      data: {
-        auditId: uuidv4(),
-        tableAffected: 'User',
-        actionType: 'Update',
-        oldValue: JSON.stringify(user),
-        newValue: JSON.stringify(updatedUser),
-        changedBy: newUsername,
-        changeDate: new Date(),
-        timestamp: new Date(),
-        device: deviceDetails,
-        ipAddress: ipAddress,
-        deviceType: '',
-        ssoEnabled: 'false',
-      },
-    });
+    await cognitoClient.send(deleteUserCommand)
 
     return {
       statusCode: 200,

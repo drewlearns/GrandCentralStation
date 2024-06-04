@@ -48,7 +48,7 @@ exports.handler = async (event) => {
     try {
         console.log('Event received:', event);
         const body = JSON.parse(event.body);
-        const { authorizationToken, householdId, amount, transactionType, transactionDate, category, description, ipAddress, deviceDetails, status, sourceId, tags, image } = body;
+        const { authorizationToken, householdId, amount, transactionType, transactionDate, category, description, status, sourceId, tags, image } = body;
 
         if (!authorizationToken) {
             return { statusCode: 401, body: JSON.stringify({ message: 'Access denied. No token provided.' }) };
@@ -118,24 +118,6 @@ exports.handler = async (event) => {
                 description,
                 createdAt: new Date(),
                 updatedAt: new Date(),
-            },
-        });
-
-        console.log('Creating audit trail...');
-        await prisma.auditTrail.create({
-            data: {
-                auditId: uuidv4(),
-                tableAffected: 'Ledger',
-                actionType: 'Create',
-                oldValue: '',
-                newValue: JSON.stringify(newLedger),
-                changedBy: updatedBy,
-                changeDate: new Date(),
-                timestamp: new Date(),
-                device: deviceDetails,
-                ipAddress,
-                deviceType: '',
-                ssoEnabled: 'false',
             },
         });
 

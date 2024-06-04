@@ -63,7 +63,7 @@ const storeCredentialsInSecretsManager = async (username, password) => {
 exports.handler = async (event) => {
   try {
     const body = JSON.parse(event.body);
-    const { authorizationToken, householdId, paymentSourceId, billName, dayOfMonth, frequency, username, password, deviceDetails, ipAddress, tags, description, amount, category, interestRate, cashBack, isDebt, status, url } = body;
+    const { authorizationToken, householdId, paymentSourceId, billName, dayOfMonth, frequency, username, password, tags, description, amount, category, interestRate, cashBack, isDebt, status, url } = body;
 
     if (!authorizationToken) {
       return {
@@ -198,29 +198,10 @@ exports.handler = async (event) => {
         title: `Bill Due: ${billName}`,
         message: `Your bill for ${billName} is due on ${firstBillDate.toISOString().split('T')[0]}.`,
         recipientEmail: recipientEmails,
-        deviceDetails: deviceDetails,
-        ipAddress: ipAddress
       }),
     });
 
     await lambdaClient.send(addNotificationCommand);
-
-    await prisma.auditTrail.create({
-      data: {
-        auditId: uuidv4(),
-        tableAffected: 'Bill',
-        actionType: 'Create',
-        oldValue: '',
-        newValue: JSON.stringify(newBill),
-        changedBy: updatedBy,
-        changeDate: new Date(),
-        timestamp: new Date(),
-        device: deviceDetails,
-        ipAddress: ipAddress,
-        deviceType: '',
-        ssoEnabled: 'false',
-      },
-    });
 
     console.log(`Success: Bill and ledger entries added for household ${householdId}`);
     return {

@@ -8,7 +8,7 @@ const lambdaClient = new LambdaClient({ region: process.env.AWS_REGION });
 exports.handler = async (event) => {
   try {
     const body = JSON.parse(event.body);
-    const { authorizationToken, transactionId, ipAddress, deviceDetails } = body;
+    const { authorizationToken, transactionId} = body;
 
     if (!authorizationToken) {
       return {
@@ -88,23 +88,6 @@ exports.handler = async (event) => {
     });
 
     await lambdaClient.send(updateTotalsCommand);
-
-    await prisma.auditTrail.create({
-      data: {
-        auditId: uuidv4(),
-        tableAffected: 'Ledger',
-        actionType: 'Delete',
-        oldValue: JSON.stringify(ledgerEntry),
-        newValue: '',
-        changedBy: updatedBy,
-        changeDate: new Date(),
-        timestamp: new Date(),
-        device: deviceDetails,
-        ipAddress: ipAddress,
-        deviceType: '',
-        ssoEnabled: 'false',
-      },
-    });
 
     console.log(`Success: Transaction and ledger entry deleted for transaction ${transactionId}`);
     return {

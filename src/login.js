@@ -17,7 +17,7 @@ function generateSecretHash(username, clientId, clientSecret) {
 }
 
 exports.handler = async (event) => {
-  const { username, password, mfaCode, session, ipAddress, deviceDetails, locationDetails } = JSON.parse(event.body);
+  const { username, password, mfaCode, session, locationDetails } = JSON.parse(event.body);
   const clientId = process.env.USER_POOL_CLIENT_ID;
   const clientSecret = process.env.USER_POOL_CLIENT_SECRET;
 
@@ -49,7 +49,7 @@ exports.handler = async (event) => {
 
     if (!session) {
       // First attempt to authenticate
-      return initiateAuth(username, password, clientId, clientSecret, ipAddress, deviceDetails, locationDetails);
+      return initiateAuth(username, password, clientId, clientSecret);
     } else {
       // Respond to MFA challenge
       return respondToMFASetupChallenge(
@@ -58,9 +58,6 @@ exports.handler = async (event) => {
         session,
         clientId,
         clientSecret,
-        ipAddress,
-        deviceDetails,
-        locationDetails
       );
     }
   } catch (error) {
@@ -73,7 +70,7 @@ exports.handler = async (event) => {
   }
 };
 
-function initiateAuth(username, password, clientId, clientSecret, ipAddress, deviceDetails, locationDetails) {
+function initiateAuth(username, password, clientId, clientSecret, locationDetails) {
   const authParameters = {
     USERNAME: username,
     PASSWORD: password,
@@ -92,7 +89,7 @@ function initiateAuth(username, password, clientId, clientSecret, ipAddress, dev
 
   return client
     .send(new InitiateAuthCommand(params))
-    .then((response) => handleAuthResponse(response, username, ipAddress, deviceDetails, locationDetails))
+    .then((response) => handleAuthResponse(response, username, locationDetails))
     .catch((error) => {
       console.error('Authentication error:', error);
       return {
@@ -106,7 +103,7 @@ function initiateAuth(username, password, clientId, clientSecret, ipAddress, dev
     });
 }
 
-function respondToMFASetupChallenge(username, mfaCode, session, clientId, clientSecret, ipAddress, deviceDetails, locationDetails) {
+function respondToMFASetupChallenge(username, mfaCode, session, clientId, clientSecret, locationDetails) {
   const challengeResponses = {
     USERNAME: username,
     SECRET_HASH: generateSecretHash(username, clientId, clientSecret),
@@ -122,7 +119,7 @@ function respondToMFASetupChallenge(username, mfaCode, session, clientId, client
 
   return client
     .send(new RespondToAuthChallengeCommand(params))
-    .then((response) => handleAuthResponse(response, username, ipAddress, deviceDetails, locationDetails))
+    .then((response) => handleAuthResponse(response, username, locationDetails))
     .catch((error) => {
       console.error('MFA setup error:', error);
       return {
@@ -136,10 +133,10 @@ function respondToMFASetupChallenge(username, mfaCode, session, clientId, client
     });
 }
 
-async function handleAuthResponse(response, username, ipAddress, deviceDetails, locationDetails) {
+async function handleAuthResponse(response, username, locationDetails) {
   if (response.AuthenticationResult) {
     const tokens = response.AuthenticationResult;
-    await logSecurityEvent(username, ipAddress, deviceDetails, locationDetails, 'Login');
+    await logSecurityEvent(username, locationDetails, 'Login');
     await storeTokens(username, tokens);
 
     return {
@@ -166,27 +163,6 @@ async function handleAuthResponse(response, username, ipAddress, deviceDetails, 
       body: JSON.stringify({ message: 'Unexpected response' }),
       headers: { 'Content-Type': 'application/json' },
     };
-  }
-}
-
-async function logSecurityEvent(username, ipAddress, deviceDetails, locationDetails, actionType) {
-  try {
-    await prisma.securityLog.create({
-      data: {
-        logId: crypto.randomUUID(),
-        userUuid: username,
-        loginTime: new Date(),
-        ipAddress,
-        deviceDetails,
-        locationDetails,
-        actionType,
-        createdAt: new Date(),
-      },
-    });
-    console.log('Logged security event for user:', username);
-  } catch (error) {
-    console.error('Error logging security event:', error);
-    throw error;
   }
 }
 

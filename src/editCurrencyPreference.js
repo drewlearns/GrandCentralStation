@@ -6,7 +6,7 @@ const prisma = new PrismaClient();
 const lambdaClient = new LambdaClient({ region: process.env.AWS_REGION });
 
 exports.handler = async (event) => {
-  const { authorizationToken, householdId, currencySymbol, ipAddress, deviceDetails } = JSON.parse(event.body);
+  const { authorizationToken, householdId, currencySymbol } = JSON.parse(event.body);
 
   if (!authorizationToken) {
     return {
@@ -62,24 +62,6 @@ exports.handler = async (event) => {
         preferenceValue: currencySymbol,
         updatedAt: new Date()
       }
-    });
-
-    // Log to audit trail
-    await prisma.auditTrail.create({
-      data: {
-        auditId: uuidv4(),
-        tableAffected: 'Preferences',
-        actionType: 'Update',
-        oldValue: '',
-        newValue: JSON.stringify({ preference: preference }),
-        changedBy: username,
-        changeDate: new Date(),
-        timestamp: new Date(),
-        device: deviceDetails,
-        ipAddress: ipAddress,
-        deviceType: '',
-        ssoEnabled: 'false',
-      },
     });
 
     return {

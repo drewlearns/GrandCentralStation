@@ -6,7 +6,7 @@ const prisma = new PrismaClient();
 const lambdaClient = new LambdaClient({ region: process.env.AWS_REGION });
 
 exports.handler = async (event) => {
-  const { authorizationToken, billId, updates, ipAddress, deviceDetails } =
+  const { authorizationToken, billId, updates} =
     JSON.parse(event.body);
 
   if (!authorizationToken) {
@@ -114,24 +114,6 @@ exports.handler = async (event) => {
       },
     });
 
-    // Log to audit trail
-    await prisma.auditTrail.create({
-      data: {
-        auditId: uuidv4(),
-        tableAffected: "Bill",
-        actionType: "Update",
-        oldValue: JSON.stringify(bill),
-        newValue: JSON.stringify(updatedBill),
-        changedBy: username,
-        changeDate: new Date(),
-        timestamp: new Date(),
-        device: deviceDetails,
-        ipAddress: ipAddress,
-        deviceType: "",
-        ssoEnabled: "false",
-      },
-    });
-
     // Get household members' emails if the billId or householdId has changed
     let recipientEmails;
     if (updates.householdId && updates.householdId !== bill.householdId) {
@@ -164,8 +146,6 @@ exports.handler = async (event) => {
         updates.billName || bill.billName
       } has been updated.`,
       recipientEmail: recipientEmails,
-      deviceDetails: deviceDetails,
-      ipAddress: ipAddress,
     });
 
     // Invoke the editNotification Lambda function
@@ -179,8 +159,6 @@ exports.handler = async (event) => {
         message: `Your bill for ${updates.billName || bill.billName} has been updated.`,
         recipientEmail: recipientEmails,
         dayOfMonth: updates.dayOfMonth !== undefined ? parseInt(updates.dayOfMonth) : bill.dayOfMonth,
-        deviceDetails: deviceDetails,
-        ipAddress: ipAddress
       }),
     });
 

@@ -3,7 +3,7 @@ const prisma = new PrismaClient();
 const { v4: uuidv4 } = require('uuid');
 
 async function main() {
-  // Create two users
+  // Create users
   const user1 = await prisma.user.create({
     data: {
       uuid: uuidv4(),
@@ -38,16 +38,14 @@ async function main() {
     }
   });
 
-  // Create two households
+  // Create households
   const household1 = await prisma.household.create({
     data: {
       householdId: uuidv4(),
       householdName: 'Doe Family Household 1',
       creationDate: new Date(),
-      customHouseholdNameSuchAsCrew: 'The Doe Crew 1',
       createdAt: new Date(),
       updatedAt: new Date(),
-      account: 'account_1',
       setupComplete: true,
       activeSubscription: true
     }
@@ -58,10 +56,8 @@ async function main() {
       householdId: uuidv4(),
       householdName: 'Doe Family Household 2',
       creationDate: new Date(),
-      customHouseholdNameSuchAsCrew: 'The Doe Crew 2',
       createdAt: new Date(),
       updatedAt: new Date(),
-      account: 'account_2',
       setupComplete: true,
       activeSubscription: true
     }
@@ -92,7 +88,32 @@ async function main() {
     }
   });
 
-  // Create one transaction per month for 2024 for each household
+  // Create payment sources for the households
+  const paymentSource1 = await prisma.paymentSource.create({
+    data: {
+      sourceId: uuidv4(),
+      householdId: household1.householdId,
+      sourceName: 'Main Bank Account',
+      sourceType: 'Bank',
+      description: 'Main household bank account',
+      createdAt: new Date(),
+      updatedAt: new Date()
+    }
+  });
+
+  const paymentSource2 = await prisma.paymentSource.create({
+    data: {
+      sourceId: uuidv4(),
+      householdId: household2.householdId,
+      sourceName: 'Savings Account',
+      sourceType: 'Bank',
+      description: 'Household savings account',
+      createdAt: new Date(),
+      updatedAt: new Date()
+    }
+  });
+
+  // Create transactions for 2024 for each household
   for (let month = 0; month < 12; month++) {
     const date = new Date(2024, month, 1);
 
@@ -100,6 +121,7 @@ async function main() {
       data: {
         ledgerId: uuidv4(),
         householdId: household1.householdId,
+        paymentSourceId: paymentSource1.sourceId,
         amount: 100 + month,
         transactionType: 'Expense',
         transactionDate: date,
@@ -110,6 +132,8 @@ async function main() {
         updatedAt: new Date(),
         updatedBy: user1.uuid,
         runningTotal: 1000 - (100 + month),
+        interestRate: 0.0,
+        cashBack: 0.0
       }
     });
 
@@ -117,6 +141,7 @@ async function main() {
       data: {
         ledgerId: uuidv4(),
         householdId: household2.householdId,
+        paymentSourceId: paymentSource2.sourceId,
         amount: 200 + month,
         transactionType: 'Expense',
         transactionDate: date,
@@ -127,11 +152,13 @@ async function main() {
         updatedAt: new Date(),
         updatedBy: user2.uuid,
         runningTotal: 2000 - (200 + month),
+        interestRate: 0.0,
+        cashBack: 0.0
       }
     });
   }
 
-  // Create one monthly bill for each household
+  // Create monthly bills for each household
   const bill1 = await prisma.bill.create({
     data: {
       billId: uuidv4(),
@@ -147,6 +174,8 @@ async function main() {
       url: 'http://example.com',
       username: 'landlord',
       password: 'password',
+      interestRate: 0.0,
+      cashBack: 0.0,
       createdAt: new Date(),
       updatedAt: new Date()
     }
@@ -167,12 +196,14 @@ async function main() {
       url: 'http://example.com',
       username: 'isp',
       password: 'password',
+      interestRate: 0.0,
+      cashBack: 0.0,
       createdAt: new Date(),
       updatedAt: new Date()
     }
   });
 
-  // Create one bi-weekly income for each household
+  // Create bi-weekly incomes for each household
   await prisma.incomes.create({
     data: {
       incomeId: uuidv4(),
@@ -199,6 +230,19 @@ async function main() {
     }
   });
 
+  // Create notifications for each user related to their bills
+  await prisma.notification.create({
+    data: {
+      notificationId: uuidv4(),
+      userUuid: user1.uuid,
+      title: 'Monthly Rent Due',
+      message: 'Your monthly rent is due tomorrow.',
+      read: false,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+      billId: bill1.billId
+    }
+  });
 
   await prisma.notification.create({
     data: {
@@ -207,12 +251,9 @@ async function main() {
       title: 'Monthly Internet Due',
       message: 'Your monthly internet bill is due tomorrow.',
       read: false,
-      sent: true,
-      dayOfMonth: 10,
       createdAt: new Date(),
       updatedAt: new Date(),
-      billId: bill2.billId,
-      recipientEmail: user2.email
+      billId: bill2.billId
     }
   });
 }

@@ -6,7 +6,7 @@ const prisma = new PrismaClient();
 const sesClient = new SESClient({ region: process.env.AWS_REGION });
 
 exports.handler = async (event) => {
-    const { invitationId, ipAddress, deviceDetails } = JSON.parse(event.body);
+    const { invitationId } = JSON.parse(event.body);
 
     try {
         // Check if the invitation exists and is still pending
@@ -84,24 +84,6 @@ exports.handler = async (event) => {
             },
         };
         await sesClient.send(new SendEmailCommand(emailParams));
-
-        // Log an entry in the AuditTrail
-        await prisma.auditTrail.create({
-            data: {
-                auditId: uuidv4(),
-                tableAffected: 'Invitations',
-                actionType: 'Resend',
-                oldValue: '',
-                newValue: JSON.stringify(invitation),
-                changedBy: invitation.invitedUserUuid,
-                changeDate: new Date(),
-                timestamp: new Date(),
-                device: deviceDetails,
-                ipAddress: ipAddress,
-                deviceType: '',
-                ssoEnabled: 'false',
-            },
-        });
 
         return {
             statusCode: 200,

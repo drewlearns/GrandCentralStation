@@ -6,7 +6,7 @@ const prisma = new PrismaClient();
 const lambdaClient = new LambdaClient({ region: process.env.AWS_REGION });
 
 exports.handler = async (event) => {
-  const { authorizationToken, ipAddress, deviceDetails } = JSON.parse(event.body);
+  const { authorizationToken } = JSON.parse(event.body);
 
   if (!authorizationToken) {
     return {
@@ -71,24 +71,6 @@ exports.handler = async (event) => {
         headers: { 'Content-Type': 'application/json' },
       };
     }
-
-    // Log the read operation in the audit trail
-    await prisma.auditTrail.create({
-      data: {
-        auditId: uuidv4(),
-        tableAffected: 'User',
-        actionType: 'Read',
-        oldValue: '',
-        newValue: JSON.stringify(user),
-        changedBy: username,
-        changeDate: new Date(),
-        timestamp: new Date(),
-        device: deviceDetails,
-        ipAddress: ipAddress,
-        deviceType: '',
-        ssoEnabled: 'false',
-      },
-    });
 
     return {
       statusCode: 200,

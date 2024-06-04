@@ -6,7 +6,7 @@ const prisma = new PrismaClient();
 const lambdaClient = new LambdaClient({ region: process.env.AWS_REGION });
 
 exports.handler = async (event) => {
-  const { authorizationToken, sourceId, householdId, ipAddress, deviceDetails } = JSON.parse(event.body);
+  const { authorizationToken, sourceId, householdId } = JSON.parse(event.body);
 
   if (!authorizationToken) {
     return {
@@ -81,23 +81,6 @@ exports.handler = async (event) => {
 
     const deletedPaymentSource = await prisma.paymentSource.delete({
       where: { sourceId: sourceId },
-    });
-
-    const auditTrail = await prisma.auditTrail.create({
-      data: {
-        auditId: uuidv4(),
-        tableAffected: 'paymentSource',
-        actionType: 'Delete',
-        oldValue: JSON.stringify(deletedPaymentSource),
-        newValue: '',
-        changedBy: deletedBy,
-        changeDate: new Date(),
-        timestamp: new Date(),
-        device: deviceDetails,
-        ipAddress: ipAddress,
-        deviceType: '',
-        ssoEnabled: 'false',
-      },
     });
 
     return {

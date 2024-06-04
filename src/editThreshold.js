@@ -6,7 +6,7 @@ const prisma = new PrismaClient();
 const lambdaClient = new LambdaClient({ region: process.env.AWS_REGION });
 
 exports.handler = async (event) => {
-  const { authorizationToken, householdId, newThreshold, ipAddress, deviceDetails } = JSON.parse(event.body);
+  const { authorizationToken, householdId, newThreshold} = JSON.parse(event.body);
 
   if (!authorizationToken) {
     return {
@@ -66,24 +66,6 @@ exports.handler = async (event) => {
         body: JSON.stringify({ message: 'No matching record found to update.' }),
       };
     }
-
-    // Log to audit trail
-    await prisma.auditTrail.create({
-      data: {
-        auditId: uuidv4(),
-        tableAffected: 'Preferences',
-        actionType: 'Update',
-        oldValue: '',
-        newValue: JSON.stringify({ householdId, newThreshold }),
-        changedBy: username,
-        changeDate: new Date(),
-        timestamp: new Date(),
-        device: deviceDetails,
-        ipAddress: ipAddress,
-        deviceType: '',
-        ssoEnabled: 'false',
-      },
-    });
 
     return {
       statusCode: 200,

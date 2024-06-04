@@ -8,7 +8,7 @@ const lambdaClient = new LambdaClient({ region: process.env.AWS_REGION });
 exports.handler = async (event) => {
   try {
     const body = typeof event.body === "string" ? JSON.parse(event.body) : event;
-    const { authorizationToken, notificationId, deviceDetails, ipAddress } = body;
+    const { authorizationToken, notificationId } = body;
 
     if (!authorizationToken) {
       return {
@@ -63,23 +63,6 @@ exports.handler = async (event) => {
 
     await prisma.notification.delete({
       where: { notificationId: notificationId },
-    });
-
-    await prisma.auditTrail.create({
-      data: {
-        auditId: uuidv4(),
-        tableAffected: 'Notification',
-        actionType: 'Delete',
-        oldValue: JSON.stringify(notification),
-        newValue: '',
-        changedBy: updatedBy,
-        changeDate: new Date(),
-        timestamp: new Date(),
-        device: deviceDetails,
-        ipAddress: ipAddress,
-        deviceType: '',
-        ssoEnabled: 'false',
-      },
     });
 
     console.log(`Success: Notification ${notificationId} deleted`);

@@ -8,13 +8,11 @@ const lambdaClient = new LambdaClient({ region: process.env.AWS_REGION });
 exports.handler = async (event) => {
   console.log('Received event:', JSON.stringify(event, null, 2));
 
-  let authorizationToken, ipAddress, deviceDetails, householdId;
+  let authorizationToken, householdId;
 
   try {
     const parsedBody = JSON.parse(event.body);
     authorizationToken = parsedBody.authorizationToken;
-    ipAddress = parsedBody.ipAddress;
-    deviceDetails = parsedBody.deviceDetails;
     householdId = parsedBody.householdId;
 
     if (!householdId) {
@@ -122,7 +120,7 @@ exports.handler = async (event) => {
     const runningTotals = await Promise.all(paymentSourceIds.map(async (paymentSourceId) => {
       const getRunningTotalCommand = new InvokeCommand({
         FunctionName: 'getRunningTotal',
-        Payload: JSON.stringify({ authorizationToken, paymentSourceId, ipAddress, deviceDetails }),
+        Payload: JSON.stringify({ authorizationToken, paymentSourceId }),
       });
       const getRunningTotalResponse = await lambdaClient.send(getRunningTotalCommand);
       const runningTotalPayload = JSON.parse(new TextDecoder('utf-8').decode(getRunningTotalResponse.Payload));
@@ -141,27 +139,6 @@ exports.handler = async (event) => {
     household.paymentSources.forEach(paymentSource => {
       const runningTotal = runningTotals.find(rt => rt.paymentSourceId === paymentSource.sourceId);
       paymentSource.runningTotal = runningTotal ? runningTotal.runningTotal : null;
-    });
-
-    // Prepare audit trail data
-    const auditData = {
-      auditId: uuidv4(),
-      tableAffected: 'Household',
-      actionType: 'Read',
-      oldValue: '',
-      newValue: JSON.stringify(household),
-      changedBy: userId,
-      changeDate: new Date(),
-      timestamp: new Date(),
-      device: deviceDetails,
-      ipAddress: ipAddress,
-      deviceType: '',
-      ssoEnabled: 'false',
-    };
-
-    // Log the audit trail
-    await prisma.auditTrail.create({
-      data: auditData,
     });
 
     return {

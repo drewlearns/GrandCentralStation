@@ -6,7 +6,7 @@ const prisma = new PrismaClient();
 const lambdaClient = new LambdaClient({ region: process.env.AWS_REGION });
 
 exports.handler = async (event) => {
-    const { authorizationToken, householdName, customHouseholdNameSuchAsCrew, account, ipAddress, deviceDetails } = JSON.parse(event.body);
+    const { authorizationToken, householdName } = JSON.parse(event.body);
 
     if (!authorizationToken) {
         return {
@@ -87,11 +87,9 @@ exports.handler = async (event) => {
                 data: {
                     householdId: uuidv4(),
                     householdName: householdName,
-                    customHouseholdNameSuchAsCrew: customHouseholdNameSuchAsCrew,
                     creationDate: new Date(),
                     createdAt: new Date(),
                     updatedAt: new Date(),
-                    account: account,
                     setupComplete: false,
                     activeSubscription: false,
                     members: {
@@ -109,10 +107,20 @@ exports.handler = async (event) => {
                 },
             });
 
+            // Create a default payment source
+            const defaultPaymentSource = await prisma.paymentSource.create({
+                data: {
+                    id: uuidv4(),
+                    name: 'Default Payment Source',
+                    createdAt: new Date(),
+                    updatedAt: new Date(),
+                },
+            });
+
             const existingInitialLedger = await prisma.ledger.findFirst({
                 where: {
                     householdId: household.householdId,
-                    transactionType: 'Initialization',
+                    transactionType: 'Credit',
                 },
             });
 
@@ -121,13 +129,13 @@ exports.handler = async (event) => {
                     data: {
                         ledgerId: uuidv4(),
                         householdId: household.householdId,
-                        paymentSourceId: 'dummy-payment-source-id', // Provide a valid paymentSourceId
+                        paymentSourceId: defaultPaymentSource.id,
                         amount: 0.0,
                         runningTotal: 0.0,
-                        transactionType: 'Initialization',
+                        transactionType: 'Credit',
                         transactionDate: new Date(),
                         category: 'Initial Setup',
-                        description: 'Initially created ledger',
+                        description: 'Initially created ledger - This can be deleted',
                         createdAt: new Date(),
                         updatedAt: new Date(),
                         updatedBy: createdBy,
@@ -139,31 +147,12 @@ exports.handler = async (event) => {
             return household;
         });
 
-        await prisma.auditTrail.create({
-            data: {
-                auditId: uuidv4(),
-                tableAffected: 'Household',
-                actionType: 'Create',
-                oldValue: '',
-                newValue: JSON.stringify(result),
-                changedBy: createdBy,
-                changeDate: new Date(),
-                timestamp: new Date(),
-                device: deviceDetails,
-                ipAddress: ipAddress,
-                deviceType: '',
-                ssoEnabled: 'false',
-            },
-        });
-
         return {
             statusCode: 201,
             body: JSON.stringify({
                 message: 'Household created successfully',
                 householdId: result.householdId,
                 householdName: householdName,
-                customHouseholdName: customHouseholdNameSuchAsCrew,
-                account: account,
             }),
         };
     } catch (error) {

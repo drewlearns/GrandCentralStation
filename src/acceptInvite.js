@@ -18,10 +18,10 @@ exports.handler = async (event) => {
         };
     }
 
-    const { invitationId, ipAddress, deviceDetails, username, mailOptIn, firstName, lastName, phoneNumber, password } = parsedBody;
+    const { invitationId, username, mailOptIn, firstName, lastName, phoneNumber, password } = parsedBody;
 
     // Validate required fields
-    if (!invitationId || !username || !password || !firstName || !lastName || !phoneNumber || !ipAddress || !deviceDetails) {
+    if (!invitationId || !username || !password || !firstName || !lastName || !phoneNumber ) {
         return {
             statusCode: 400,
             body: JSON.stringify({
@@ -94,8 +94,6 @@ exports.handler = async (event) => {
                         phoneNumber: phoneNumber,
                         firstName: firstName,
                         lastName: lastName,
-                        ipAddress: ipAddress,
-                        deviceDetails: deviceDetails
                     })
                 }),
             });
@@ -130,24 +128,6 @@ exports.handler = async (event) => {
                 invitationStatus: 'Accepted',
                 updatedAt: new Date(),
                 userUuid: newUserUuid,
-            },
-        });
-
-        // Log an entry in the AuditTrail
-        await prisma.auditTrail.create({
-            data: {
-                auditId: uuidv4(),
-                tableAffected: 'HouseholdMembers',
-                actionType: 'Create',
-                oldValue: '',
-                newValue: JSON.stringify(householdMember),
-                changedBy: newUserUuid,
-                changeDate: new Date(),
-                timestamp: new Date(),
-                device: deviceDetails,
-                ipAddress: ipAddress,
-                deviceType: '',
-                ssoEnabled: 'false',
             },
         });
 

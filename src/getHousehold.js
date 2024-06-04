@@ -15,8 +15,6 @@ exports.handler = async (event) => {
   try {
     const parsedBody = JSON.parse(event.body);
     authorizationToken = parsedBody.authorizationToken;
-    ipAddress = parsedBody.ipAddress;
-    deviceDetails = parsedBody.deviceDetails;
     page = parsedBody.page || 1; // Default to page 1 if not provided
     pageSize = parsedBody.pageSize || defaultPageSize; // Default to defaultPageSize if not provided
   } catch (error) {
@@ -107,27 +105,6 @@ exports.handler = async (event) => {
         }),
       };
     }
-
-    // Prepare audit trail data
-    const auditData = {
-      auditId: uuidv4(),
-      tableAffected: 'Household',
-      actionType: 'Read',
-      oldValue: '',
-      newValue: JSON.stringify(households),
-      changedBy: userId,
-      changeDate: new Date(),
-      timestamp: new Date(),
-      device: deviceDetails,
-      ipAddress: ipAddress,
-      deviceType: '',
-      ssoEnabled: 'false',
-    };
-
-    // Log the audit trail
-    await prisma.auditTrail.create({
-      data: auditData,
-    });
 
     return {
       statusCode: 200,

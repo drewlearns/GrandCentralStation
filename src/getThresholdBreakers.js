@@ -11,8 +11,7 @@ exports.handler = async (event) => {
     householdId,
     threshold,
     paymentSourceId,
-    ipAddress,
-    deviceDetails,
+
   } = JSON.parse(event.body);
 
   if (!authorizationToken) {
@@ -75,24 +74,6 @@ exports.handler = async (event) => {
     const entriesBelowThreshold = ledgerEntries.filter(
       (entry) => entry.runningTotal < threshold
     );
-
-    // Log to audit trail
-    await prisma.auditTrail.create({
-      data: {
-        auditId: uuidv4(),
-        tableAffected: "Ledger",
-        actionType: "Read",
-        oldValue: "",
-        newValue: JSON.stringify({ entriesBelowThreshold }),
-        changedBy: username,
-        changeDate: new Date(),
-        timestamp: new Date(),
-        device: deviceDetails,
-        ipAddress: ipAddress,
-        deviceType: "",
-        ssoEnabled: "false",
-      },
-    });
 
     return {
       statusCode: 200,

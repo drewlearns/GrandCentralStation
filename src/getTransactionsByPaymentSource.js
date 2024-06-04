@@ -6,7 +6,7 @@ const prisma = new PrismaClient();
 const lambdaClient = new LambdaClient({ region: process.env.AWS_REGION });
 
 exports.handler = async (event) => {
-  const { authorizationToken, householdId, paymentSourceId, ipAddress, deviceDetails, page = 1, limit = 10 } = JSON.parse(event.body);
+  const { authorizationToken, householdId, paymentSourceId , page = 1, limit = 100 } = JSON.parse(event.body);
 
   if (!authorizationToken) {
     return {
@@ -74,24 +74,6 @@ exports.handler = async (event) => {
         body: JSON.stringify({ message: "No ledger entries found for the specified payment source" }),
       };
     }
-
-    // Log to audit trail
-    await prisma.auditTrail.create({
-      data: {
-        auditId: uuidv4(),
-        tableAffected: 'Ledger',
-        actionType: 'Read',
-        oldValue: '',
-        newValue: JSON.stringify({ ledgerEntries: ledgerEntries }),
-        changedBy: username,
-        changeDate: new Date(),
-        timestamp: new Date(),
-        device: deviceDetails,
-        ipAddress: ipAddress,
-        deviceType: '',
-        ssoEnabled: 'false',
-      },
-    });
 
     return {
       statusCode: 200,

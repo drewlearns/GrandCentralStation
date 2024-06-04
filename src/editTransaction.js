@@ -38,7 +38,7 @@ const uploadToS3 = async (bucket, key, base64String) => {
 exports.handler = async (event) => {
   try {
     const body = JSON.parse(event.body);
-    const { authorizationToken, transactionId, householdId, amount, transactionType, transactionDate, category, description, ipAddress, deviceDetails, status, sourceId, tags, image } = body;
+    const { authorizationToken, transactionId, householdId, amount, transactionType, transactionDate, category, description, status, sourceId, tags, image } = body;
 
     if (!authorizationToken) {
       return { statusCode: 401, body: JSON.stringify({ message: 'Access denied. No token provided.' }) };
@@ -147,23 +147,6 @@ exports.handler = async (event) => {
         }
       });
     }
-
-    await prisma.auditTrail.create({
-      data: {
-        auditId: uuidv4(),
-        tableAffected: 'Ledger',
-        actionType: 'Update',
-        oldValue: JSON.stringify(transactionExists),
-        newValue: JSON.stringify(updatedLedger),
-        changedBy: updatedBy,
-        changeDate: new Date(),
-        timestamp: new Date(),
-        device: deviceDetails,
-        ipAddress,
-        deviceType: '',
-        ssoEnabled: 'false',
-      },
-    });
 
     return { statusCode: 200, body: JSON.stringify({ message: "Transaction updated successfully", transaction: updatedTransaction }) };
   } catch (error) {

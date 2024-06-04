@@ -8,7 +8,7 @@ const prisma = new PrismaClient();
 const lambdaClient = new LambdaClient({ region: process.env.AWS_REGION });
 
 exports.handler = async (event) => {
-  const { authorizationToken, billId, ipAddress, deviceDetails } = JSON.parse(event.body);
+  const { authorizationToken, billId } = JSON.parse(event.body);
 
   try {
     const verifyTokenCommand = new InvokeCommand({
@@ -89,24 +89,6 @@ exports.handler = async (event) => {
     const secretArn = bill.username; // Assuming username field stores the ARN
     const command = new GetSecretValueCommand({ SecretId: secretArn });
     const response = await secretsManagerClient.send(command);
-
-    // Log to audit trail
-    await prisma.auditTrail.create({
-      data: {
-        auditId: uuidv4(),
-        tableAffected: 'Bill',
-        actionType: 'Read',
-        oldValue: '',
-        newValue: JSON.stringify({ secret: JSON.parse(response.SecretString) }),
-        changedBy: username,
-        changeDate: new Date(),
-        timestamp: new Date(),
-        device: deviceDetails,
-        ipAddress: ipAddress,
-        deviceType: '',
-        ssoEnabled: 'false',
-      },
-    });
 
     return {
       statusCode: 200,

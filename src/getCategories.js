@@ -6,7 +6,7 @@ const prisma = new PrismaClient();
 const lambdaClient = new LambdaClient({ region: process.env.AWS_REGION });
 
 exports.handler = async (event) => {
-  const { authorizationToken, householdId, month, year, ipAddress, deviceDetails } = JSON.parse(event.body);
+  const { authorizationToken, householdId, month, year } = JSON.parse(event.body);
 
   if (!authorizationToken) {
     return {
@@ -16,7 +16,7 @@ exports.handler = async (event) => {
       })
     };
   }
-
+  
   if (!householdId || !month || !year) {
     return {
       statusCode: 400,
@@ -95,24 +95,6 @@ exports.handler = async (event) => {
       category: transaction.category,
       amount: transaction._sum.amount
     }));
-
-    // Log to audit trail
-    await prisma.auditTrail.create({
-      data: {
-        auditId: uuidv4(),
-        tableAffected: 'Ledger',
-        actionType: 'Read',
-        oldValue: '',
-        newValue: JSON.stringify({ monthSpend, yearToDateSpend }),
-        changedBy: username,
-        changeDate: new Date(),
-        timestamp: new Date(),
-        device: deviceDetails,
-        ipAddress: ipAddress,
-        deviceType: '',
-        ssoEnabled: 'false',
-      },
-    });
 
     return {
       statusCode: 200,

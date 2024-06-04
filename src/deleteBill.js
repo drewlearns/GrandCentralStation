@@ -6,7 +6,7 @@ const prisma = new PrismaClient();
 const lambdaClient = new LambdaClient({ region: process.env.AWS_REGION });
 
 exports.handler = async (event) => {
-  const { authorizationToken, billId, ipAddress, deviceDetails } = JSON.parse(event.body);
+  const { authorizationToken, billId } = JSON.parse(event.body);
 
   if (!authorizationToken) {
     return {
@@ -70,32 +70,12 @@ exports.handler = async (event) => {
       where: { billId: billId },
     });
 
-    // Log to audit trail
-    await prisma.auditTrail.create({
-      data: {
-        auditId: uuidv4(),
-        tableAffected: 'Bill',
-        actionType: 'Delete',
-        oldValue: JSON.stringify(bill),
-        newValue: '',
-        changedBy: username,
-        changeDate: new Date(),
-        timestamp: new Date(),
-        device: deviceDetails,
-        ipAddress: ipAddress,
-        deviceType: '',
-        ssoEnabled: 'false',
-      },
-    });
-
     // Invoke deleteNotification.js Lambda to delete the associated notification
     const deleteNotificationCommand = new InvokeCommand({
       FunctionName: 'deleteNotification',
       Payload: JSON.stringify({
         authorizationToken,
         notificationId: bill.notificationId, // assuming the bill has a notificationId field
-        ipAddress,
-        deviceDetails
       })
     });
 

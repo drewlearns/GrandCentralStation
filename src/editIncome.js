@@ -48,7 +48,7 @@ const calculateOccurrences = (startDate, frequency) => {
 exports.handler = async (event) => {
   try {
     const body = JSON.parse(event.body);
-    const { authorizationToken, incomeId, householdId, name, amount, firstPayDay, frequency, description, ipAddress, deviceDetails, paymentSourceId, tags } = body;
+    const { authorizationToken, incomeId, householdId, name, amount, firstPayDay, frequency, description, paymentSourceId, tags } = body;
 
     if (!authorizationToken) {
       return {
@@ -171,23 +171,6 @@ exports.handler = async (event) => {
     });
 
     await lambdaClient.send(calculateTotalsCommand);
-
-    await prisma.auditTrail.create({
-      data: {
-        auditId: uuidv4(),
-        tableAffected: 'Incomes',
-        actionType: 'Update',
-        oldValue: JSON.stringify(incomeExists),
-        newValue: JSON.stringify(updatedIncome),
-        changedBy: updatedBy,
-        changeDate: new Date(),
-        timestamp: new Date(),
-        device: deviceDetails,
-        ipAddress: ipAddress,
-        deviceType: '',
-        ssoEnabled: 'false',
-      },
-    });
 
     console.log(`Success: Income and ledger entries updated for household ${householdId}`);
     return {

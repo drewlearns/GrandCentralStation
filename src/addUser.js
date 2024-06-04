@@ -23,7 +23,7 @@ exports.handler = async (event) => {
     };
   }
 
-  const { username, email, password, mailOptIn, phoneNumber, firstName, lastName, ipAddress, deviceDetails } = body;
+  const { username, email, password, mailOptIn, phoneNumber, firstName, lastName } = body;
   const mailOptInValue = mailOptIn === 'true';
   const clientId = process.env.USER_POOL_CLIENT_ID;
   const clientSecret = process.env.USER_POOL_CLIENT_SECRET;
@@ -91,38 +91,6 @@ exports.handler = async (event) => {
         mailOptIn: mailOptInValue,
         subscriptionEndDate: subscriptionEndDate,
         subscriptionStatus: 'trial',
-      },
-    });
-
-    // Log the creation in the audit trail
-    await prisma.auditTrail.create({
-      data: {
-        auditId: uuidv4(),
-        tableAffected: 'User',
-        actionType: 'Create',
-        oldValue: '',
-        newValue: JSON.stringify(newUser),
-        changedBy: username,
-        changeDate: new Date(),
-        timestamp: new Date(),
-        device: deviceDetails,
-        ipAddress,
-        deviceType: '',
-        ssoEnabled: 'false',
-      },
-    });
-
-    // Log the security event
-    await prisma.securityLog.create({
-      data: {
-        logId: uuidv4(),
-        userUuid: username,
-        loginTime: new Date(),
-        ipAddress,
-        deviceDetails,
-        locationDetails: '',
-        actionType: 'User Signup',
-        createdAt: new Date(),
       },
     });
 

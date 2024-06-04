@@ -9,7 +9,7 @@ exports.handler = async (event) => {
     console.log("Received event:", event);
 
     const body = typeof event.body === "string" ? JSON.parse(event.body) : event;
-    const { authorizationToken, notificationId, billId, title, message, dayOfMonth, deviceDetails, ipAddress } = body;
+    const { authorizationToken, notificationId, billId, title, message, dayOfMonth } = body;
 
     if (!authorizationToken) {
       return {
@@ -101,23 +101,6 @@ exports.handler = async (event) => {
         dayOfMonth: dayOfMonth !== undefined ? parseInt(dayOfMonth) : notification.dayOfMonth,
         recipientEmail: recipientEmails,
         updatedAt: new Date(),
-      },
-    });
-
-    await prisma.auditTrail.create({
-      data: {
-        auditId: uuidv4(),
-        tableAffected: 'Notification',
-        actionType: 'Update',
-        oldValue: JSON.stringify(notification),
-        newValue: JSON.stringify(updatedNotification),
-        changedBy: updatedBy,
-        changeDate: new Date(),
-        timestamp: new Date(),
-        device: deviceDetails,
-        ipAddress: ipAddress,
-        deviceType: '',
-        ssoEnabled: 'false',
       },
     });
 

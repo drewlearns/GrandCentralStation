@@ -1,12 +1,11 @@
 const { PrismaClient } = require("@prisma/client");
 const { LambdaClient, InvokeCommand } = require("@aws-sdk/client-lambda");
-const { v4: uuidv4 } = require('uuid');
 
 const prisma = new PrismaClient();
 const lambdaClient = new LambdaClient({ region: process.env.AWS_REGION });
 
 exports.handler = async (event) => {
-  const { authorizationToken, householdId, month, year, ipAddress, deviceDetails } = JSON.parse(event.body);
+  const { authorizationToken } = JSON.parse(event.body);
 
   if (!authorizationToken) {
     return {
@@ -14,13 +13,6 @@ exports.handler = async (event) => {
       body: JSON.stringify({
         message: 'Access denied. No token provided.'
       })
-    };
-  }
-
-  if (!householdId || !month || !year) {
-    return {
-      statusCode: 400,
-      body: JSON.stringify({ message: "Missing householdId, month or year parameter" }),
     };
   }
 
@@ -54,21 +46,12 @@ exports.handler = async (event) => {
   }
 
   try {
-    const startDate = new Date(year, month - 1, 1);
-    const endDate = new Date(year, month, 0);
-
     const ledgerEntries = await prisma.ledger.findMany({
-      where: {
-        householdId: householdId,
-        transactionDate: {
-          gte: startDate,
-          lte: endDate
-        }
-      },
       include: {
         bill: true,
         income: true,
-        transactions: true
+        transactions: true,
+        paymentSource: true,
       },
       orderBy: {
         transactionDate: 'desc'
@@ -78,27 +61,9 @@ exports.handler = async (event) => {
     if (ledgerEntries.length === 0) {
       return {
         statusCode: 404,
-        body: JSON.stringify({ message: "No ledger entries found for the specified month" }),
+        body: JSON.stringify({ message: "No ledger entries found" }),
       };
     }
-
-    // Log to audit trail
-    await prisma.auditTrail.create({
-      data: {
-        auditId: uuidv4(),
-        tableAffected: 'Ledger',
-        actionType: 'Read',
-        oldValue: '',
-        newValue: JSON.stringify({ ledgerEntries: ledgerEntries }),
-        changedBy: username,
-        changeDate: new Date(),
-        timestamp: new Date(),
-        device: deviceDetails,
-        ipAddress: ipAddress,
-        deviceType: '',
-        ssoEnabled: 'false',
-      },
-    });
 
     return {
       statusCode: 200,

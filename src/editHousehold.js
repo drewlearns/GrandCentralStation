@@ -6,7 +6,7 @@ const prisma = new PrismaClient();
 const lambdaClient = new LambdaClient({ region: process.env.AWS_REGION });
 
 exports.handler = async (event) => {
-    const { authorizationToken, householdId, householdName, customHouseholdNameSuchAsCrew, account, setupComplete, activeSubscription, ipAddress, deviceDetails } = JSON.parse(event.body);
+    const { authorizationToken, householdId, householdName, customHouseholdNameSuchAsCrew, account, setupComplete, activeSubscription } = JSON.parse(event.body);
 
     if (!authorizationToken) {
         return {
@@ -70,23 +70,6 @@ exports.handler = async (event) => {
                 setupComplete: setupComplete,
                 activeSubscription: activeSubscription,
                 updatedAt: new Date(),
-            },
-        });
-
-        await prisma.auditTrail.create({
-            data: {
-                auditId: uuidv4(),
-                tableAffected: 'Household',
-                actionType: 'Update',
-                oldValue: JSON.stringify(householdExists),
-                newValue: JSON.stringify(updatedHousehold),
-                changedBy: updatedBy,
-                changeDate: new Date(),
-                timestamp: new Date(),
-                device: deviceDetails,
-                ipAddress: ipAddress,
-                deviceType: '',
-                ssoEnabled: 'false',
             },
         });
 

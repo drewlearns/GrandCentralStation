@@ -83,7 +83,7 @@ NEWFILEUID:NONE
 }
 
 exports.handler = async (event) => {
-  const { authorizationToken, householdId, paymentSourceId, ipAddress, deviceDetails } = JSON.parse(event.body);
+  const { authorizationToken, householdId, paymentSourceId } = JSON.parse(event.body);
 
   if (!authorizationToken) {
     return {
@@ -177,24 +177,6 @@ exports.handler = async (event) => {
 
     const getObjectCommand = new GetObjectCommand({ Bucket: s3Bucket, Key: s3Key });
     const presignedUrl = await getSignedUrl(s3Client, getObjectCommand, { expiresIn: 3600 });
-
-    // Log to audit trail
-    await prisma.auditTrail.create({
-      data: {
-        auditId: uuidv4(),
-        tableAffected: 'Ledger',
-        actionType: 'Export',
-        oldValue: '',
-        newValue: JSON.stringify({ s3Bucket, s3Key }),
-        changedBy: username,
-        changeDate: new Date(),
-        timestamp: new Date(),
-        device: deviceDetails,
-        ipAddress: ipAddress,
-        deviceType: '',
-        ssoEnabled: 'false',
-      },
-    });
 
     return {
       statusCode: 200,

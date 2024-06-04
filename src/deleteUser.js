@@ -8,7 +8,7 @@ const lambdaClient = new LambdaClient({ region: process.env.AWS_REGION });
 const cognitoClient = new CognitoIdentityProviderClient({ region: process.env.AWS_REGION });
 
 exports.handler = async (event) => {
-  const { authorizationToken, ipAddress, deviceDetails } = JSON.parse(event.body);
+  const { authorizationToken} = JSON.parse(event.body);
 
   if (!authorizationToken) {
     return {
@@ -76,24 +76,6 @@ exports.handler = async (event) => {
       data: {
         subscriptionStatus: 'disabled',
         updatedAt: new Date(),
-      },
-    });
-
-    // Log the disable operation in the audit trail
-    await prisma.auditTrail.create({
-      data: {
-        auditId: uuidv4(),
-        tableAffected: 'User',
-        actionType: 'Disable',
-        oldValue: JSON.stringify(user),
-        newValue: JSON.stringify(updatedUser),
-        changedBy: username,
-        changeDate: new Date(),
-        timestamp: new Date(),
-        device: deviceDetails,
-        ipAddress: ipAddress,
-        deviceType: '',
-        ssoEnabled: 'false',
       },
     });
 

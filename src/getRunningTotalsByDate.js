@@ -8,7 +8,7 @@ const lambdaClient = new LambdaClient({ region: process.env.AWS_REGION });
 exports.handler = async (event) => {
   console.log("Received event:", JSON.stringify(event, null, 2));
 
-  let authorizationToken, paymentSourceId, month, year, ipAddress, deviceDetails;
+  let authorizationToken, paymentSourceId, month, year;
 
   try {
     const parsedBody = JSON.parse(event.body);
@@ -16,8 +16,6 @@ exports.handler = async (event) => {
     paymentSourceId = parsedBody.paymentSourceId;
     month = parsedBody.month;
     year = parsedBody.year;
-    ipAddress = parsedBody.ipAddress;
-    deviceDetails = parsedBody.deviceDetails;
   } catch (error) {
     console.error('Error parsing event body:', error);
     return {
@@ -121,28 +119,6 @@ exports.handler = async (event) => {
         }),
       };
     }
-
-    // Add logging for audit trail data
-    const auditData = {
-      auditId: uuidv4(),
-      tableAffected: 'Ledger',
-      actionType: 'Read',
-      oldValue: '',
-      newValue: JSON.stringify(ledgerEntries),
-      changedBy: updatedBy,
-      changeDate: new Date(),
-      timestamp: new Date(),
-      device: deviceDetails,
-      ipAddress: ipAddress,
-      deviceType: '',
-      ssoEnabled: 'false',
-    };
-    console.log(`Audit trail data: ${JSON.stringify(auditData)}`);
-
-    // Log the audit trail
-    await prisma.auditTrail.create({
-      data: auditData,
-    });
 
     return {
       statusCode: 200,

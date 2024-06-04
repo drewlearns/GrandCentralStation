@@ -8,7 +8,7 @@ const lambdaClient = new LambdaClient({ region: process.env.AWS_REGION });
 exports.handler = async (event) => {
   try {
     const body = JSON.parse(event.body);
-    const { authorizationToken, incomeId, ipAddress, deviceDetails } = body;
+    const { authorizationToken, incomeId } = body;
 
     if (!authorizationToken) {
       return {
@@ -67,23 +67,6 @@ exports.handler = async (event) => {
 
     await prisma.incomes.delete({
       where: { incomeId: incomeId },
-    });
-
-    await prisma.auditTrail.create({
-      data: {
-        auditId: uuidv4(),
-        tableAffected: 'Incomes',
-        actionType: 'Delete',
-        oldValue: JSON.stringify(incomeExists),
-        newValue: '',
-        changedBy: updatedBy,
-        changeDate: new Date(),
-        timestamp: new Date(),
-        device: deviceDetails,
-        ipAddress: ipAddress,
-        deviceType: '',
-        ssoEnabled: 'false',
-      },
     });
 
     console.log(`Success: Income and ledger entries deleted for income ${incomeId}`);

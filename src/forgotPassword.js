@@ -12,7 +12,7 @@ function generateSecretHash(username, clientId, clientSecret) {
 }
 
 exports.handler = async (event) => {
-    const { username, ipAddress, deviceDetails } = JSON.parse(event.body);
+    const { username } = JSON.parse(event.body);
     const clientId = process.env.USER_POOL_CLIENT_ID;
     const clientSecret = process.env.USER_POOL_CLIENT_SECRET;
 
@@ -26,38 +26,6 @@ exports.handler = async (event) => {
         };
 
         await client.send(new ForgotPasswordCommand(params));
-
-        // Log an entry in the AuditTrail
-        await prisma.auditTrail.create({
-            data: {
-                auditId: crypto.randomUUID(),
-                tableAffected: 'User',
-                actionType: 'ForgotPassword',
-                oldValue: '',
-                newValue: JSON.stringify({ username }),
-                changedBy: username,
-                changeDate: new Date(),
-                timestamp: new Date(),
-                device: deviceDetails,
-                ipAddress,
-                deviceType: '',
-                ssoEnabled: 'false',
-            },
-        });
-
-        // Log an entry in the SecurityLog
-        await prisma.securityLog.create({
-            data: {
-                logId: crypto.randomUUID(),
-                userUuid: username,
-                loginTime: new Date(),
-                ipAddress,
-                deviceDetails,
-                locationDetails: '',
-                actionType: 'ForgotPassword',
-                createdAt: new Date(),
-            },
-        });
 
         return {
             statusCode: 200,

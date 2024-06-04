@@ -6,7 +6,7 @@ const prisma = new PrismaClient();
 const lambdaClient = new LambdaClient({ region: process.env.AWS_REGION });
 
 exports.handler = async (event) => {
-  const { authorizationToken, householdId, ipAddress, deviceDetails } = JSON.parse(event.body);
+  const { authorizationToken, householdId} = JSON.parse(event.body);
 
   if (!authorizationToken) {
     return {
@@ -65,24 +65,6 @@ exports.handler = async (event) => {
         body: JSON.stringify({ message: 'Threshold preference not found.' }),
       };
     }
-
-    // Log to audit trail
-    await prisma.auditTrail.create({
-      data: {
-        auditId: uuidv4(),
-        tableAffected: 'Preferences',
-        actionType: 'Read',
-        oldValue: '',
-        newValue: JSON.stringify({ householdId, threshold: preference.preferenceValue }),
-        changedBy: username,
-        changeDate: new Date(),
-        timestamp: new Date(),
-        device: deviceDetails,
-        ipAddress: ipAddress,
-        deviceType: '',
-        ssoEnabled: 'false',
-      },
-    });
 
     return {
       statusCode: 200,
