@@ -1,4 +1,6 @@
 const { PrismaClient } = require("@prisma/client");
+const Decimal = require("decimal.js");
+
 const prisma = new PrismaClient();
 
 exports.handler = async (event) => {
@@ -37,13 +39,13 @@ exports.handler = async (event) => {
     console.log(`Found ${ledgerEntries.length} ledger entries. Calculating running totals...`);
 
     // Calculate running totals for the specific payment source
-    let runningTotal = 0;
+    let runningTotal = new Decimal(0);
     for (let entry of ledgerEntries) {
-      runningTotal += entry.transactionType.toLowerCase() === 'debit' ? -entry.amount : entry.amount;
-      console.log(`Updating ledgerId: ${entry.ledgerId} with runningTotal: ${runningTotal}`);
+      runningTotal = entry.transactionType.toLowerCase() === 'debit' ? runningTotal.minus(new Decimal(entry.amount)) : runningTotal.plus(new Decimal(entry.amount));
+      console.log(`Updating ledgerId: ${entry.ledgerId} with runningTotal: ${runningTotal.toFixed(2)}`);
       await prisma.ledger.update({
         where: { ledgerId: entry.ledgerId },
-        data: { runningTotal: runningTotal },
+        data: { runningTotal: parseFloat(runningTotal.toFixed(2)) },
       });
     }
 
