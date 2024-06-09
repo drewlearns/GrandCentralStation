@@ -138,7 +138,7 @@ exports.handler = async (event) => {
           transactionDate: occurrence,
           category: 'Income',
           description: `${name} - ${description}`,
-          status: true,
+          status: false,
           createdAt: new Date(),
           updatedAt: new Date(),
           updatedBy: updatedBy,

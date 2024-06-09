@@ -171,7 +171,7 @@ exports.handler = async (event) => {
           interestRate: interestRate ? parseFloat(interestRate) : 0.0, // Set default value
           cashBack: cashBack ? parseFloat(cashBack) : 0.0,
           description: description,
-          status: status === "true", // Ensure status is Boolean
+          status: false,
           url: url,
           username: credentialsArn,
           password: credentialsArn,

@@ -1,6 +1,5 @@
 const { PrismaClient } = require("@prisma/client");
 const { LambdaClient, InvokeCommand } = require("@aws-sdk/client-lambda");
-const { v4: uuidv4 } = require('uuid');
 
 const prisma = new PrismaClient();
 const lambdaClient = new LambdaClient({ region: process.env.AWS_REGION });
@@ -56,11 +55,24 @@ exports.handler = async (event) => {
       };
     }
 
+    await prisma.$connect();
+
+    // Get the current month's start and end dates
+    const now = new Date();
+    const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+    const endOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+
     const incomes = await prisma.incomes.findMany({
       where: { householdId: householdId },
       include: {
-        household: true,
-        ledgers: true, // Corrected the field name
+        ledgers: {
+          where: {
+            transactionDate: {
+              gte: startOfMonth,
+              lte: endOfMonth,
+            },
+          },
+        },
       },
     });
 
@@ -71,9 +83,19 @@ exports.handler = async (event) => {
       };
     }
 
+    // Flatten the structure to top-level array and filter by current month
+    const ledgerEntries = incomes.flatMap(income =>
+      income.ledgers.map(ledger => ({
+        incomeId: income.incomeId,
+        name: income.name,
+        amount: ledger.amount,
+        payday: ledger.transactionDate,
+      }))
+    );
+
     return {
       statusCode: 200,
-      body: JSON.stringify({ incomes: incomes }),
+      body: JSON.stringify({ incomes: ledgerEntries }),
     };
   } catch (error) {
     console.error('Error retrieving incomes:', error);
