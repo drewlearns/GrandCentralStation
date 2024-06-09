@@ -6,7 +6,7 @@ const prisma = new PrismaClient();
 const lambdaClient = new LambdaClient({ region: process.env.AWS_REGION });
 
 exports.handler = async (event) => {
-    const { authorizationToken, householdId, householdName, customHouseholdNameSuchAsCrew, account, setupComplete, activeSubscription } = JSON.parse(event.body);
+    const { authorizationToken, householdId, householdName, account, setupComplete, activeSubscription } = JSON.parse(event.body);
 
     if (!authorizationToken) {
         return {
@@ -65,8 +65,7 @@ exports.handler = async (event) => {
             where: { householdId: householdId },
             data: {
                 householdName: householdName,
-                customHouseholdNameSuchAsCrew: customHouseholdNameSuchAsCrew,
-                account: account,
+                ccount: account,
                 setupComplete: setupComplete,
                 activeSubscription: activeSubscription,
                 updatedAt: new Date(),
@@ -79,8 +78,6 @@ exports.handler = async (event) => {
                 message: 'Household updated successfully',
                 householdId: updatedHousehold.householdId,
                 householdName: updatedHousehold.householdName,
-                customHouseholdNameSuchAsCrew: updatedHousehold.customHouseholdNameSuchAsCrew,
-                account: updatedHousehold.account,
                 setupComplete: updatedHousehold.setupComplete,
                 activeSubscription: updatedHousehold.activeSubscription,
             }),

@@ -58,7 +58,7 @@ exports.handler = async (event) => {
       where: { transactionId: transactionId },
       include: {
         ledger: true,
-        source: true
+        paymentSource: true
       }
     });
 

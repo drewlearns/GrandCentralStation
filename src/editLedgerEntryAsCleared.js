@@ -5,19 +5,28 @@ const prisma = new PrismaClient();
 const lambdaClient = new LambdaClient({ region: process.env.AWS_REGION });
 
 exports.handler = async (event) => {
-  const { authorizationToken, householdId } = JSON.parse(event.body);
+  const { authorizationToken, ledgerId } = JSON.parse(event.body);
 
   if (!authorizationToken) {
     return {
       statusCode: 401,
       body: JSON.stringify({
         message: 'Access denied. No token provided.'
-      }),
-      headers: { 'Content-Type': 'application/json' },
+      })
+    };
+  }
+
+  if (!ledgerId) {
+    return {
+      statusCode: 400,
+      body: JSON.stringify({
+        message: 'No ledgerId provided.'
+      })
     };
   }
 
   let username;
+
   try {
     const verifyTokenCommand = new InvokeCommand({
       FunctionName: 'verifyToken',
@@ -43,50 +52,42 @@ exports.handler = async (event) => {
         message: 'Invalid token.',
         error: error.message,
       }),
-      headers: { 'Content-Type': 'application/json' },
-    };
-  }
-
-  if (!householdId) {
-    return {
-      statusCode: 400,
-      body: JSON.stringify({ message: "Missing householdId parameter" }),
-      headers: { 'Content-Type': 'application/json' },
     };
   }
 
   try {
-    // Get the current date and the end of the current month
-    const currentDate = new Date();
-    const endOfMonth = new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 0);
+    // Find the ledger entry by ledgerId
+    const ledgerEntry = await prisma.ledger.findUnique({
+      where: { ledgerId: ledgerId },
+    });
 
-    // Fetch bills from the ledger where the householdId matches and the due date is between any past date and the end of the current month
-    const allBills = await prisma.bill.findMany({
-      where: {
-        householdId: householdId,
-        dueDate: {
-          lte: endOfMonth
-        }
-      }
+    if (!ledgerEntry) {
+      return {
+        statusCode: 404,
+        body: JSON.stringify({ message: "Ledger entry not found" }),
+      };
+    }
+
+    // Toggle the status field
+    const updatedStatus = !ledgerEntry.status;
+
+    // Update the ledger entry
+    await prisma.ledger.update({
+      where: { ledgerId: ledgerId },
+      data: { status: updatedStatus },
     });
 
     return {
       statusCode: 200,
       body: JSON.stringify({
-        message: 'All bills retrieved successfully',
-        allBills: allBills
+        message: `Ledger entry ${ledgerId} status updated to ${updatedStatus}`,
       }),
-      headers: { 'Content-Type': 'application/json' },
     };
   } catch (error) {
-    console.error('Error fetching all bills:', error);
+    console.error('Error updating ledger entry:', error);
     return {
       statusCode: 500,
-      body: JSON.stringify({
-        message: 'Failed to retrieve all bills',
-        errorDetails: error.message,
-      }),
-      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ message: "Error updating ledger entry", error: error.message }),
     };
   } finally {
     await prisma.$disconnect();

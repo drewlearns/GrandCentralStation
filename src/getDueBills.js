@@ -1,13 +1,11 @@
-// todayDueBills.js
-
 const { PrismaClient } = require('@prisma/client');
 const { LambdaClient, InvokeCommand } = require('@aws-sdk/client-lambda');
-const { startOfToday } = require('date-fns');
+const { startOfToday, endOfToday } = require('date-fns');
 
 const prisma = new PrismaClient();
 const lambdaClient = new LambdaClient({ region: process.env.AWS_REGION });
 
-async function getTodayAndFutureDueBills(event) {
+async function getDueBills(event) {
   const { authorizationToken } = JSON.parse(event.body);
 
   if (!authorizationToken) {
@@ -51,45 +49,56 @@ async function getTodayAndFutureDueBills(event) {
   }
 
   try {
-    // Get the start of today
     const startDate = startOfToday();
+    const endDate = endOfToday();
 
-    // Fetch bills from the ledger where the status is not true and the due date is today or in the future
-    const dueBills = await prisma.bill.findMany({
+    const dueBills = await prisma.ledger.findMany({
       where: {
-        status: false,
-        dueDate: {
+        status: false, // Check the status of the ledger entry
+        transactionDate: {
           gte: startDate,
+          lte: endDate
         },
       },
       include: {
-        paymentSource: true, // Assuming you have a relation to paymentSource in your Bill model
-      },
+        bill: {
+          include: {
+            household: {
+              include: {
+                paymentSources: true
+              }
+            }
+          }
+        }
+      }
     });
 
-    // Transform the data to include necessary fields
-    const dueBillsList = dueBills.map(bill => ({
-      billName: bill.name,
-      paymentSourceId: bill.paymentSourceId,
-      paymentSourceName: bill.paymentSource.name,
-      dueDate: bill.dueDate,
-      amountDue: bill.amount,
-    }));
+    const dueBillsList = dueBills.map(ledger => {
+      const paymentSource = ledger.bill.household.paymentSources.find(ps => ps.sourceId === ledger.paymentSourceId);
+      return {
+        billId: ledger.bill.billId, // Include billId in the response
+        billName: ledger.bill.billName,
+        paymentSourceId: ledger.paymentSourceId,
+        paymentSourceName: paymentSource ? paymentSource.sourceName : null,
+        dueDate: ledger.transactionDate,
+        amountDue: ledger.amount,
+      };
+    });
 
     return {
       statusCode: 200,
       body: JSON.stringify({
-        message: 'Today and future due bills retrieved successfully',
+        message: 'Today due bills retrieved successfully',
         dueBills: dueBillsList,
       }),
       headers: { 'Content-Type': 'application/json' },
     };
   } catch (error) {
-    console.error('Error fetching today and future due bills:', error);
+    console.error('Error fetching today due bills:', error);
     return {
       statusCode: 500,
       body: JSON.stringify({
-        message: 'Failed to retrieve today and future due bills',
+        message: 'Failed to retrieve today due bills',
         errorDetails: error.message,
       }),
       headers: { 'Content-Type': 'application/json' },
@@ -100,5 +109,5 @@ async function getTodayAndFutureDueBills(event) {
 }
 
 exports.handler = async (event) => {
-  return await getTodayAndFutureDueBills(event);
+  return await getDueBills(event);
 };

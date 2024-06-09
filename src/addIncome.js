@@ -8,7 +8,7 @@ const lambdaClient = new LambdaClient({ region: process.env.AWS_REGION });
 
 const calculateOccurrences = (startDate, frequency) => {
   let occurrences = [];
-  const endDate = add(startDate, { months: 60 });
+  const endDate = add(startDate, { months: 12 });
 
   switch (frequency) {
     case "once":

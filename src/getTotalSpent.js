@@ -1,14 +1,17 @@
-// totalSpent.js
-
 const { PrismaClient } = require('@prisma/client');
 const { LambdaClient, InvokeCommand } = require('@aws-sdk/client-lambda');
 const { startOfMonth, endOfToday } = require('date-fns');
+const Decimal = require('decimal.js');
 
 const prisma = new PrismaClient();
 const lambdaClient = new LambdaClient({ region: process.env.AWS_REGION });
 
 async function getTotalSpent(event) {
-  const { authorizationToken } = JSON.parse(event.body);
+  const { authorizationToken, householdId } = JSON.parse(event.body);
+
+  // Log incoming data
+  console.log('Authorization Token:', authorizationToken);
+  console.log('Household ID:', householdId);
 
   if (!authorizationToken) {
     return {
@@ -50,14 +53,27 @@ async function getTotalSpent(event) {
     };
   }
 
+  if (!householdId) {
+    return {
+      statusCode: 400,
+      body: JSON.stringify({
+        message: 'Household ID is required.',
+      }),
+      headers: { 'Content-Type': 'application/json' },
+    };
+  }
+
   try {
     // Get the start of the current month and the end of today
     const startDate = startOfMonth(new Date());
     const endDate = endOfToday(new Date());
 
-    // Fetch transactions of type "Debit" or "debit" within the date range
-    const transactions = await prisma.transaction.findMany({
+    console.log(`Querying transactions between ${startDate} and ${endDate} for householdId ${householdId}`);
+
+    // Fetch transactions of type "Debit" or "debit" within the date range for the specified household
+    const transactions = await prisma.ledger.findMany({
       where: {
+        householdId: householdId,
         transactionDate: {
           gte: startDate,
           lte: endDate
@@ -68,15 +84,36 @@ async function getTotalSpent(event) {
       }
     });
 
+    // Log the fetched transactions
+    console.log('Fetched Transactions:', transactions);
+
+    if (transactions.length === 0) {
+      console.log('No transactions found for the given date range and householdId.');
+    }
+
     // Sum the amounts of the fetched transactions
-    const totalSpent = transactions.reduce((sum, transaction) => sum + transaction.amount, 0);
+    const totalSpent = transactions.reduce((sum, transaction) => sum.plus(new Decimal(transaction.amount)), new Decimal(0));
+
+    // Format totalSpent as a string with two decimal places
+    const formattedTotalSpent = totalSpent.toFixed(2);
+
+    console.log('Total Spent:', formattedTotalSpent);
+
+    // Construct the response to ensure numbers maintain two decimal places
+    const response = {
+      message: 'Total spent retrieved successfully',
+      totalSpent: formattedTotalSpent
+    };
+
+    // Convert to JSON manually to ensure numbers maintain .00
+    const jsonString = JSON.stringify(response);
+
+    // Replace the .00 quotes to maintain them as numbers
+    const formattedJsonString = jsonString.replace(/"(-?\d+\.\d{2})"/g, '$1');
 
     return {
       statusCode: 200,
-      body: JSON.stringify({
-        message: 'Total spent retrieved successfully',
-        totalSpent: totalSpent.toFixed(2)
-      }),
+      body: formattedJsonString,
       headers: { 'Content-Type': 'application/json' },
     };
   } catch (error) {

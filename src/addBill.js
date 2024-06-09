@@ -2,43 +2,48 @@ const { PrismaClient } = require("@prisma/client");
 const { v4: uuidv4 } = require("uuid");
 const { LambdaClient, InvokeCommand } = require("@aws-sdk/client-lambda");
 const { SecretsManagerClient, CreateSecretCommand } = require("@aws-sdk/client-secrets-manager");
-const { add, eachMonthOfInterval, eachWeekOfInterval, eachDayOfInterval } = require("date-fns");
+const { add, eachMonthOfInterval, eachWeekOfInterval, eachDayOfInterval, isValid, set, getDate, setDate } = require("date-fns");
 
 const prisma = new PrismaClient();
 const lambdaClient = new LambdaClient({ region: process.env.AWS_REGION });
 const secretsManagerClient = new SecretsManagerClient({ region: process.env.AWS_REGION });
 
-const calculateOccurrences = (startDate, frequency) => {
+const calculateOccurrences = (startDate, frequency, dayOfMonth) => {
   let occurrences = [];
-  const endDate = add(startDate, { months: 60 });
+  const endDate = add(startDate, { months: 12 });
+
+  const adjustDayOfMonth = (date, dayOfMonth) => {
+    const lastDayOfMonth = new Date(date.getFullYear(), date.getMonth() + 1, 0).getDate();
+    return setDate(date, Math.min(dayOfMonth, lastDayOfMonth));
+  };
 
   switch (frequency) {
     case "once":
-      occurrences.push(startDate);
+      occurrences.push(adjustDayOfMonth(startDate, dayOfMonth));
       break;
     case "weekly":
-      occurrences = eachWeekOfInterval({ start: startDate, end: endDate });
+      occurrences = eachWeekOfInterval({ start: startDate, end: endDate }).map(date => adjustDayOfMonth(date, dayOfMonth));
       break;
     case "biweekly":
       occurrences = eachDayOfInterval({ start: startDate, end: endDate }).filter(
         (date, index) => index % 14 === 0
-      );
+      ).map(date => adjustDayOfMonth(date, dayOfMonth));
       break;
     case "monthly":
-      occurrences = eachMonthOfInterval({ start: startDate, end: endDate });
+      occurrences = eachMonthOfInterval({ start: startDate, end: endDate }).map(date => adjustDayOfMonth(date, dayOfMonth));
       break;
     case "bi-monthly":
       occurrences = eachDayOfInterval({ start: startDate, end: endDate }).filter(
         (date, index) => index % 60 === 0
-      );
+      ).map(date => adjustDayOfMonth(date, dayOfMonth));
       break;
     case "quarterly":
       occurrences = eachMonthOfInterval({ start: startDate, end: endDate }).filter(
         (date, index) => index % 3 === 0
-      );
+      ).map(date => adjustDayOfMonth(date, dayOfMonth));
       break;
     case "annually":
-      occurrences.push(add(startDate, { years: 1 }));
+      occurrences.push(adjustDayOfMonth(add(startDate, { years: 1 }), dayOfMonth));
       break;
     default:
       throw new Error(`Unsupported frequency: ${frequency}`);
@@ -63,14 +68,32 @@ const storeCredentialsInSecretsManager = async (username, password) => {
 exports.handler = async (event) => {
   try {
     const body = JSON.parse(event.body);
+    const requiredFields = [
+      'authorizationToken',
+      'householdId',
+      'paymentSourceId',
+      'billName',
+      'dayOfMonth',
+      'frequency',
+      'username',
+      'password',
+      'amount',
+      'category',
+    ];
+
+    // Validate required fields
+    for (const field of requiredFields) {
+      if (!body[field]) {
+        return {
+          statusCode: 400,
+          body: JSON.stringify({ message: `${field} is required` })
+        };
+      }
+    }
+
     const { authorizationToken, householdId, paymentSourceId, billName, dayOfMonth, frequency, username, password, tags, description, amount, category, interestRate, cashBack, isDebt, status, url } = body;
 
-    if (!authorizationToken) {
-      return {
-        statusCode: 401,
-        body: JSON.stringify({ message: 'Access denied. No token provided.' })
-      };
-    }
+    console.log("Received householdId:", householdId); // Debugging line
 
     let updatedBy;
 
@@ -123,34 +146,63 @@ exports.handler = async (event) => {
       };
     }
 
-    const credentialsArn = await storeCredentialsInSecretsManager(username, password);
+    let credentialsArn;
+    try {
+      credentialsArn = await storeCredentialsInSecretsManager(username, password);
+    } catch (error) {
+      console.error('Error storing credentials in Secrets Manager:', error);
+      return {
+        statusCode: 500,
+        body: JSON.stringify({ message: "Error storing credentials", error: error.message })
+      };
+    }
 
-    const newBill = await prisma.bill.create({
-      data: {
-        billId: uuidv4(),
-        householdId: householdId,
-        category: category,
-        billName: billName,
-        amount: parseFloat(amount),
-        dayOfMonth: parseInt(dayOfMonth),
-        frequency: frequency,
-        isDebt: isDebt === "true",
-        interestRate: interestRate ? parseFloat(interestRate) : null,
-        cashBack: cashBack ? parseFloat(cashBack) : null,
-        description: description,
-        status: status,
-        url: url,
-        username: credentialsArn,
-        password: credentialsArn,
-        createdAt: new Date(),
-        updatedAt: new Date(),
-      },
-    });
+    let newBill;
+    try {
+      newBill = await prisma.bill.create({
+        data: {
+          billId: uuidv4(),
+          category: category,
+          billName: billName,
+          amount: parseFloat(amount),
+          dayOfMonth: parseInt(dayOfMonth),
+          frequency: frequency,
+          isDebt: isDebt === "true",
+          interestRate: interestRate ? parseFloat(interestRate) : 0.0, // Set default value
+          cashBack: cashBack ? parseFloat(cashBack) : 0.0,
+          description: description,
+          status: status === "true", // Ensure status is Boolean
+          url: url,
+          username: credentialsArn,
+          password: credentialsArn,
+          createdAt: new Date(),
+          updatedAt: new Date(),
+          household: {
+            connect: { householdId: householdId }
+          }
+        },
+      });
+    } catch (error) {
+      console.error('Error creating bill:', error);
+      return {
+        statusCode: 500,
+        body: JSON.stringify({ message: "Error creating bill", error: error.message })
+      };
+    }
 
-    const firstBillDate = new Date();
-    firstBillDate.setDate(dayOfMonth);
+    // Calculate the first valid date based on the day of the month provided
+    let firstBillDate = setDate(new Date(), parseInt(dayOfMonth));
 
-    const occurrences = calculateOccurrences(firstBillDate, frequency);
+    // Ensure the date is valid
+    if (!isValid(firstBillDate)) {
+      console.error('Invalid date value:', firstBillDate);
+      return {
+        statusCode: 400,
+        body: JSON.stringify({ message: "Invalid date value" })
+      };
+    }
+
+    const occurrences = calculateOccurrences(firstBillDate, frequency, parseInt(dayOfMonth));
 
     for (const occurrence of occurrences) {
       await prisma.ledger.create({
@@ -162,7 +214,7 @@ exports.handler = async (event) => {
           transactionDate: occurrence,
           category: category,
           description: `${billName} - ${description}`,
-          status: true,
+          status: false,
           createdAt: new Date(),
           updatedAt: new Date(),
           updatedBy: updatedBy,
@@ -176,19 +228,12 @@ exports.handler = async (event) => {
       });
     }
 
-    const calculateTotalsCommand = new InvokeCommand({
-      FunctionName: 'calculateRunningTotal',
-      Payload: JSON.stringify({ householdId: householdId, paymentSourceId: paymentSourceId }),
-    });
-
-    await lambdaClient.send(calculateTotalsCommand);
-
     const householdMembers = await prisma.householdMembers.findMany({
       where: { householdId: householdId },
-      select: { user: { select: { email: true } } },
+      include: { member: { select: { email: true } } },
     });
 
-    const recipientEmails = householdMembers.map(member => member.user.email).join(';');
+    const recipientEmails = householdMembers.map(member => member.member.email).join(';');
 
     const addNotificationCommand = new InvokeCommand({
       FunctionName: 'addNotification',

@@ -60,7 +60,7 @@ exports.handler = async (event) => {
       where: { householdId: householdId },
       include: {
         household: true,
-        ledger: true,
+        ledgers: true, // Corrected the field name
       },
     });
 

@@ -83,8 +83,6 @@ exports.handler = async (event) => {
         householdId: true,
         householdName: true,
         creationDate: true,
-        customHouseholdNameSuchAsCrew: true,
-        account: true,
         setupComplete: true,
         activeSubscription: true,
       },

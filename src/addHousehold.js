@@ -110,8 +110,23 @@ exports.handler = async (event) => {
             // Create a default payment source
             const defaultPaymentSource = await prisma.paymentSource.create({
                 data: {
-                    id: uuidv4(),
-                    name: 'Default Payment Source',
+                    sourceId: uuidv4(),
+                    householdId: household.householdId,
+                    sourceName: 'Default Payment Source',
+                    sourceType: 'Default Type', // Add a suitable default type
+                    description: 'Default payment source for household', // Add a suitable default description
+                    createdAt: new Date(),
+                    updatedAt: new Date(),
+                },
+            });
+
+            // Create a preference entry for the default payment source
+            await prisma.preferences.create({
+                data: {
+                    preferenceId: uuidv4(),
+                    householdId: household.householdId,
+                    preferenceType: 'Payment Source',
+                    preferenceValue: defaultPaymentSource.sourceId,
                     createdAt: new Date(),
                     updatedAt: new Date(),
                 },
@@ -129,7 +144,7 @@ exports.handler = async (event) => {
                     data: {
                         ledgerId: uuidv4(),
                         householdId: household.householdId,
-                        paymentSourceId: defaultPaymentSource.id,
+                        paymentSourceId: defaultPaymentSource.sourceId,
                         amount: 0.0,
                         runningTotal: 0.0,
                         transactionType: 'Credit',

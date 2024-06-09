@@ -6,8 +6,8 @@ const Decimal = require('decimal.js');
 const prisma = new PrismaClient();
 const lambdaClient = new LambdaClient({ region: process.env.AWS_REGION });
 
-async function getBills(event) {
-  const { authorizationToken, pastDueOnly, householdId } = JSON.parse(event.body);
+async function getFutureDueBills(event) {
+  const { authorizationToken, householdId } = JSON.parse(event.body);
 
   if (!authorizationToken) {
     return {
@@ -65,14 +65,9 @@ async function getBills(event) {
     const queryConditions = {
       householdId,
       billId: { not: null }, // Ensure billId is present
+      status: false, // Only future due bills
+      transactionDate: { gt: startDate } // Due after today
     };
-
-    if (pastDueOnly) {
-      queryConditions.status = false; // Only past due bills
-      queryConditions.transactionDate = { lt: startDate }; // Due before today
-    } else {
-      queryConditions.status = true; // Only paid bills
-    }
 
     console.log("Query Conditions:", queryConditions);
 
@@ -145,5 +140,5 @@ async function getBills(event) {
 }
 
 exports.handler = async (event) => {
-  return await getBills(event);
+  return await getFutureDueBills(event);
 };

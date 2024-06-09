@@ -17,7 +17,7 @@ function generateSecretHash(username, clientId, clientSecret) {
 }
 
 exports.handler = async (event) => {
-  const { username, password, mfaCode, session, locationDetails } = JSON.parse(event.body);
+  const { username, password, mfaCode, session } = JSON.parse(event.body);
   const clientId = process.env.USER_POOL_CLIENT_ID;
   const clientSecret = process.env.USER_POOL_CLIENT_SECRET;
 
@@ -70,7 +70,7 @@ exports.handler = async (event) => {
   }
 };
 
-function initiateAuth(username, password, clientId, clientSecret, locationDetails) {
+function initiateAuth(username, password, clientId, clientSecret) {
   const authParameters = {
     USERNAME: username,
     PASSWORD: password,
@@ -89,7 +89,7 @@ function initiateAuth(username, password, clientId, clientSecret, locationDetail
 
   return client
     .send(new InitiateAuthCommand(params))
-    .then((response) => handleAuthResponse(response, username, locationDetails))
+    .then((response) => handleAuthResponse(response))
     .catch((error) => {
       console.error('Authentication error:', error);
       return {
@@ -103,11 +103,11 @@ function initiateAuth(username, password, clientId, clientSecret, locationDetail
     });
 }
 
-function respondToMFASetupChallenge(username, mfaCode, session, clientId, clientSecret, locationDetails) {
+function respondToMFASetupChallenge(username, mfaCode, session, clientId, clientSecret) {
   const challengeResponses = {
     USERNAME: username,
     SECRET_HASH: generateSecretHash(username, clientId, clientSecret),
-    SOFTWARE_TOKEN_MFA_CODE: mfaCode,
+    SOFTWARE_TOKEN_MFA_CODE: mfaCode
   };
 
   const params = {
@@ -119,7 +119,7 @@ function respondToMFASetupChallenge(username, mfaCode, session, clientId, client
 
   return client
     .send(new RespondToAuthChallengeCommand(params))
-    .then((response) => handleAuthResponse(response, username, locationDetails))
+    .then((response) => handleAuthResponse(response))
     .catch((error) => {
       console.error('MFA setup error:', error);
       return {
@@ -133,11 +133,10 @@ function respondToMFASetupChallenge(username, mfaCode, session, clientId, client
     });
 }
 
-async function handleAuthResponse(response, username, locationDetails) {
+function handleAuthResponse(response) {
   if (response.AuthenticationResult) {
     const tokens = response.AuthenticationResult;
-    await logSecurityEvent(username, locationDetails, 'Login');
-    await storeTokens(username, tokens);
+    // No token storage logic here
 
     return {
       statusCode: 200,
@@ -163,27 +162,5 @@ async function handleAuthResponse(response, username, locationDetails) {
       body: JSON.stringify({ message: 'Unexpected response' }),
       headers: { 'Content-Type': 'application/json' },
     };
-  }
-}
-
-async function storeTokens(username, tokens) {
-  try {
-    await prisma.token.create({
-      data: {
-        tokenId: crypto.randomUUID(),
-        userUuid: username,
-        accessToken: tokens.AccessToken,
-        refreshToken: tokens.RefreshToken,
-        idToken: tokens.IdToken,
-        issuedAt: new Date(),
-        expiresIn: tokens.ExpiresIn,
-        token: tokens.IdToken, // Assuming token is idToken
-        type: 'access', // Example value, adjust as necessary
-      },
-    });
-    console.log('Stored tokens for user:', username);
-  } catch (error) {
-    console.error('Error storing tokens:', error);
-    throw error;
   }
 }

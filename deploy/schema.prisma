@@ -121,7 +121,7 @@ model Bill {
   interestRate               Float
   cashBack                   Float
   description                String
-  status                     String
+  status                     Boolean
   url                        String?
   username                   String?
   password                   String?
@@ -194,7 +194,7 @@ model PaymentSource {
   householdId String
   sourceName  String
   sourceType  String
-  description     String
+  description String
   createdAt   DateTime
   updatedAt   DateTime
 

@@ -3,8 +3,6 @@ const { v4: uuidv4 } = require("uuid");
 const { S3Client, PutObjectCommand, HeadBucketCommand, HeadObjectCommand } = require("@aws-sdk/client-s3");
 const { LambdaClient, InvokeCommand } = require("@aws-sdk/client-lambda");
 const fs = require("fs");
-const path = require("path");
-const os = require("os");
 const Decimal = require("decimal.js");
 
 const prisma = new PrismaClient();
@@ -120,6 +118,14 @@ exports.handler = async (event) => {
                 updatedAt: new Date(),
             },
         });
+
+        console.log('Updating running totals...');
+        const updateTotalsCommand = new InvokeCommand({
+            FunctionName: 'calculateRunningTotal',
+            Payload: JSON.stringify({ householdId, paymentSourceId: sourceId }),
+        });
+
+        await lambdaClient.send(updateTotalsCommand);
 
         return { statusCode: 201, body: JSON.stringify({ message: "Transaction added successfully", transaction: newTransaction }) };
     } catch (error) {
