@@ -6,7 +6,7 @@ const prisma = new PrismaClient();
 const lambdaClient = new LambdaClient({ region: process.env.AWS_REGION });
 
 exports.handler = async (event) => {
-  const { authorizationToken, householdId } = JSON.parse(event.body);
+  const { authorizationToken, householdId, clearedOnly, currentMonthOnly } = JSON.parse(event.body);
 
   if (!authorizationToken) {
     return {
@@ -57,8 +57,27 @@ exports.handler = async (event) => {
   }
 
   try {
+    // Prepare the where clause based on the provided arguments
+    const whereClause = { householdId: householdId };
+
+    if (clearedOnly) {
+      whereClause.status = true;
+    }
+
+    if (currentMonthOnly) {
+      const today = new Date();
+      const firstDayOfMonth = new Date(today.getFullYear(), today.getMonth(), 1);
+      const lastDayOfMonth = new Date(today.getFullYear(), today.getMonth() + 1, 0);
+
+      whereClause.transactionDate = {
+        gte: firstDayOfMonth,
+        lte: lastDayOfMonth
+      };
+    }
+
+    // Fetch all ledger entries based on the where clause
     const ledgerEntries = await prisma.ledger.findMany({
-      where: { householdId: householdId },
+      where: whereClause,
       include: {
         bill: {
           select: {
@@ -91,9 +110,10 @@ exports.handler = async (event) => {
           }
         }
       },
-      orderBy: {
-        transactionDate: 'desc'
-      }
+      orderBy: [
+        { transactionDate: 'desc' },
+        { createdAt: 'desc' }
+      ]
     });
 
     if (ledgerEntries.length === 0) {
@@ -118,11 +138,9 @@ exports.handler = async (event) => {
         flattenedEntry.type = 'bill';
       } else if (flattenedEntry.income && flattenedEntry.income.incomeId) {
         flattenedEntry.type = 'income';
-      } else if (flattenedEntry.transactionId) {
-        flattenedEntry.type = 'transaction';
       } else {
-        flattenedEntry.type = 'unknown'; // Fallback type if no IDs are present
-      }
+        flattenedEntry.type = 'transaction';
+      } 
 
       // Format amounts and runningTotal as numbers with two decimal places
       if (flattenedEntry.amount !== null) {

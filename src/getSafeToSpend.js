@@ -58,12 +58,16 @@ exports.handler = async (event) => {
 
   try {
     const today = new Date();
-    
+    console.log(`Today's date: ${today}`);
+
     // Fetch all incomes for the household
+    console.log(`Fetching incomes for householdId: ${householdId}`);
     const incomes = await prisma.incomes.findMany({
       where: { householdId: householdId },
     });
 
+    console.log(`Incomes found: ${JSON.stringify(incomes)}`);
+    
     if (incomes.length === 0) {
       return {
         statusCode: 404,
@@ -73,43 +77,50 @@ exports.handler = async (event) => {
 
     // Find the next payday
     let nextPayday = null;
+    let lastPaydayBeforeToday = null;
 
     for (const income of incomes) {
       const frequency = income.frequency.toLowerCase();
       let payday = new Date(income.firstPayDay);
+      console.log(`Processing income: ${JSON.stringify(income)}, current payday: ${payday}`);
 
       while (payday <= today) {
+        lastPaydayBeforeToday = new Date(payday);
         if (frequency === 'weekly') {
           payday.setDate(payday.getDate() + 7);
         } else if (frequency === 'biweekly') {
           payday.setDate(payday.getDate() + 14);
         } else if (frequency === 'monthly') {
           payday.setMonth(payday.getMonth() + 1);
-        } else if (frequency === 'semimonthly') {
-          if (payday.getDate() <= 15) {
-            payday.setDate(15);
-          } else {
-            payday.setMonth(payday.getMonth() + 1);
-            payday.setDate(1);
-          }
+        } else if (frequency === 'bimonthly') {
+          payday.setMonth(payday.getMonth() + 2);
+        } else if (frequency === 'quarterly') {
+          payday.setMonth(payday.getMonth() + 3);
+        } else if (frequency === 'annually') {
+          payday.setFullYear(payday.getFullYear() + 1);
         } else {
           throw new Error(`Unsupported income frequency: ${income.frequency}`);
         }
+        console.log(`Updated payday: ${payday}`);
       }
 
       if (!nextPayday || payday < nextPayday) {
         nextPayday = payday;
       }
+      console.log(`Current nextPayday: ${nextPayday}, lastPaydayBeforeToday: ${lastPaydayBeforeToday}`);
     }
 
-    if (!nextPayday) {
+    if (!nextPayday || nextPayday <= today) {
       return {
         statusCode: 500,
-        body: JSON.stringify({ message: "Could not determine the next payday." }),
+        body: JSON.stringify({ message: "Could not determine the next payday in the future." }),
       };
     }
 
+    console.log(`Next payday determined: ${nextPayday}`);
+
     // Fetch ledger entries up to the next payday
+    console.log(`Fetching ledger entries from ${today.toISOString()} to ${nextPayday.toISOString()} for householdId: ${householdId}`);
     const ledgerEntries = await prisma.ledger.findMany({
       where: {
         householdId: householdId,
@@ -118,15 +129,35 @@ exports.handler = async (event) => {
           lte: nextPayday,
         },
       },
-      orderBy: {
-        transactionDate: 'asc',
-      },
+      orderBy: [
+        { transactionDate: 'asc' },
+        { createdAt: 'asc' } // Ensure the entries are ordered by both date and creation time
+      ],
     });
 
+    console.log(`Ledger entries found: ${JSON.stringify(ledgerEntries)}`);
+
     if (ledgerEntries.length === 0) {
+      // Fetch the most recent ledger entry before today if no ledger entries are found in the period
+      const recentLedgerEntry = await prisma.ledger.findFirst({
+        where: {
+          householdId: householdId,
+          transactionDate: {
+            lte: today,
+          },
+        },
+        orderBy: { transactionDate: 'desc' },
+      });
+      console.log(`Most recent ledger entry found: ${JSON.stringify(recentLedgerEntry)}`);
+
+      const safeToSpend = recentLedgerEntry ? parseFloat(recentLedgerEntry.runningTotal) : 0.00;
+      console.log(`No ledger entries found. Returning running total from the most recent ledger entry: ${safeToSpend}`);
       return {
-        statusCode: 404,
-        body: JSON.stringify({ message: "No ledger entries found up to the next payday." }),
+        statusCode: 200,
+        body: JSON.stringify({
+          safeToSpend: safeToSpend,
+          nextPayday: nextPayday.toISOString(),
+        }),
       };
     }
 
@@ -136,10 +167,12 @@ exports.handler = async (event) => {
       return runningTotal.lessThan(lowest) ? runningTotal : lowest;
     }, new Decimal(ledgerEntries[0].runningTotal));
 
+    console.log(`Lowest running total determined: ${lowestRunningTotal}`);
+
     return {
       statusCode: 200,
       body: JSON.stringify({
-        safeToSpend: lowestRunningTotal.toFixed(2),
+        safeToSpend: lowestRunningTotal.toNumber(),
         nextPayday: nextPayday.toISOString(),
       }),
     };

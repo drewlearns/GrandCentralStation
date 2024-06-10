@@ -134,7 +134,7 @@ exports.handler = async (event) => {
           ledgerId: uuidv4(),
           householdId: householdId,
           amount: parseFloat(amount),
-          transactionType: "credit",
+          transactionType: "Credit",
           transactionDate: occurrence,
           category: 'Income',
           description: `${name} - ${description}`,

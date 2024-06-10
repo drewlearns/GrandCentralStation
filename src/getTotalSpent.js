@@ -80,7 +80,8 @@ async function getTotalSpent(event) {
         },
         transactionType: {
           in: ['Debit', 'debit']
-        }
+        },
+        incomeId: null // Exclude entries with an incomeId
       }
     });
 

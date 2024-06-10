@@ -10,6 +10,60 @@ resource "aws_api_gateway_resource" "this_resource" {
   path_part   = each.key
 }
 
+# Configure OPTIONS method for CORS
+resource "aws_api_gateway_method" "options_method" {
+  for_each = var.lambdas
+
+  rest_api_id   = aws_api_gateway_rest_api.this_api.id
+  resource_id   = aws_api_gateway_resource.this_resource[each.key].id
+  http_method   = "OPTIONS"
+  authorization = "NONE"
+}
+
+resource "aws_api_gateway_integration" "options_integration" {
+  for_each = var.lambdas
+
+  rest_api_id = aws_api_gateway_rest_api.this_api.id
+  resource_id = aws_api_gateway_resource.this_resource[each.key].id
+  http_method = aws_api_gateway_method.options_method[each.key].http_method
+  type        = "MOCK"
+
+  request_templates = {
+    "application/json" = "{\"statusCode\": 200}"
+  }
+}
+
+resource "aws_api_gateway_method_response" "options_method_response" {
+  for_each = var.lambdas
+
+  rest_api_id = aws_api_gateway_rest_api.this_api.id
+  resource_id = aws_api_gateway_resource.this_resource[each.key].id
+  http_method = aws_api_gateway_method.options_method[each.key].http_method
+  status_code = "200"
+
+  response_parameters = {
+    "method.response.header.Access-Control-Allow-Headers" = true
+    "method.response.header.Access-Control-Allow-Methods" = true
+    "method.response.header.Access-Control-Allow-Origin"  = true
+  }
+}
+
+resource "aws_api_gateway_integration_response" "options_integration_response" {
+  for_each = var.lambdas
+
+  rest_api_id = aws_api_gateway_rest_api.this_api.id
+  resource_id = aws_api_gateway_resource.this_resource[each.key].id
+  http_method = aws_api_gateway_method.options_method[each.key].http_method
+  status_code = aws_api_gateway_method_response.options_method_response[each.key].status_code
+
+  response_parameters = {
+    "method.response.header.Access-Control-Allow-Headers" = "'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token'"
+    "method.response.header.Access-Control-Allow-Methods" = "'OPTIONS,POST,GET,PUT,DELETE'"
+    "method.response.header.Access-Control-Allow-Origin"  = "'https://app.thepurplepiggybank.com'"
+  }
+}
+
+# Configure actual resource methods
 resource "aws_api_gateway_method" "this_method" {
   for_each = var.lambdas
 
@@ -33,13 +87,53 @@ resource "aws_api_gateway_integration" "lambda_integration" {
   uri                     = aws_lambda_function.this_lambda[each.key].invoke_arn
 }
 
+# Method Response for the actual resource methods
+resource "aws_api_gateway_method_response" "method_response" {
+  for_each = var.lambdas
+
+  rest_api_id = aws_api_gateway_rest_api.this_api.id
+  resource_id = aws_api_gateway_resource.this_resource[each.key].id
+  http_method = aws_api_gateway_method.this_method[each.key].http_method
+  status_code = "200"
+
+  response_parameters = {
+    "method.response.header.Access-Control-Allow-Headers" = true
+    "method.response.header.Access-Control-Allow-Methods" = true
+    "method.response.header.Access-Control-Allow-Origin"  = true
+  }
+}
+
+resource "aws_api_gateway_integration_response" "integration_response" {
+  for_each = var.lambdas
+
+  rest_api_id = aws_api_gateway_rest_api.this_api.id
+  resource_id = aws_api_gateway_resource.this_resource[each.key].id
+  http_method = aws_api_gateway_method.this_method[each.key].http_method
+  status_code = aws_api_gateway_method_response.method_response[each.key].status_code
+
+  response_parameters = {
+    "method.response.header.Access-Control-Allow-Headers" = "'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token'"
+    "method.response.header.Access-Control-Allow-Methods" = "'OPTIONS,POST,GET,PUT,DELETE'"
+    "method.response.header.Access-Control-Allow-Origin"  = "'https://app.thepurplepiggybank.com'"
+  }
+}
+
 resource "aws_api_gateway_deployment" "this_deployment" {
   depends_on = [
-    aws_api_gateway_integration.lambda_integration
+    aws_api_gateway_integration.lambda_integration,
+    aws_api_gateway_integration.options_integration,
+    aws_api_gateway_integration_response.integration_response,
+    aws_api_gateway_integration_response.options_integration_response,
   ]
 
   rest_api_id = aws_api_gateway_rest_api.this_api.id
   stage_name  = "v1"
+
+  triggers = {
+    redeployment = sha1(join("", [
+      for k, v in aws_api_gateway_method.this_method : "${k}:${v.id}"
+    ]))
+  }
 }
 
 resource "aws_api_gateway_authorizer" "cognito_authorizer" {
