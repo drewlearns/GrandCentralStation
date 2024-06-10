@@ -8,6 +8,12 @@ const { v4: uuidv4 } = require("uuid");
 const prisma = new PrismaClient();
 const lambdaClient = new LambdaClient({ region: process.env.AWS_REGION });
 const s3Client = new S3Client({ region: process.env.AWS_REGION });
+const corsHeaders = {
+  'Content-Type': 'application/json',
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Headers': 'Content-Type',
+  'Access-Control-Allow-Methods': 'OPTIONS,POST,GET'
+};
 
 exports.handler = async (event) => {
   const { authorizationToken, householdId, reportType, category } = JSON.parse(event.body);
@@ -15,6 +21,7 @@ exports.handler = async (event) => {
   if (!authorizationToken) {
     return {
       statusCode: 401,
+      headers: corsHeaders,
       body: JSON.stringify({
         message: 'Access denied. No token provided.'
       })
@@ -24,6 +31,7 @@ exports.handler = async (event) => {
   if (!householdId || !reportType) {
     return {
       statusCode: 400,
+      headers: corsHeaders,
       body: JSON.stringify({ message: "Missing householdId or reportType parameter" }),
     };
   }
@@ -53,6 +61,7 @@ exports.handler = async (event) => {
     console.error('Token verification failed:', error);
     return {
       statusCode: 401,
+      headers: corsHeaders,
       body: JSON.stringify({
         message: 'Invalid token.',
         error: error.message,
@@ -86,6 +95,7 @@ exports.handler = async (event) => {
     if (ledgerEntries.length === 0) {
       return {
         statusCode: 404,
+        headers: corsHeaders,
         body: JSON.stringify({ message: "No ledger entries found for the specified criteria" }),
       };
     }
@@ -108,12 +118,14 @@ exports.handler = async (event) => {
 
     return {
       statusCode: 200,
+      headers: corsHeaders,
       body: JSON.stringify({ message: "CSV export successful", presignedUrl: presignedUrl }),
     };
   } catch (error) {
     console.error('Error exporting ledger to CSV:', error);
     return {
       statusCode: 500,
+      headers: corsHeaders,
       body: JSON.stringify({ message: "Error exporting ledger to CSV", error: error.message }),
     };
   } finally {

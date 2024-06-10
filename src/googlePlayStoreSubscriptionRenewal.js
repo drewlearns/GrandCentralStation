@@ -1,3 +1,10 @@
+const corsHeaders = {
+  'Content-Type': 'application/json',
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Headers': 'Content-Type',
+  'Access-Control-Allow-Methods': 'OPTIONS,POST,GET'
+};
+
 exports.handler = async (event) => {
   const notification = JSON.parse(Buffer.from(event.body, 'base64').toString('utf-8'));
 
@@ -20,6 +27,7 @@ exports.handler = async (event) => {
 
   return {
     statusCode: 200,
+    headers: corsHeaders,
     body: JSON.stringify({ success: true }),
   };
 };

@@ -3,6 +3,12 @@ const { LambdaClient, InvokeCommand } = require('@aws-sdk/client-lambda');
 
 const prisma = new PrismaClient();
 const lambdaClient = new LambdaClient({ region: process.env.AWS_REGION });
+const corsHeaders = {
+  'Content-Type': 'application/json',
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Headers': 'Content-Type',
+  'Access-Control-Allow-Methods': 'OPTIONS,POST,GET'
+};
 
 exports.handler = async (event) => {
   const { authorizationToken, ledgerId } = JSON.parse(event.body);
@@ -13,7 +19,7 @@ exports.handler = async (event) => {
       body: JSON.stringify({
         message: 'Access denied. No token provided.'
       }),
-      headers: { 'Content-Type': 'application/json' },
+      headers: corsHeaders,
     };
   }
 
@@ -39,11 +45,11 @@ exports.handler = async (event) => {
     console.error('Token verification failed:', error);
     return {
       statusCode: 401,
+      headers: corsHeaders,
       body: JSON.stringify({
         message: 'Invalid token.',
         error: error.message,
       }),
-      headers: { 'Content-Type': 'application/json' },
     };
   }
 
@@ -61,7 +67,7 @@ exports.handler = async (event) => {
       return {
         statusCode: 404,
         body: JSON.stringify({ message: 'Ledger entry not found' }),
-        headers: { 'Content-Type': 'application/json' },
+        headers: corsHeaders,
       };
     }
 
@@ -94,7 +100,7 @@ exports.handler = async (event) => {
       body: JSON.stringify({
         message: 'Ledger entry and connected records deleted successfully',
       }),
-      headers: { 'Content-Type': 'application/json' },
+      headers: corsHeaders,
     };
   } catch (error) {
     console.error('Error deleting ledger entry:', error);
@@ -104,7 +110,7 @@ exports.handler = async (event) => {
         message: 'Failed to delete ledger entry',
         errorDetails: error.message,
       }),
-      headers: { 'Content-Type': 'application/json' },
+      headers: corsHeaders,
     };
   } finally {
     await prisma.$disconnect();

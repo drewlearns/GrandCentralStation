@@ -1,16 +1,21 @@
 const { PrismaClient } = require("@prisma/client");
 const { LambdaClient, InvokeCommand } = require("@aws-sdk/client-lambda");
-const { v4: uuidv4 } = require("uuid");
 
 const prisma = new PrismaClient();
 const lambdaClient = new LambdaClient({ region: process.env.AWS_REGION });
-
+const corsHeaders = {
+  'Content-Type': 'application/json',
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Headers': 'Content-Type',
+  'Access-Control-Allow-Methods': 'OPTIONS,POST,GET'
+};
 exports.handler = async (event) => {
   const { authorizationToken, billId, updates } = JSON.parse(event.body);
 
   if (!authorizationToken) {
     return {
       statusCode: 401,
+      headers: corsHeaders,
       body: JSON.stringify({
         message: "Access denied. No token provided.",
       }),
@@ -41,6 +46,7 @@ exports.handler = async (event) => {
     console.error("Token verification failed:", error);
     return {
       statusCode: 401,
+      headers: corsHeaders,
       body: JSON.stringify({
         message: "Invalid token.",
         error: error.message,
@@ -59,6 +65,7 @@ exports.handler = async (event) => {
     if (!updates || typeof updates !== "object") {
       return {
         statusCode: 400,
+        headers: corsHeaders,
         body: JSON.stringify({
           message: "Missing or invalid updates parameter",
         }),
@@ -72,6 +79,7 @@ exports.handler = async (event) => {
     if (!bill) {
       return {
         statusCode: 404,
+        headers: corsHeaders,
         body: JSON.stringify({ message: "Bill not found" }),
       };
     }
@@ -135,18 +143,6 @@ exports.handler = async (event) => {
         .join(";");
     }
 
-    // Log the payload for editNotification
-    console.log("Payload for editNotification:", {
-      authorizationToken: authorizationToken,
-      notificationId: updates.notificationId, // Assuming notificationId is provided in the updates
-      billId: billId,
-      title: `Updated Bill: ${updates.billName || bill.billName}`,
-      message: `Your bill for ${
-        updates.billName || bill.billName
-      } has been updated.`,
-      recipientEmail: recipientEmails,
-    });
-
     // Invoke the editNotification Lambda function
     const editNotificationCommand = new InvokeCommand({
       FunctionName: 'editNotification',
@@ -162,10 +158,6 @@ exports.handler = async (event) => {
     });
 
     const response = await lambdaClient.send(editNotificationCommand);
-
-    // Log the response from editNotification
-    console.log("Response from editNotification:", response);
-
     // Calculate running totals
     const calculateTotalsCommand = new InvokeCommand({
       FunctionName: 'calculateRunningTotal',
@@ -176,6 +168,7 @@ exports.handler = async (event) => {
 
     return {
       statusCode: 200,
+      headers: corsHeaders,
       body: JSON.stringify({
         message: "Bill updated successfully",
         updatedBill,
@@ -185,6 +178,7 @@ exports.handler = async (event) => {
     console.error(`Error updating bill ${billId}:`, error);
     return {
       statusCode: 500,
+      headers: corsHeaders,
       body: JSON.stringify({
         message: "Error updating bill",
         error: error.message,

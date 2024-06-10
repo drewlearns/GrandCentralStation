@@ -1,12 +1,16 @@
 const { PrismaClient } = require('@prisma/client');
 const { LambdaClient, InvokeCommand } = require('@aws-sdk/client-lambda');
-const { v4: uuidv4 } = require('uuid');
 
 const prisma = new PrismaClient();
 const lambdaClient = new LambdaClient({ region: process.env.AWS_REGION });
+const corsHeaders = {
+  'Content-Type': 'application/json',
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Headers': 'Content-Type',
+  'Access-Control-Allow-Methods': 'OPTIONS,POST,GET'
+};
 
 exports.handler = async (event) => {
-  console.log('Received event:', JSON.stringify(event, null, 2));
 
   let authorizationToken, householdId;
 
@@ -22,6 +26,7 @@ exports.handler = async (event) => {
     console.error('Error parsing event body:', error);
     return {
       statusCode: 400,
+      headers: corsHeaders,
       body: JSON.stringify({
         message: 'Invalid request body format',
         error: error.message,
@@ -33,6 +38,7 @@ exports.handler = async (event) => {
     if (!authorizationToken) {
       return {
         statusCode: 401,
+        headers: corsHeaders,
         body: JSON.stringify({
           message: 'Access denied. No token provided.',
         }),
@@ -59,11 +65,11 @@ exports.handler = async (event) => {
       if (!userId) {
         throw new Error('Token verification did not return a valid user ID.');
       }
-      console.log(`Verified user ID: ${userId}`);
     } catch (error) {
       console.error('Token verification failed:', error);
       return {
         statusCode: 401,
+        headers: corsHeaders,
         body: JSON.stringify({
           message: 'Invalid token.',
           error: error.message,
@@ -109,6 +115,7 @@ exports.handler = async (event) => {
     if (!isMember) {
       return {
         statusCode: 403,
+        headers: corsHeaders,
         body: JSON.stringify({
           message: 'Access denied. You are not a member of this household.',
         }),

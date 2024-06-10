@@ -1,9 +1,14 @@
 const { PrismaClient } = require("@prisma/client");
-const { v4: uuidv4 } = require("uuid");
 const { LambdaClient, InvokeCommand } = require("@aws-sdk/client-lambda");
 
 const prisma = new PrismaClient();
 const lambdaClient = new LambdaClient({ region: process.env.AWS_REGION });
+const corsHeaders = {
+  'Content-Type': 'application/json',
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Headers': 'Content-Type',
+  'Access-Control-Allow-Methods': 'OPTIONS,POST,GET'
+};
 
 exports.handler = async (event) => {
   try {
@@ -13,6 +18,7 @@ exports.handler = async (event) => {
     if (!authorizationToken) {
       return {
         statusCode: 401,
+        headers: corsHeaders,
         body: JSON.stringify({
           message: 'Access denied. No token provided.'
         })
@@ -42,6 +48,7 @@ exports.handler = async (event) => {
       console.error('Token verification failed:', error);
       return {
         statusCode: 401,
+        headers: corsHeaders,
         body: JSON.stringify({
           message: 'Invalid token.',
           error: error.message,
@@ -54,9 +61,9 @@ exports.handler = async (event) => {
     });
 
     if (!notification) {
-      console.log(`Error: Notification ${notificationId} does not exist`);
       return {
         statusCode: 404,
+        headers: corsHeaders,
         body: JSON.stringify({ message: "Notification not found" }),
       };
     }
@@ -65,9 +72,10 @@ exports.handler = async (event) => {
       where: { notificationId: notificationId },
     });
 
-    console.log(`Success: Notification ${notificationId} deleted`);
     return {
       statusCode: 200,
+      headers: corsHeaders,
+
       body: JSON.stringify({
         message: "Notification deleted successfully",
       }),
@@ -79,6 +87,7 @@ exports.handler = async (event) => {
 
     return {
       statusCode: 500,
+      headers: corsHeaders,
       body: JSON.stringify({
         message: "Error processing request",
         error: error.message,

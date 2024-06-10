@@ -1,9 +1,14 @@
 const { PrismaClient } = require("@prisma/client");
-const { v4: uuidv4 } = require("uuid");
 const { LambdaClient, InvokeCommand } = require("@aws-sdk/client-lambda");
 
 const prisma = new PrismaClient();
 const lambdaClient = new LambdaClient({ region: process.env.AWS_REGION });
+const corsHeaders = {
+  'Content-Type': 'application/json',
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Headers': 'Content-Type',
+  'Access-Control-Allow-Methods': 'OPTIONS,POST,GET'
+};
 
 exports.handler = async (event) => {
   try {
@@ -13,6 +18,7 @@ exports.handler = async (event) => {
     if (!authorizationToken) {
       return {
         statusCode: 401,
+        headers: corsHeaders,
         body: JSON.stringify({
           message: 'Access denied. No token provided.'
         })
@@ -42,6 +48,7 @@ exports.handler = async (event) => {
       console.error('Token verification failed:', error);
       return {
         statusCode: 401,
+        headers: corsHeaders,
         body: JSON.stringify({
           message: 'Invalid token.',
           error: error.message,
@@ -57,6 +64,7 @@ exports.handler = async (event) => {
       console.log(`Error: Transaction ${transactionId} does not exist`);
       return {
         statusCode: 404,
+        headers: corsHeaders,
         body: JSON.stringify({ message: "Transaction not found" }),
       };
     }
@@ -66,9 +74,9 @@ exports.handler = async (event) => {
     });
 
     if (!ledgerEntry) {
-      console.log(`Error: Ledger entry for transaction ${transactionId} does not exist`);
       return {
         statusCode: 404,
+        headers: corsHeaders,
         body: JSON.stringify({ message: "Ledger entry not found" }),
       };
     }
@@ -89,9 +97,9 @@ exports.handler = async (event) => {
 
     await lambdaClient.send(updateTotalsCommand);
 
-    console.log(`Success: Transaction and ledger entry deleted for transaction ${transactionId}`);
     return {
       statusCode: 200,
+      headers: corsHeaders,
       body: JSON.stringify({
         message: "Transaction and ledger entry deleted successfully",
       }),
@@ -103,6 +111,7 @@ exports.handler = async (event) => {
 
     return {
       statusCode: 500,
+      headers: corsHeaders,
       body: JSON.stringify({
         message: "Error processing request",
         error: error.message,

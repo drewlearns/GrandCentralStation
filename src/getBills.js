@@ -3,6 +3,12 @@ const { LambdaClient, InvokeCommand } = require("@aws-sdk/client-lambda");
 
 const prisma = new PrismaClient();
 const lambdaClient = new LambdaClient({ region: process.env.AWS_REGION });
+const corsHeaders = {
+  'Content-Type': 'application/json',
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Headers': 'Content-Type',
+  'Access-Control-Allow-Methods': 'OPTIONS,POST,GET'
+};
 
 exports.handler = async (event) => {
   const { authorizationToken, householdId } = JSON.parse(event.body);
@@ -10,10 +16,10 @@ exports.handler = async (event) => {
   if (!authorizationToken) {
     return {
       statusCode: 401,
+      headers: corsHeaders,
       body: JSON.stringify({
         message: 'Access denied. No token provided.'
       }),
-      headers: { 'Content-Type': 'application/json' },
     };
   }
 
@@ -43,7 +49,7 @@ exports.handler = async (event) => {
         message: 'Invalid token.',
         error: error.message,
       }),
-      headers: { 'Content-Type': 'application/json' },
+      headers: corsHeaders,
     };
   }
 
@@ -51,7 +57,7 @@ exports.handler = async (event) => {
     return {
       statusCode: 400,
       body: JSON.stringify({ message: "Missing householdId parameter" }),
-      headers: { 'Content-Type': 'application/json' },
+      headers: corsHeaders,
     };
   }
 
@@ -76,7 +82,7 @@ exports.handler = async (event) => {
         message: 'All bills retrieved successfully',
         allBills: allBills
       }),
-      headers: { 'Content-Type': 'application/json' },
+      headers: corsHeaders,
     };
   } catch (error) {
     console.error('Error fetching all bills:', error);
@@ -86,7 +92,7 @@ exports.handler = async (event) => {
         message: 'Failed to retrieve all bills',
         errorDetails: error.message,
       }),
-      headers: { 'Content-Type': 'application/json' },
+      headers: corsHeaders,
     };
   } finally {
     await prisma.$disconnect();

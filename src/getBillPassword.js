@@ -1,7 +1,12 @@
 const { SecretsManagerClient, GetSecretValueCommand } = require("@aws-sdk/client-secrets-manager");
 const { PrismaClient } = require("@prisma/client");
 const { LambdaClient, InvokeCommand } = require("@aws-sdk/client-lambda");
-const { v4: uuidv4 } = require("uuid");
+const corsHeaders = {
+  'Content-Type': 'application/json',
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Headers': 'Content-Type',
+  'Access-Control-Allow-Methods': 'OPTIONS,POST,GET'
+};
 
 const secretsManagerClient = new SecretsManagerClient({ region: process.env.AWS_REGION });
 const prisma = new PrismaClient();
@@ -31,6 +36,7 @@ exports.handler = async (event) => {
     console.error('Token verification failed:', error);
     return {
       statusCode: 401,
+      headers: corsHeaders,
       body: JSON.stringify({
         message: 'Invalid token.',
         error: error.message,
@@ -60,6 +66,7 @@ exports.handler = async (event) => {
     console.error('Token verification failed:', error);
     return {
       statusCode: 401,
+      headers: corsHeaders,
       body: JSON.stringify({
         message: 'Invalid token.',
         error: error.message,
@@ -71,6 +78,7 @@ exports.handler = async (event) => {
     if (!billId) {
       return {
         statusCode: 400,
+        headers: corsHeaders,
         body: JSON.stringify({ message: "Missing billId parameter" }),
       };
     }
@@ -82,6 +90,7 @@ exports.handler = async (event) => {
     if (!bill) {
       return {
         statusCode: 404,
+        headers: corsHeaders,
         body: JSON.stringify({ message: "Bill not found" }),
       };
     }
@@ -92,12 +101,14 @@ exports.handler = async (event) => {
 
     return {
       statusCode: 200,
+      headers: corsHeaders,
       body: JSON.stringify({ secret: JSON.parse(response.SecretString) }),
     };
   } catch (error) {
     console.error(`Error retrieving secret for bill ${billId}:`, error);
     return {
       statusCode: 500,
+      headers: corsHeaders,
       body: JSON.stringify({ message: "Error retrieving secret", error: error.message }),
     };
   } finally {

@@ -8,6 +8,12 @@ const Decimal = require("decimal.js");
 const prisma = new PrismaClient();
 const lambdaClient = new LambdaClient({ region: process.env.AWS_REGION });
 const s3Client = new S3Client({ region: process.env.AWS_REGION });
+const corsHeaders = {
+  'Content-Type': 'application/json',
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Headers': 'Content-Type',
+  'Access-Control-Allow-Methods': 'OPTIONS,POST,GET'
+};
 
 const BUCKET = process.env.BUCKET;
 
@@ -41,7 +47,11 @@ exports.handler = async (event) => {
     const { authorizationToken, transactionId, householdId, amount, transactionType, transactionDate, category, description, status, sourceId, tags, image } = body;
 
     if (!authorizationToken) {
-      return { statusCode: 401, body: JSON.stringify({ message: 'Access denied. No token provided.' }) };
+      return {
+        statusCode: 401,
+        headers: corsHeaders,
+        body: JSON.stringify({ message: 'Access denied. No token provided.' })
+      };
     }
 
     const verifyTokenCommand = new InvokeCommand({ FunctionName: 'verifyToken', Payload: JSON.stringify({ authorizationToken }) });
@@ -156,9 +166,15 @@ exports.handler = async (event) => {
 
     await lambdaClient.send(calculateTotalsCommand);
 
-    return { statusCode: 200, body: JSON.stringify({ message: "Transaction updated successfully", transaction: updatedTransaction }) };
+    return {
+      statusCode: 200,
+      headers: corsHeaders,
+      body: JSON.stringify({ message: "Transaction updated successfully", transaction: updatedTransaction })
+    };
   } catch (error) {
-    return { statusCode: 500, body: JSON.stringify({ message: "Error processing request", error: error.message }) };
+    return { statusCode: 500, 
+      headers: corsHeaders,
+      body: JSON.stringify({ message: "Error processing request", error: error.message }) };
   } finally {
     await prisma.$disconnect();
   }

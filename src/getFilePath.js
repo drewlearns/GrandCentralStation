@@ -3,6 +3,12 @@ const { LambdaClient, InvokeCommand } = require("@aws-sdk/client-lambda");
 
 const prisma = new PrismaClient();
 const lambdaClient = new LambdaClient({ region: process.env.AWS_REGION });
+const corsHeaders = {
+  'Content-Type': 'application/json',
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Headers': 'Content-Type',
+  'Access-Control-Allow-Methods': 'OPTIONS,POST,GET'
+};
 
 exports.handler = async (event) => {
   try {
@@ -13,6 +19,7 @@ exports.handler = async (event) => {
     if (!authorizationToken) {
       return {
         statusCode: 401,
+        headers: corsHeaders,
         body: JSON.stringify({
           message: 'Access denied. No token provided.'
         })
@@ -43,6 +50,7 @@ exports.handler = async (event) => {
       console.error('Token verification failed:', error);
       return {
         statusCode: 401,
+        headers: corsHeaders,
         body: JSON.stringify({
           message: 'Invalid token.',
           error: error.message,
@@ -63,7 +71,6 @@ exports.handler = async (event) => {
     });
 
     if (!transaction) {
-      console.log(`Error: Transaction ${transactionId} does not exist`);
       return {
         statusCode: 404,
         body: JSON.stringify({ message: "Transaction not found" }),
@@ -75,9 +82,9 @@ exports.handler = async (event) => {
     );
 
     if (!attachment) {
-      console.log(`Error: No receipt attachment found for transaction ${transactionId}`);
       return {
         statusCode: 404,
+        headers: corsHeaders,
         body: JSON.stringify({ message: "Attachment not found" }),
       };
     }
@@ -96,10 +103,6 @@ exports.handler = async (event) => {
       const getAttachmentPayload = JSON.parse(payloadString);
       const bodyPayload = JSON.parse(getAttachmentPayload.body);
 
-      console.log('getAttachmentResponse:', getAttachmentResponse);
-      console.log('getAttachmentPayload:', getAttachmentPayload);
-      console.log('bodyPayload:', bodyPayload);
-
       if (getAttachmentResponse.FunctionError) {
         throw new Error(bodyPayload.errorMessage || 'Failed to get presigned URL.');
       }
@@ -115,6 +118,7 @@ exports.handler = async (event) => {
       console.error('Failed to get presigned URL:', error);
       return {
         statusCode: 500,
+        headers: corsHeaders,
         body: JSON.stringify({
           message: 'Failed to get presigned URL.',
           error: error.message,
@@ -128,6 +132,7 @@ exports.handler = async (event) => {
 
     return {
       statusCode: 500,
+      headers: corsHeaders,
       body: JSON.stringify({
         message: "Error processing request",
         error: error.message,

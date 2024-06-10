@@ -10,8 +10,8 @@ TMP_DIR="$DEPLOY_DIR/tmp"
 npm i
 
 # Clean and prepare the deploy directory
-# rm -rf $DEPLOY_DIR
-# mkdir -p $DEPLOY_DIR
+rm -rf $DEPLOY_DIR
+mkdir -p $DEPLOY_DIR
 
 # Copy the schema.prisma and the .so.node file to the deploy directory if not already copied
 cp "prisma/schema.prisma" "$DEPLOY_DIR"

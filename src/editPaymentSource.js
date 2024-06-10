@@ -1,9 +1,14 @@
 const { PrismaClient } = require("@prisma/client");
 const { LambdaClient, InvokeCommand } = require("@aws-sdk/client-lambda");
-const { v4: uuidv4 } = require('uuid'); // Import uuidv4
 
 const prisma = new PrismaClient();
 const lambdaClient = new LambdaClient({ region: process.env.AWS_REGION });
+const corsHeaders = {
+  'Content-Type': 'application/json',
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Headers': 'Content-Type',
+  'Access-Control-Allow-Methods': 'OPTIONS,POST,GET'
+};
 
 exports.handler = async (event) => {
   const { authorizationToken, sourceId, householdId, sourceName, sourceType, details } = JSON.parse(event.body);
@@ -11,6 +16,7 @@ exports.handler = async (event) => {
   if (!authorizationToken) {
     return {
       statusCode: 401,
+      headers: corsHeaders,
       body: JSON.stringify({
         message: 'Access denied. No token provided.'
       })
@@ -40,6 +46,7 @@ exports.handler = async (event) => {
     console.error('Token verification failed:', error);
     return {
       statusCode: 401,
+      headers: corsHeaders,
       body: JSON.stringify({
         message: 'Invalid token.',
         error: error.message,
@@ -53,17 +60,17 @@ exports.handler = async (event) => {
     });
 
     if (!paymentSource) {
-      console.log(`Error: Payment source ${sourceId} does not exist`);
       return {
         statusCode: 404,
+        headers: corsHeaders,
         body: JSON.stringify({ message: "Payment source not found" }),
       };
     }
 
     if (paymentSource.householdId !== householdId) {
-      console.log(`Error: Payment source ${sourceId} does not belong to household ${householdId}`);
       return {
         statusCode: 403,
+        headers: corsHeaders,
         body: JSON.stringify({
           message: 'You do not have permission to edit this payment source',
         }),
@@ -82,6 +89,7 @@ exports.handler = async (event) => {
 
     return {
       statusCode: 200,
+      headers: corsHeaders,
       body: JSON.stringify({
         message: "Payment source updated successfully",
         paymentSource: updatedPaymentSource,
@@ -91,6 +99,7 @@ exports.handler = async (event) => {
     console.error(`Error updating payment source: ${error.message}`);
     return {
       statusCode: 500,
+      headers: corsHeaders,
       body: JSON.stringify({
         message: "Error updating payment source",
         error: error.message,

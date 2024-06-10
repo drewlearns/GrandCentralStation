@@ -6,6 +6,12 @@ const { startOfMonth, endOfToday } = require('date-fns');
 
 const prisma = new PrismaClient();
 const lambdaClient = new LambdaClient({ region: process.env.AWS_REGION });
+const corsHeaders = {
+  'Content-Type': 'application/json',
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Headers': 'Content-Type',
+  'Access-Control-Allow-Methods': 'OPTIONS,POST,GET'
+};
 
 async function getTotalMonthlyIncome(event) {
   const { authorizationToken } = JSON.parse(event.body);
@@ -16,7 +22,7 @@ async function getTotalMonthlyIncome(event) {
       body: JSON.stringify({
         message: 'Access denied. No token provided.'
       }),
-      headers: { 'Content-Type': 'application/json' },
+      headers: corsHeaders,
     };
   }
 
@@ -42,6 +48,7 @@ async function getTotalMonthlyIncome(event) {
     console.error('Token verification failed:', error);
     return {
       statusCode: 401,
+      headers: corsHeaders,
       body: JSON.stringify({
         message: 'Invalid token.',
         error: error.message,
@@ -70,6 +77,7 @@ async function getTotalMonthlyIncome(event) {
 
     return {
       statusCode: 200,
+      headers: corsHeaders,
       body: JSON.stringify({
         message: 'Total income retrieved successfully',
         totalIncome: totalIncome.toFixed(2)
@@ -80,6 +88,7 @@ async function getTotalMonthlyIncome(event) {
     console.error('Error fetching incomes:', error);
     return {
       statusCode: 500,
+      headers: corsHeaders,
       body: JSON.stringify({
         message: 'Failed to retrieve total income',
         errorDetails: error.message,

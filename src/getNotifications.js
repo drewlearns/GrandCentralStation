@@ -3,6 +3,12 @@ const { LambdaClient, InvokeCommand } = require("@aws-sdk/client-lambda");
 
 const prisma = new PrismaClient();
 const lambdaClient = new LambdaClient({ region: process.env.AWS_REGION });
+const corsHeaders = {
+  'Content-Type': 'application/json',
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Headers': 'Content-Type',
+  'Access-Control-Allow-Methods': 'OPTIONS,POST,GET'
+};
 
 exports.handler = async (event) => {
   try {
@@ -12,6 +18,7 @@ exports.handler = async (event) => {
     if (!authorizationToken) {
       return {
         statusCode: 401,
+        headers: corsHeaders,
         body: JSON.stringify({
           message: 'Access denied. No token provided.'
         })
@@ -41,6 +48,7 @@ exports.handler = async (event) => {
       console.error('Token verification failed:', error);
       return {
         statusCode: 401,
+        headers: corsHeaders,
         body: JSON.stringify({
           message: 'Invalid token.',
           error: error.message,
@@ -55,9 +63,9 @@ exports.handler = async (event) => {
     });
 
     if (!user) {
-      console.log(`User with username ${username} not found`);
       return {
         statusCode: 404,
+        headers: corsHeaders,
         body: JSON.stringify({ message: "User not found" }),
       };
     }
@@ -71,9 +79,9 @@ exports.handler = async (event) => {
     });
 
     if (households.length === 0) {
-      console.log(`No households found for user ${userUuid}`);
       return {
         statusCode: 404,
+        headers: corsHeaders,
         body: JSON.stringify({ message: "No households found for user" }),
       };
     }
@@ -87,9 +95,9 @@ exports.handler = async (event) => {
     });
 
     if (bills.length === 0) {
-      console.log(`No bills found for households ${householdIds.join(", ")}`);
       return {
         statusCode: 404,
+        headers: corsHeaders,
         body: JSON.stringify({ message: "No bills found for households" }),
       };
     }
@@ -102,16 +110,16 @@ exports.handler = async (event) => {
     });
 
     if (notifications.length === 0) {
-      console.log(`No notifications found for bills ${billIds.join(", ")}`);
       return {
         statusCode: 404,
+        headers: corsHeaders,
         body: JSON.stringify({ message: "No notifications found" }),
       };
     }
 
-    console.log(`Success: Notifications retrieved for user ${userUuid}`);
     return {
       statusCode: 200,
+      headers: corsHeaders,
       body: JSON.stringify({
         message: "Notifications retrieved successfully",
         notifications: notifications,
@@ -124,6 +132,7 @@ exports.handler = async (event) => {
 
     return {
       statusCode: 500,
+      headers: corsHeaders,
       body: JSON.stringify({
         message: "Error processing request",
         error: error.message,

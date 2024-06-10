@@ -2,7 +2,12 @@ const { PrismaClient } = require('@prisma/client');
 const { CognitoIdentityProviderClient, InitiateAuthCommand } = require('@aws-sdk/client-cognito-identity-provider');
 const { LambdaClient, InvokeCommand } = require('@aws-sdk/client-lambda');
 const crypto = require('crypto');
-
+const corsHeaders = {
+  'Content-Type': 'application/json',
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Headers': 'Content-Type',
+  'Access-Control-Allow-Methods': 'OPTIONS,POST,GET'
+};
 const prisma = new PrismaClient();
 const cognitoClient = new CognitoIdentityProviderClient({ region: process.env.AWS_REGION });
 const lambdaClient = new LambdaClient({ region: process.env.AWS_REGION });
@@ -23,10 +28,10 @@ exports.handler = async (event) => {
     console.error('Access denied. No token provided.');
     return {
       statusCode: 401,
+      headers: corsHeaders,
       body: JSON.stringify({
         message: 'Access denied. No token provided.'
       }),
-      headers: { 'Content-Type': 'application/json' },
     };
   }
 
@@ -53,11 +58,11 @@ exports.handler = async (event) => {
     console.error('Token verification failed:', error.message);
     return {
       statusCode: 401,
+      headers: corsHeaders,
       body: JSON.stringify({
         message: 'Invalid token.',
         error: error.message,
       }),
-      headers: { 'Content-Type': 'application/json' },
     };
   }
 
@@ -92,7 +97,7 @@ exports.handler = async (event) => {
     return {
       statusCode: 500,
       body: JSON.stringify({ message: 'Internal server error', errorDetails: error.message }),
-      headers: { 'Content-Type': 'application/json' },
+      headers: corsHeaders,
     };
   }
 };
@@ -123,7 +128,7 @@ async function initiateRefreshTokenFlow(username, refreshToken, clientId, client
         message: 'Token refresh failed',
         errorDetails: error.message,
       }),
-      headers: { 'Content-Type': 'application/json' },
+      headers: corsHeaders,
     };
   }
 }
@@ -141,7 +146,7 @@ async function handleRefreshResponse(response, username, originalRefreshToken) {
       return {
         statusCode: 204,
         body: JSON.stringify({ message: 'Unexpected response: Missing required tokens' }),
-        headers: { 'Content-Type': 'application/json' },
+        headers: corsHeaders,
       };
     }
 
@@ -156,14 +161,14 @@ async function handleRefreshResponse(response, username, originalRefreshToken) {
         message: 'Token refresh successful',
         tokens: tokens,
       }),
-      headers: { 'Content-Type': 'application/json' },
+      headers: corsHeaders,
     };
   } else {
     console.error('Unexpected response:', response);
     return {
       statusCode: 204,
       body: JSON.stringify({ message: 'Unexpected response' }),
-      headers: { 'Content-Type': 'application/json' },
+      headers: corsHeaders,
     };
   }
 }

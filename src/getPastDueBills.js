@@ -2,6 +2,12 @@ const { PrismaClient } = require('@prisma/client');
 const { LambdaClient, InvokeCommand } = require('@aws-sdk/client-lambda');
 const { startOfToday } = require('date-fns');
 const Decimal = require('decimal.js');
+const corsHeaders = {
+  'Content-Type': 'application/json',
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Headers': 'Content-Type',
+  'Access-Control-Allow-Methods': 'OPTIONS,POST,GET'
+};
 
 const prisma = new PrismaClient();
 const lambdaClient = new LambdaClient({ region: process.env.AWS_REGION });
@@ -15,7 +21,7 @@ async function getBills(event) {
       body: JSON.stringify({
         message: 'Access denied. No token provided.'
       }),
-      headers: { 'Content-Type': 'application/json' },
+      headers: corsHeaders,
     };
   }
 
@@ -41,11 +47,11 @@ async function getBills(event) {
     console.error('Token verification failed:', error);
     return {
       statusCode: 401,
+      headers: corsHeaders,
       body: JSON.stringify({
         message: 'Invalid token.',
         error: error.message,
       }),
-      headers: { 'Content-Type': 'application/json' },
     };
   }
 
@@ -55,7 +61,7 @@ async function getBills(event) {
       body: JSON.stringify({
         message: 'householdId is required.'
       }),
-      headers: { 'Content-Type': 'application/json' },
+      headers: corsHeaders,
     };
   }
 
@@ -74,8 +80,6 @@ async function getBills(event) {
       queryConditions.status = true; // Only paid bills
     }
 
-    console.log("Query Conditions:", queryConditions);
-
     const bills = await prisma.ledger.findMany({
       where: queryConditions,
       include: {
@@ -90,8 +94,6 @@ async function getBills(event) {
         }
       }
     });
-
-    console.log("Bills Found:", bills);
 
     // Helper function to format numbers with two decimal places
     const formatNumber = (num) => Number(new Decimal(num).toFixed(2));
@@ -112,8 +114,6 @@ async function getBills(event) {
       };
     });
 
-    console.log("Bills List:", billsList);
-
     // Convert to JSON manually to ensure numbers maintain .00
     const jsonString = JSON.stringify({ bills: billsList }, (key, value) => {
       if (typeof value === 'number') {
@@ -127,12 +127,14 @@ async function getBills(event) {
 
     return {
       statusCode: 200,
+      headers: corsHeaders,
       body: formattedJsonString,
     };
   } catch (error) {
     console.error('Error fetching bills:', error);
     return {
       statusCode: 500,
+      headers: corsHeaders,
       body: JSON.stringify({
         message: 'Failed to retrieve bills',
         errorDetails: error.message,

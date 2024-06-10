@@ -4,6 +4,12 @@ const { startOfToday, endOfToday } = require('date-fns');
 
 const prisma = new PrismaClient();
 const lambdaClient = new LambdaClient({ region: process.env.AWS_REGION });
+const corsHeaders = {
+  'Content-Type': 'application/json',
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Headers': 'Content-Type',
+  'Access-Control-Allow-Methods': 'OPTIONS,POST,GET'
+};
 
 async function getDueBills(event) {
   const { authorizationToken } = JSON.parse(event.body);
@@ -14,7 +20,7 @@ async function getDueBills(event) {
       body: JSON.stringify({
         message: 'Access denied. No token provided.'
       }),
-      headers: { 'Content-Type': 'application/json' },
+      headers: corsHeaders,
     };
   }
 
@@ -44,7 +50,7 @@ async function getDueBills(event) {
         message: 'Invalid token.',
         error: error.message,
       }),
-      headers: { 'Content-Type': 'application/json' },
+      headers: corsHeaders,
     };
   }
 
@@ -91,7 +97,7 @@ async function getDueBills(event) {
         message: 'Today due bills retrieved successfully',
         dueBills: dueBillsList,
       }),
-      headers: { 'Content-Type': 'application/json' },
+      headers: corsHeaders,
     };
   } catch (error) {
     console.error('Error fetching today due bills:', error);
@@ -101,7 +107,7 @@ async function getDueBills(event) {
         message: 'Failed to retrieve today due bills',
         errorDetails: error.message,
       }),
-      headers: { 'Content-Type': 'application/json' },
+      headers: corsHeaders,
     };
   } finally {
     await prisma.$disconnect();

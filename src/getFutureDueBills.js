@@ -5,6 +5,12 @@ const Decimal = require('decimal.js');
 
 const prisma = new PrismaClient();
 const lambdaClient = new LambdaClient({ region: process.env.AWS_REGION });
+const corsHeaders = {
+  'Content-Type': 'application/json',
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Headers': 'Content-Type',
+  'Access-Control-Allow-Methods': 'OPTIONS,POST,GET'
+};
 
 async function getFutureDueBills(event) {
   const { authorizationToken, householdId } = JSON.parse(event.body);
@@ -15,7 +21,7 @@ async function getFutureDueBills(event) {
       body: JSON.stringify({
         message: 'Access denied. No token provided.'
       }),
-      headers: { 'Content-Type': 'application/json' },
+      headers: corsHeaders,
     };
   }
 
@@ -45,7 +51,7 @@ async function getFutureDueBills(event) {
         message: 'Invalid token.',
         error: error.message,
       }),
-      headers: { 'Content-Type': 'application/json' },
+      headers: corsHeaders,
     };
   }
 
@@ -55,7 +61,7 @@ async function getFutureDueBills(event) {
       body: JSON.stringify({
         message: 'householdId is required.'
       }),
-      headers: { 'Content-Type': 'application/json' },
+      headers: corsHeaders,
     };
   }
 
@@ -69,7 +75,6 @@ async function getFutureDueBills(event) {
       transactionDate: { gt: startDate } // Due after today
     };
 
-    console.log("Query Conditions:", queryConditions);
 
     const bills = await prisma.ledger.findMany({
       where: queryConditions,
@@ -85,8 +90,6 @@ async function getFutureDueBills(event) {
         }
       }
     });
-
-    console.log("Bills Found:", bills);
 
     // Helper function to format numbers with two decimal places
     const formatNumber = (num) => Number(new Decimal(num).toFixed(2));
@@ -107,8 +110,6 @@ async function getFutureDueBills(event) {
       };
     });
 
-    console.log("Bills List:", billsList);
-
     // Convert to JSON manually to ensure numbers maintain .00
     const jsonString = JSON.stringify({ bills: billsList }, (key, value) => {
       if (typeof value === 'number') {
@@ -122,17 +123,18 @@ async function getFutureDueBills(event) {
 
     return {
       statusCode: 200,
+      headers: corsHeaders,
       body: formattedJsonString,
     };
   } catch (error) {
     console.error('Error fetching bills:', error);
     return {
       statusCode: 500,
+      headers: corsHeaders,
       body: JSON.stringify({
         message: 'Failed to retrieve bills',
         errorDetails: error.message,
       }),
-      headers: { 'Content-Type': 'application/json' },
     };
   } finally {
     await prisma.$disconnect();

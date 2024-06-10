@@ -6,27 +6,38 @@ const prisma = new PrismaClient();
 const lambdaClient = new LambdaClient({ region: process.env.AWS_REGION });
 
 exports.handler = async (event) => {
+
+    const corsHeaders = {
+        'Content-Type': 'application/json',
+        'Access-Control-Allow-Origin': '*',
+        'Access-Control-Allow-Headers': 'Content-Type',
+        'Access-Control-Allow-Methods': 'OPTIONS,POST,GET'
+    };
+
     let parsedBody;
 
     try {
         parsedBody = JSON.parse(event.body);
     } catch (error) {
-        console.log('Error parsing event body:', error);
         return {
             statusCode: 400,
             body: JSON.stringify({ message: 'Invalid request body' }),
+            headers: corsHeaders,
+
         };
     }
 
     const { invitationId, username, mailOptIn, firstName, lastName, phoneNumber, password } = parsedBody;
 
     // Validate required fields
-    if (!invitationId || !username || !password || !firstName || !lastName || !phoneNumber ) {
+    if (!invitationId || !username || !password || !firstName || !lastName || !phoneNumber) {
         return {
             statusCode: 400,
             body: JSON.stringify({
                 message: 'Missing required fields',
             }),
+            headers: corsHeaders,
+
         };
     }
 
@@ -37,22 +48,24 @@ exports.handler = async (event) => {
         });
 
         if (!invitation) {
-            console.log(`Error: Invitation ${invitationId} does not exist`);
             return {
                 statusCode: 404,
                 body: JSON.stringify({
                     message: 'Invitation not found',
                 }),
+                headers: corsHeaders,
+
             };
         }
 
         if (invitation.invitationStatus !== 'Pending') {
-            console.log(`Error: Invitation ${invitationId} is not pending`);
             return {
                 statusCode: 409,
                 body: JSON.stringify({
                     message: 'Invitation is not pending',
                 }),
+                headers: corsHeaders,
+
             };
         }
 
@@ -73,7 +86,6 @@ exports.handler = async (event) => {
             });
 
             if (existingUserByUsername) {
-                console.log(`Error: Username ${username} is already taken`);
                 return {
                     statusCode: 409,
                     body: JSON.stringify({
@@ -137,6 +149,8 @@ exports.handler = async (event) => {
                 message: 'Invitation accepted successfully',
                 householdMember: householdMember,
             }),
+            headers: corsHeaders,
+
         };
     } catch (error) {
         console.error('Error accepting invitation:', error);
@@ -146,6 +160,7 @@ exports.handler = async (event) => {
                 message: 'Error accepting invitation',
                 error: error.message,
             }),
+            headers: corsHeaders,
         };
     } finally {
         await prisma.$disconnect();

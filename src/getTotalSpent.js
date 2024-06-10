@@ -5,21 +5,23 @@ const Decimal = require('decimal.js');
 
 const prisma = new PrismaClient();
 const lambdaClient = new LambdaClient({ region: process.env.AWS_REGION });
+const corsHeaders = {
+  'Content-Type': 'application/json',
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Headers': 'Content-Type',
+  'Access-Control-Allow-Methods': 'OPTIONS,POST,GET'
+};
 
 async function getTotalSpent(event) {
   const { authorizationToken, householdId } = JSON.parse(event.body);
 
-  // Log incoming data
-  console.log('Authorization Token:', authorizationToken);
-  console.log('Household ID:', householdId);
-
   if (!authorizationToken) {
     return {
       statusCode: 401,
+      headers: corsHeaders,
       body: JSON.stringify({
         message: 'Access denied. No token provided.'
       }),
-      headers: { 'Content-Type': 'application/json' },
     };
   }
 
@@ -45,21 +47,21 @@ async function getTotalSpent(event) {
     console.error('Token verification failed:', error);
     return {
       statusCode: 401,
+      headers: corsHeaders,
       body: JSON.stringify({
         message: 'Invalid token.',
         error: error.message,
       }),
-      headers: { 'Content-Type': 'application/json' },
     };
   }
 
   if (!householdId) {
     return {
       statusCode: 400,
+      headers: corsHeaders,
       body: JSON.stringify({
         message: 'Household ID is required.',
       }),
-      headers: { 'Content-Type': 'application/json' },
     };
   }
 
@@ -67,8 +69,6 @@ async function getTotalSpent(event) {
     // Get the start of the current month and the end of today
     const startDate = startOfMonth(new Date());
     const endDate = endOfToday(new Date());
-
-    console.log(`Querying transactions between ${startDate} and ${endDate} for householdId ${householdId}`);
 
     // Fetch transactions of type "Debit" or "debit" within the date range for the specified household
     const transactions = await prisma.ledger.findMany({
@@ -85,20 +85,11 @@ async function getTotalSpent(event) {
       }
     });
 
-    // Log the fetched transactions
-    console.log('Fetched Transactions:', transactions);
-
-    if (transactions.length === 0) {
-      console.log('No transactions found for the given date range and householdId.');
-    }
-
     // Sum the amounts of the fetched transactions
     const totalSpent = transactions.reduce((sum, transaction) => sum.plus(new Decimal(transaction.amount)), new Decimal(0));
 
     // Format totalSpent as a string with two decimal places
     const formattedTotalSpent = totalSpent.toFixed(2);
-
-    console.log('Total Spent:', formattedTotalSpent);
 
     // Construct the response to ensure numbers maintain two decimal places
     const response = {
@@ -115,7 +106,7 @@ async function getTotalSpent(event) {
     return {
       statusCode: 200,
       body: formattedJsonString,
-      headers: { 'Content-Type': 'application/json' },
+      headers: corsHeaders,
     };
   } catch (error) {
     console.error('Error fetching transactions:', error);
@@ -125,7 +116,7 @@ async function getTotalSpent(event) {
         message: 'Failed to retrieve total spent',
         errorDetails: error.message,
       }),
-      headers: { 'Content-Type': 'application/json' },
+      headers: corsHeaders,
     };
   } finally {
     await prisma.$disconnect();

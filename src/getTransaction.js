@@ -1,9 +1,14 @@
 const { PrismaClient } = require("@prisma/client");
 const { LambdaClient, InvokeCommand } = require("@aws-sdk/client-lambda");
-const { v4: uuidv4 } = require("uuid");
 
 const prisma = new PrismaClient();
 const lambdaClient = new LambdaClient({ region: process.env.AWS_REGION });
+const corsHeaders = {
+  'Content-Type': 'application/json',
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Headers': 'Content-Type',
+  'Access-Control-Allow-Methods': 'OPTIONS,POST,GET'
+};
 
 exports.handler = async (event) => {
   const { authorizationToken, transactionId } = JSON.parse(event.body);
@@ -11,6 +16,7 @@ exports.handler = async (event) => {
   if (!authorizationToken) {
     return {
       statusCode: 401,
+      headers: corsHeaders,
       body: JSON.stringify({
         message: 'Access denied. No token provided.'
       })
@@ -39,6 +45,7 @@ exports.handler = async (event) => {
     console.error('Token verification failed:', error);
     return {
       statusCode: 401,
+      headers: corsHeaders,
       body: JSON.stringify({
         message: 'Invalid token.',
         error: error.message,
@@ -50,6 +57,7 @@ exports.handler = async (event) => {
     if (!transactionId) {
       return {
         statusCode: 400,
+        headers: corsHeaders,
         body: JSON.stringify({ message: "Missing transactionId parameter" }),
       };
     }
@@ -65,18 +73,21 @@ exports.handler = async (event) => {
     if (!transaction) {
       return {
         statusCode: 404,
+        headers: corsHeaders,
         body: JSON.stringify({ message: "Transaction not found" }),
       };
     }
 
     return {
       statusCode: 200,
+      headers: corsHeaders,
       body: JSON.stringify({ transaction: transaction }),
     };
   } catch (error) {
     console.error(`Error retrieving transaction ${transactionId}:`, error);
     return {
       statusCode: 500,
+      headers: corsHeaders,
       body: JSON.stringify({ message: "Error retrieving transaction", error: error.message }),
     };
   } finally {

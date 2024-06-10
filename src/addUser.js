@@ -9,6 +9,12 @@ const cognitoClient = new CognitoIdentityProviderClient({ region: process.env.AW
 const generateSecretHash = (username, clientId, clientSecret) => {
   return crypto.createHmac('SHA256', clientSecret).update(username + clientId).digest('base64');
 };
+const corsHeaders = {
+  'Content-Type': 'application/json',
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Headers': 'Content-Type',
+  'Access-Control-Allow-Methods': 'OPTIONS,POST,GET'
+};
 
 exports.handler = async (event) => {
   let body;
@@ -18,8 +24,8 @@ exports.handler = async (event) => {
   } catch (error) {
     return {
       statusCode: 400,
+      headers: corsHeaders,
       body: JSON.stringify({ message: 'Invalid JSON input' }),
-      headers: { 'Content-Type': 'application/json' },
     };
   }
 
@@ -41,7 +47,7 @@ exports.handler = async (event) => {
       return {
         statusCode: 409,
         body: JSON.stringify({ message: 'User with this UUID already exists.' }),
-        headers: { 'Content-Type': 'application/json' },
+        headers: corsHeaders,
       };
     }
 
@@ -54,7 +60,7 @@ exports.handler = async (event) => {
       return {
         statusCode: 409,
         body: JSON.stringify({ message: 'User with this email already exists.' }),
-        headers: { 'Content-Type': 'application/json' },
+        headers: corsHeaders,
       };
     }
 
@@ -183,7 +189,7 @@ exports.handler = async (event) => {
         household: householdTransaction,
         details: signUpResponse,
       }),
-      headers: { 'Content-Type': 'application/json' },
+      headers: corsHeaders,
     };
   } catch (error) {
     console.error('Error in SignUp or DB operation:', error);
@@ -191,7 +197,7 @@ exports.handler = async (event) => {
     return {
       statusCode: 500,
       body: JSON.stringify({ message: 'Failed to register user', errorDetails: error.message }),
-      headers: { 'Content-Type': 'application/json' },
+      headers: corsHeaders,
     };
   } finally {
     await prisma.$disconnect();

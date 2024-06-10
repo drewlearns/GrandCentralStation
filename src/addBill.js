@@ -7,10 +7,17 @@ const { add, eachMonthOfInterval, eachWeekOfInterval, eachDayOfInterval, isValid
 const prisma = new PrismaClient();
 const lambdaClient = new LambdaClient({ region: process.env.AWS_REGION });
 const secretsManagerClient = new SecretsManagerClient({ region: process.env.AWS_REGION });
-
+const corsHeaders = {
+  'Content-Type': 'application/json',
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Headers': 'Content-Type',
+  'Access-Control-Allow-Methods': 'OPTIONS,POST,GET'
+};
 const calculateOccurrences = (startDate, frequency, dayOfMonth) => {
   let occurrences = [];
   const endDate = add(startDate, { months: 12 });
+
+
 
   const adjustDayOfMonth = (date, dayOfMonth) => {
     const lastDayOfMonth = new Date(date.getFullYear(), date.getMonth() + 1, 0).getDate();
@@ -93,7 +100,6 @@ exports.handler = async (event) => {
 
     const { authorizationToken, householdId, paymentSourceId, billName, dayOfMonth, frequency, username, password, tags, description, amount, category, interestRate, cashBack, isDebt, status, url } = body;
 
-    console.log("Received householdId:", householdId); // Debugging line
 
     let updatedBy;
 
@@ -127,7 +133,6 @@ exports.handler = async (event) => {
     });
 
     if (!householdExists) {
-      console.log(`Error: Household ${householdId} does not exist`);
       return {
         statusCode: 404,
         body: JSON.stringify({ message: "Household not found" })
@@ -139,10 +144,10 @@ exports.handler = async (event) => {
     });
 
     if (!paymentSourceExists) {
-      console.log(`Error: Payment source ${paymentSourceId} does not exist`);
       return {
         statusCode: 404,
-        body: JSON.stringify({ message: "Payment source not found" })
+        body: JSON.stringify({ message: "Payment source not found" }),
+        headers: corsHeaders,
       };
     }
 
@@ -153,7 +158,8 @@ exports.handler = async (event) => {
       console.error('Error storing credentials in Secrets Manager:', error);
       return {
         statusCode: 500,
-        body: JSON.stringify({ message: "Error storing credentials", error: error.message })
+        body: JSON.stringify({ message: "Error storing credentials", error: error.message }),
+        headers: corsHeaders,
       };
     }
 
@@ -186,7 +192,9 @@ exports.handler = async (event) => {
       console.error('Error creating bill:', error);
       return {
         statusCode: 500,
-        body: JSON.stringify({ message: "Error creating bill", error: error.message })
+        body: JSON.stringify({ message: "Error creating bill", error: error.message }),
+        headers: corsHeaders,
+
       };
     }
 
@@ -198,7 +206,8 @@ exports.handler = async (event) => {
       console.error('Invalid date value:', firstBillDate);
       return {
         statusCode: 400,
-        body: JSON.stringify({ message: "Invalid date value" })
+        body: JSON.stringify({ message: "Invalid date value" }),
+        headers: corsHeaders,
       };
     }
 
@@ -248,9 +257,9 @@ exports.handler = async (event) => {
 
     await lambdaClient.send(addNotificationCommand);
 
-    console.log(`Success: Bill and ledger entries added for household ${householdId}`);
     return {
       statusCode: 201,
+      headers: corsHeaders,
       body: JSON.stringify({ message: "Bill and ledger entries added successfully", bill: newBill })
     };
   } catch (error) {
@@ -258,6 +267,7 @@ exports.handler = async (event) => {
 
     return {
       statusCode: 500,
+      headers: corsHeaders,
       body: JSON.stringify({ message: "Error processing request", error: error.message })
     };
   } finally {

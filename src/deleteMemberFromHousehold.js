@@ -1,22 +1,26 @@
 const { PrismaClient } = require('@prisma/client');
-const { v4: uuidv4 } = require('uuid');
 const { LambdaClient, InvokeCommand } = require('@aws-sdk/client-lambda');
 
 const prisma = new PrismaClient();
 const lambdaClient = new LambdaClient({ region: process.env.AWS_REGION });
-
+const corsHeaders = {
+    'Content-Type': 'application/json',
+    'Access-Control-Allow-Origin': '*',
+    'Access-Control-Allow-Headers': 'Content-Type',
+    'Access-Control-Allow-Methods': 'OPTIONS,POST,GET'
+};
 exports.handler = async (event) => {
     const { authorizationToken, householdId, memberUuid } = JSON.parse(event.body);
 
     if (!authorizationToken) {
         return {
             statusCode: 401,
+            headers: corsHeaders,
             body: JSON.stringify({
                 message: 'Access denied. No token provided.'
             })
         };
     }
-
     let removingUserUuid;
 
     try {
@@ -41,6 +45,7 @@ exports.handler = async (event) => {
         console.error('Token verification failed:', error);
         return {
             statusCode: 401,
+            headers: corsHeaders,
             body: JSON.stringify({
                 message: 'Invalid token.',
                 error: error.message,
@@ -62,9 +67,9 @@ exports.handler = async (event) => {
         });
 
         if (!household) {
-            console.log(`Error: Household ${householdId} does not exist`);
             return {
                 statusCode: 404,
+                headers: corsHeaders,
                 body: JSON.stringify({
                     message: 'Household not found',
                 }),
@@ -75,9 +80,9 @@ exports.handler = async (event) => {
         const isOwner = household.members.some(member => member.memberUuid === removingUserUuid);
 
         if (!isOwner) {
-            console.log(`Error: User ${removingUserUuid} is not an owner of household ${householdId}`);
             return {
                 statusCode: 403,
+                headers: corsHeaders,
                 body: JSON.stringify({
                     message: 'You do not have permission to remove members from this household',
                 }),
@@ -93,9 +98,9 @@ exports.handler = async (event) => {
         });
 
         if (!membership) {
-            console.log(`Error: User ${memberUuid} is not a member of household ${householdId}`);
             return {
                 statusCode: 404,
+                headers: corsHeaders,
                 body: JSON.stringify({
                     message: 'User is not a member of the household',
                 }),
@@ -111,6 +116,7 @@ exports.handler = async (event) => {
 
         return {
             statusCode: 200,
+            headers: corsHeaders,
             body: JSON.stringify({
                 message: 'Household member removed successfully',
             }),
@@ -119,6 +125,7 @@ exports.handler = async (event) => {
         console.error('Error removing household member:', error);
         return {
             statusCode: 500,
+            headers: corsHeaders,
             body: JSON.stringify({
                 message: 'Error removing household member',
                 error: error.message,

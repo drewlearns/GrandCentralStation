@@ -1,13 +1,16 @@
 const { PrismaClient } = require("@prisma/client");
 const { LambdaClient, InvokeCommand } = require("@aws-sdk/client-lambda");
-const { v4: uuidv4 } = require("uuid");
 
 const prisma = new PrismaClient();
 const lambdaClient = new LambdaClient({ region: process.env.AWS_REGION });
+const corsHeaders = {
+  'Content-Type': 'application/json',
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Headers': 'Content-Type',
+  'Access-Control-Allow-Methods': 'OPTIONS,POST,GET'
+};
 
 exports.handler = async (event) => {
-  console.log("Received event:", JSON.stringify(event, null, 2));
-
   let authorizationToken, paymentSourceId, month, year;
 
   try {
@@ -20,6 +23,7 @@ exports.handler = async (event) => {
     console.error('Error parsing event body:', error);
     return {
       statusCode: 400,
+      headers: corsHeaders,
       body: JSON.stringify({
         message: 'Invalid request body format',
         error: error.message,
@@ -31,6 +35,7 @@ exports.handler = async (event) => {
     if (!authorizationToken) {
       return {
         statusCode: 401,
+        headers: corsHeaders,
         body: JSON.stringify({
           message: 'Access denied. No token provided.',
         }),
@@ -61,6 +66,7 @@ exports.handler = async (event) => {
       console.error('Token verification failed:', error);
       return {
         statusCode: 401,
+        headers: corsHeaders,
         body: JSON.stringify({
           message: 'Invalid token.',
           error: error.message,
@@ -71,6 +77,7 @@ exports.handler = async (event) => {
     if (!paymentSourceId) {
       return {
         statusCode: 400,
+        headers: corsHeaders,
         body: JSON.stringify({
           message: 'Missing paymentSourceId in the request',
         }),
@@ -80,6 +87,7 @@ exports.handler = async (event) => {
     if (!month || !year) {
       return {
         statusCode: 400,
+        headers: corsHeaders,
         body: JSON.stringify({
           message: 'Missing month or year in the request',
         }),
@@ -89,8 +97,6 @@ exports.handler = async (event) => {
     // Calculate the start and end dates for the given month and year
     const startDate = new Date(year, month - 1, 1);
     const endDate = new Date(year, month, 0);
-
-    console.log(`Fetching ledger entries for paymentSourceId: ${paymentSourceId} between: ${startDate} and ${endDate}`);
 
     const ledgerEntries = await prisma.ledger.findMany({
       where: {
@@ -109,11 +115,10 @@ exports.handler = async (event) => {
       },
     });
 
-    console.log(`Ledger entries fetched: ${JSON.stringify(ledgerEntries)}`);
-
     if (ledgerEntries.length === 0) {
       return {
         statusCode: 404,
+        headers: corsHeaders,
         body: JSON.stringify({
           message: 'No ledger entries found for the given payment source in the specified date range',
         }),
@@ -122,6 +127,7 @@ exports.handler = async (event) => {
 
     return {
       statusCode: 200,
+      headers: corsHeaders,
       body: JSON.stringify({
         paymentSourceId: paymentSourceId,
         ledgerEntries: ledgerEntries,
@@ -134,6 +140,7 @@ exports.handler = async (event) => {
 
     return {
       statusCode: 500,
+      headers: corsHeaders,
       body: JSON.stringify({
         message: 'Error fetching running totals',
         error: error.message,

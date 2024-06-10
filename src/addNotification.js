@@ -4,6 +4,12 @@ const { LambdaClient, InvokeCommand } = require("@aws-sdk/client-lambda");
 
 const prisma = new PrismaClient();
 const lambdaClient = new LambdaClient({ region: process.env.AWS_REGION });
+const corsHeaders = {
+  'Content-Type': 'application/json',
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Headers': 'Content-Type',
+  'Access-Control-Allow-Methods': 'OPTIONS,POST,GET'
+};
 
 exports.handler = async (event) => {
   try {
@@ -13,6 +19,7 @@ exports.handler = async (event) => {
     if (!authorizationToken) {
       return {
         statusCode: 401,
+        headers: corsHeaders,
         body: JSON.stringify({
           message: 'Access denied. No token provided.'
         })
@@ -42,6 +49,7 @@ exports.handler = async (event) => {
       console.error('Token verification failed:', error);
       return {
         statusCode: 401,
+        headers: corsHeaders,
         body: JSON.stringify({
           message: 'Invalid token.',
           error: error.message,
@@ -54,7 +62,6 @@ exports.handler = async (event) => {
     });
 
     if (!billExists) {
-      console.log(`Error: Bill ${billId} does not exist`);
       return {
         statusCode: 404,
         body: JSON.stringify({ message: "Bill not found" }),
@@ -85,9 +92,9 @@ exports.handler = async (event) => {
       },
     });
 
-    console.log(`Success: Notification added for bill ${billId}`);
     return {
       statusCode: 201,
+      headers: corsHeaders,
       body: JSON.stringify({
         message: "Notification added successfully",
         notification: newNotification,
@@ -100,6 +107,7 @@ exports.handler = async (event) => {
 
     return {
       statusCode: 500,
+      headers: corsHeaders,
       body: JSON.stringify({
         message: "Error processing request",
         error: error.message,

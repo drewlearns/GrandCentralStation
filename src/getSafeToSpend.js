@@ -4,6 +4,12 @@ const Decimal = require('decimal.js');
 
 const prisma = new PrismaClient();
 const lambdaClient = new LambdaClient({ region: process.env.AWS_REGION });
+const corsHeaders = {
+  'Content-Type': 'application/json',
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Headers': 'Content-Type',
+  'Access-Control-Allow-Methods': 'OPTIONS,POST,GET'
+};
 
 exports.handler = async (event) => {
   const { authorizationToken, householdId } = JSON.parse(event.body);
@@ -11,6 +17,7 @@ exports.handler = async (event) => {
   if (!authorizationToken) {
     return {
       statusCode: 401,
+      headers: corsHeaders,
       body: JSON.stringify({
         message: 'Access denied. No token provided.'
       })
@@ -20,6 +27,7 @@ exports.handler = async (event) => {
   if (!householdId) {
     return {
       statusCode: 400,
+      headers: corsHeaders,
       body: JSON.stringify({
         message: 'No householdId provided.'
       })
@@ -49,6 +57,7 @@ exports.handler = async (event) => {
     console.error('Token verification failed:', error);
     return {
       statusCode: 401,
+      headers: corsHeaders,
       body: JSON.stringify({
         message: 'Invalid token.',
         error: error.message,
@@ -71,6 +80,7 @@ exports.handler = async (event) => {
     if (incomes.length === 0) {
       return {
         statusCode: 404,
+        headers: corsHeaders,
         body: JSON.stringify({ message: "No incomes found for the household." }),
       };
     }
@@ -82,7 +92,6 @@ exports.handler = async (event) => {
     for (const income of incomes) {
       const frequency = income.frequency.toLowerCase();
       let payday = new Date(income.firstPayDay);
-      console.log(`Processing income: ${JSON.stringify(income)}, current payday: ${payday}`);
 
       while (payday <= today) {
         lastPaydayBeforeToday = new Date(payday);
@@ -101,13 +110,11 @@ exports.handler = async (event) => {
         } else {
           throw new Error(`Unsupported income frequency: ${income.frequency}`);
         }
-        console.log(`Updated payday: ${payday}`);
       }
 
       if (!nextPayday || payday < nextPayday) {
         nextPayday = payday;
       }
-      console.log(`Current nextPayday: ${nextPayday}, lastPaydayBeforeToday: ${lastPaydayBeforeToday}`);
     }
 
     if (!nextPayday || nextPayday <= today) {
@@ -117,10 +124,7 @@ exports.handler = async (event) => {
       };
     }
 
-    console.log(`Next payday determined: ${nextPayday}`);
-
     // Fetch ledger entries up to the next payday
-    console.log(`Fetching ledger entries from ${today.toISOString()} to ${nextPayday.toISOString()} for householdId: ${householdId}`);
     const ledgerEntries = await prisma.ledger.findMany({
       where: {
         householdId: householdId,
@@ -135,8 +139,6 @@ exports.handler = async (event) => {
       ],
     });
 
-    console.log(`Ledger entries found: ${JSON.stringify(ledgerEntries)}`);
-
     if (ledgerEntries.length === 0) {
       // Fetch the most recent ledger entry before today if no ledger entries are found in the period
       const recentLedgerEntry = await prisma.ledger.findFirst({
@@ -148,12 +150,11 @@ exports.handler = async (event) => {
         },
         orderBy: { transactionDate: 'desc' },
       });
-      console.log(`Most recent ledger entry found: ${JSON.stringify(recentLedgerEntry)}`);
 
       const safeToSpend = recentLedgerEntry ? parseFloat(recentLedgerEntry.runningTotal) : 0.00;
-      console.log(`No ledger entries found. Returning running total from the most recent ledger entry: ${safeToSpend}`);
       return {
         statusCode: 200,
+        headers: corsHeaders,
         body: JSON.stringify({
           safeToSpend: safeToSpend,
           nextPayday: nextPayday.toISOString(),
@@ -167,10 +168,9 @@ exports.handler = async (event) => {
       return runningTotal.lessThan(lowest) ? runningTotal : lowest;
     }, new Decimal(ledgerEntries[0].runningTotal));
 
-    console.log(`Lowest running total determined: ${lowestRunningTotal}`);
-
     return {
       statusCode: 200,
+      headers: corsHeaders,
       body: JSON.stringify({
         safeToSpend: lowestRunningTotal.toNumber(),
         nextPayday: nextPayday.toISOString(),
@@ -180,6 +180,7 @@ exports.handler = async (event) => {
     console.error('Error retrieving ledger entries:', error);
     return {
       statusCode: 500,
+      headers: corsHeaders,
       body: JSON.stringify({ message: "Error retrieving ledger entries", error: error.message }),
     };
   } finally {

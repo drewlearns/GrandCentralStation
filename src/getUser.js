@@ -1,6 +1,12 @@
 const { PrismaClient } = require('@prisma/client');
 const { LambdaClient, InvokeCommand } = require('@aws-sdk/client-lambda');
-const { v4: uuidv4 } = require('uuid');
+
+const corsHeaders = {
+  'Content-Type': 'application/json',
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Headers': 'Content-Type',
+  'Access-Control-Allow-Methods': 'OPTIONS,POST,GET'
+};
 
 const prisma = new PrismaClient();
 const lambdaClient = new LambdaClient({ region: process.env.AWS_REGION });
@@ -11,6 +17,7 @@ exports.handler = async (event) => {
   if (!authorizationToken) {
     return {
       statusCode: 401,
+      headers: corsHeaders,
       body: JSON.stringify({
         message: 'Access denied. No token provided.'
       }),
@@ -40,6 +47,7 @@ exports.handler = async (event) => {
     console.error('Token verification failed:', error);
     return {
       statusCode: 401,
+      headers: corsHeaders,
       body: JSON.stringify({
         message: 'Invalid token.',
         error: error.message,
@@ -67,6 +75,7 @@ exports.handler = async (event) => {
     if (!user) {
       return {
         statusCode: 404,
+        headers: corsHeaders,
         body: JSON.stringify({ message: 'User not found' }),
         headers: { 'Content-Type': 'application/json' },
       };
@@ -74,6 +83,7 @@ exports.handler = async (event) => {
 
     return {
       statusCode: 200,
+      headers: corsHeaders,
       body: JSON.stringify(user),
       headers: { 'Content-Type': 'application/json' },
     };
@@ -82,6 +92,7 @@ exports.handler = async (event) => {
 
     return {
       statusCode: 500,
+      headers: corsHeaders,
       body: JSON.stringify({ message: 'Failed to fetch user', errorDetails: error.message }),
       headers: { 'Content-Type': 'application/json' },
     };

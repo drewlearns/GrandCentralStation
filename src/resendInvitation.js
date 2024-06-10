@@ -1,6 +1,11 @@
 const { PrismaClient } = require('@prisma/client');
-const { v4: uuidv4 } = require('uuid');
 const { SESClient, SendEmailCommand } = require('@aws-sdk/client-ses');
+const corsHeaders = {
+    'Content-Type': 'application/json',
+    'Access-Control-Allow-Origin': '*',
+    'Access-Control-Allow-Headers': 'Content-Type',
+    'Access-Control-Allow-Methods': 'OPTIONS,POST,GET'
+  };
 
 const prisma = new PrismaClient();
 const sesClient = new SESClient({ region: process.env.AWS_REGION });
@@ -18,6 +23,7 @@ exports.handler = async (event) => {
             console.log(`Error: Invitation ${invitationId} does not exist`);
             return {
                 statusCode: 404,
+                headers: corsHeaders,
                 body: JSON.stringify({
                     message: 'Invitation not found',
                 }),
@@ -28,6 +34,7 @@ exports.handler = async (event) => {
             console.log(`Error: Invitation ${invitationId} is not pending`);
             return {
                 statusCode: 409,
+                headers: corsHeaders,
                 body: JSON.stringify({
                     message: 'Invitation is not pending',
                 }),
@@ -43,6 +50,7 @@ exports.handler = async (event) => {
             console.log(`Error: Household ${invitation.householdId} does not exist`);
             return {
                 statusCode: 404,
+                headers: corsHeaders,
                 body: JSON.stringify({
                     message: 'Household not found',
                 }),
@@ -58,6 +66,7 @@ exports.handler = async (event) => {
             console.log(`Error: Invited user ${invitation.invitedUserUuid} does not exist`);
             return {
                 statusCode: 404,
+                headers: corsHeaders,
                 body: JSON.stringify({
                     message: 'Invited user not found',
                 }),
@@ -87,6 +96,7 @@ exports.handler = async (event) => {
 
         return {
             statusCode: 200,
+            headers: corsHeaders,
             body: JSON.stringify({
                 message: 'Invitation resent successfully',
                 invitationId: invitation.invitationId,
@@ -98,6 +108,7 @@ exports.handler = async (event) => {
         console.error('Error resending invitation:', error);
         return {
             statusCode: 500,
+            headers: corsHeaders,
             body: JSON.stringify({
                 message: 'Error resending invitation',
                 error: error.message,

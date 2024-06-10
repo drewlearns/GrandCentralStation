@@ -1,9 +1,14 @@
 const { PrismaClient } = require("@prisma/client");
 const { LambdaClient, InvokeCommand } = require("@aws-sdk/client-lambda");
-const { v4: uuidv4 } = require("uuid");
 
 const prisma = new PrismaClient();
 const lambdaClient = new LambdaClient({ region: process.env.AWS_REGION });
+const corsHeaders = {
+  'Content-Type': 'application/json',
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Headers': 'Content-Type',
+  'Access-Control-Allow-Methods': 'OPTIONS,POST,GET'
+};
 
 exports.handler = async (event) => {
   const {
@@ -17,6 +22,7 @@ exports.handler = async (event) => {
   if (!authorizationToken) {
     return {
       statusCode: 401,
+      headers: corsHeaders,
       body: JSON.stringify({ message: "Access denied. No token provided." }),
     };
   }
@@ -45,6 +51,7 @@ exports.handler = async (event) => {
     console.error("Token verification failed:", error);
     return {
       statusCode: 401,
+      headers: corsHeaders,
       body: JSON.stringify({ message: "Invalid token.", error: error.message }),
     };
   }
@@ -53,6 +60,7 @@ exports.handler = async (event) => {
     if (!householdId || !threshold || !paymentSourceId) {
       return {
         statusCode: 400,
+        headers: corsHeaders,
         body: JSON.stringify({
           message:
             "Missing householdId, threshold, or paymentSourceId parameter",
@@ -83,6 +91,7 @@ exports.handler = async (event) => {
     console.error("Error processing request:", error);
     return {
       statusCode: 500,
+      headers: corsHeaders,
       body: JSON.stringify({
         message: "Error processing request",
         error: error.message,

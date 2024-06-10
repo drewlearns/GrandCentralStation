@@ -4,6 +4,12 @@ const Decimal = require('decimal.js');
 
 const prisma = new PrismaClient();
 const lambdaClient = new LambdaClient({ region: process.env.AWS_REGION });
+const corsHeaders = {
+  'Content-Type': 'application/json',
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Headers': 'Content-Type',
+  'Access-Control-Allow-Methods': 'OPTIONS,POST,GET'
+};
 
 exports.handler = async (event) => {
   const { authorizationToken, householdId, clearedOnly, currentMonthOnly } = JSON.parse(event.body);
@@ -11,6 +17,7 @@ exports.handler = async (event) => {
   if (!authorizationToken) {
     return {
       statusCode: 401,
+      headers: corsHeaders,
       body: JSON.stringify({
         message: 'Access denied. No token provided.'
       })
@@ -20,6 +27,7 @@ exports.handler = async (event) => {
   if (!householdId) {
     return {
       statusCode: 400,
+      headers: corsHeaders,
       body: JSON.stringify({
         message: 'No householdId provided.'
       })
@@ -49,6 +57,7 @@ exports.handler = async (event) => {
     console.error('Token verification failed:', error);
     return {
       statusCode: 401,
+      headers: corsHeaders,
       body: JSON.stringify({
         message: 'Invalid token.',
         error: error.message,
@@ -178,12 +187,14 @@ exports.handler = async (event) => {
 
     return {
       statusCode: 200,
+      headers: corsHeaders,
       body: formattedJsonString,
     };
   } catch (error) {
     console.error('Error retrieving ledger entries:', error);
     return {
       statusCode: 500,
+      headers: corsHeaders,
       body: JSON.stringify({ message: "Error retrieving ledger entries", error: error.message }),
     };
   } finally {

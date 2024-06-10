@@ -21,43 +21,53 @@ exports.handler = async (event) => {
   const clientId = process.env.USER_POOL_CLIENT_ID;
   const clientSecret = process.env.USER_POOL_CLIENT_SECRET;
 
+  const corsHeaders = {
+    'Content-Type': 'application/json',
+    'Access-Control-Allow-Origin': '*',
+    'Access-Control-Allow-Headers': 'Content-Type',
+    'Access-Control-Allow-Methods': 'OPTIONS,POST,GET'
+  };
+
+  if (event.httpMethod === 'OPTIONS') {
+    return {
+      statusCode: 200,
+      headers: corsHeaders,
+    };
+  }
+
   try {
-    // Fetch the user from the database
     const user = await prisma.user.findUnique({
       where: {
         uuid: username,
       },
     });
 
-    // Check if user exists
     if (!user) {
       return {
         statusCode: 404,
         body: JSON.stringify({ message: 'User not found' }),
-        headers: { 'Content-Type': 'application/json' },
+        headers: corsHeaders,
       };
     }
 
-    // Check if the account status is not 'trial' or 'active'
     if (user.subscriptionStatus !== 'trial' && user.subscriptionStatus !== 'active') {
       return {
         statusCode: 403,
         body: JSON.stringify({ message: 'Account is not in trial or active status' }),
-        headers: { 'Content-Type': 'application/json' },
+        headers: corsHeaders,
       };
     }
 
     if (!session) {
-      // First attempt to authenticate
-      return initiateAuth(username, password, clientId, clientSecret);
+      return initiateAuth(username, password, clientId, clientSecret, corsHeaders);
     } else {
-      // Respond to MFA challenge
       return respondToMFASetupChallenge(
         username,
         mfaCode,
         session,
         clientId,
         clientSecret,
+        corsHeaders,
       );
     }
   } catch (error) {
@@ -65,18 +75,17 @@ exports.handler = async (event) => {
     return {
       statusCode: 500,
       body: JSON.stringify({ message: 'Internal server error', errorDetails: error.message }),
-      headers: { 'Content-Type': 'application/json' },
+      headers: corsHeaders,
     };
   }
 };
 
-function initiateAuth(username, password, clientId, clientSecret) {
+function initiateAuth(username, password, clientId, clientSecret, corsHeaders) {
   const authParameters = {
     USERNAME: username,
     PASSWORD: password,
   };
 
-  // Add SECRET_HASH to the parameters if client secret is used
   if (clientSecret) {
     authParameters.SECRET_HASH = generateSecretHash(username, clientId, clientSecret);
   }
@@ -89,7 +98,7 @@ function initiateAuth(username, password, clientId, clientSecret) {
 
   return client
     .send(new InitiateAuthCommand(params))
-    .then((response) => handleAuthResponse(response))
+    .then((response) => handleAuthResponse(response, corsHeaders))
     .catch((error) => {
       console.error('Authentication error:', error);
       return {
@@ -98,12 +107,12 @@ function initiateAuth(username, password, clientId, clientSecret) {
           message: 'Authentication failed',
           errorDetails: error.message,
         }),
-        headers: { 'Content-Type': 'application/json' },
+        headers: corsHeaders,
       };
     });
 }
 
-function respondToMFASetupChallenge(username, mfaCode, session, clientId, clientSecret) {
+function respondToMFASetupChallenge(username, mfaCode, session, clientId, clientSecret, corsHeaders) {
   const challengeResponses = {
     USERNAME: username,
     SECRET_HASH: generateSecretHash(username, clientId, clientSecret),
@@ -119,7 +128,7 @@ function respondToMFASetupChallenge(username, mfaCode, session, clientId, client
 
   return client
     .send(new RespondToAuthChallengeCommand(params))
-    .then((response) => handleAuthResponse(response))
+    .then((response) => handleAuthResponse(response, corsHeaders))
     .catch((error) => {
       console.error('MFA setup error:', error);
       return {
@@ -128,15 +137,14 @@ function respondToMFASetupChallenge(username, mfaCode, session, clientId, client
           message: 'Failed to setup MFA',
           errorDetails: error.message,
         }),
-        headers: { 'Content-Type': 'application/json' },
+        headers: corsHeaders,
       };
     });
 }
 
-function handleAuthResponse(response) {
+function handleAuthResponse(response, corsHeaders) {
   if (response.AuthenticationResult) {
     const tokens = response.AuthenticationResult;
-    // No token storage logic here
 
     return {
       statusCode: 200,
@@ -144,7 +152,7 @@ function handleAuthResponse(response) {
         message: 'Authentication successful',
         tokens: tokens,
       }),
-      headers: { 'Content-Type': 'application/json' },
+      headers: corsHeaders,
     };
   } else if (response.ChallengeName) {
     return {
@@ -154,13 +162,13 @@ function handleAuthResponse(response) {
         challengeName: response.ChallengeName,
         session: response.Session,
       }),
-      headers: { 'Content-Type': 'application/json' },
+      headers: corsHeaders,
     };
   } else {
     return {
       statusCode: 204,
       body: JSON.stringify({ message: 'Unexpected response' }),
-      headers: { 'Content-Type': 'application/json' },
+      headers: corsHeaders,
     };
   }
 }

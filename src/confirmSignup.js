@@ -3,6 +3,12 @@ const prisma = new PrismaClient();
 const { CognitoIdentityProviderClient, ConfirmSignUpCommand } = require('@aws-sdk/client-cognito-identity-provider');
 const crypto = require('crypto');
 
+const corsHeaders = {
+    'Content-Type': 'application/json',
+    'Access-Control-Allow-Origin': '*',
+    'Access-Control-Allow-Headers': 'Content-Type',
+    'Access-Control-Allow-Methods': 'OPTIONS,POST,GET'
+  };
 const cognitoClient = new CognitoIdentityProviderClient({ region: process.env.AWS_REGION });
 
 function generateSecretHash(username, clientId, clientSecret) {
@@ -36,14 +42,14 @@ exports.handler = async (event) => {
         return {
             statusCode: 200,
             body: JSON.stringify({ message: 'Email verified and user updated successfully', details: confirmSignUpResponse, user: updatedUser }),
-            headers: { 'Content-Type': 'application/json' },
+            headers: corsHeaders,
         };
     } catch (error) {
         console.error('Error in ConfirmSignUp or DB operation:', error);
         return {
             statusCode: 500,
             body: JSON.stringify({ message: 'Failed to verify email and update user', errorDetails: error.message }),
-            headers: { 'Content-Type': 'application/json' },
+            headers: corsHeaders,
         };
     }
 };

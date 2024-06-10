@@ -1,11 +1,16 @@
 const { PrismaClient } = require('@prisma/client');
 const { LambdaClient, InvokeCommand } = require('@aws-sdk/client-lambda');
 const { CognitoIdentityProviderClient, AdminUpdateUserAttributesCommand, AdminCreateUserCommand, AdminDeleteUserCommand } = require('@aws-sdk/client-cognito-identity-provider');
-const { v4: uuidv4 } = require('uuid');
 
 const prisma = new PrismaClient();
 const lambdaClient = new LambdaClient({ region: process.env.AWS_REGION });
 const cognitoClient = new CognitoIdentityProviderClient({ region: process.env.AWS_REGION });
+const corsHeaders = {
+  'Content-Type': 'application/json',
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Headers': 'Content-Type',
+  'Access-Control-Allow-Methods': 'OPTIONS,POST,GET'
+};
 
 exports.handler = async (event) => {
   const { authorizationToken, email, phoneNumber, newUsername} = JSON.parse(event.body);
@@ -16,7 +21,7 @@ exports.handler = async (event) => {
       body: JSON.stringify({
         message: 'Access denied. No token provided.'
       }),
-      headers: { 'Content-Type': 'application/json' },
+      headers: corsHeaders,
     };
   }
 
@@ -46,7 +51,7 @@ exports.handler = async (event) => {
         message: 'Invalid token.',
         error: error.message,
       }),
-      headers: { 'Content-Type': 'application/json' },
+      headers: corsHeaders,
     };
   }
 
@@ -59,7 +64,7 @@ exports.handler = async (event) => {
       return {
         statusCode: 404,
         body: JSON.stringify({ message: 'User not found' }),
-        headers: { 'Content-Type': 'application/json' },
+        headers: corsHeaders,
       };
     }
 
@@ -103,14 +108,14 @@ exports.handler = async (event) => {
         message: 'User updated successfully',
         user: updatedUser,
       }),
-      headers: { 'Content-Type': 'application/json' },
+      headers: corsHeaders,
     };
   } catch (error) {
     console.error('Error updating user:', error);
     return {
       statusCode: 500,
       body: JSON.stringify({ message: 'Failed to update user', errorDetails: error.message }),
-      headers: { 'Content-Type': 'application/json' },
+      headers: corsHeaders,
     };
   } finally {
     await prisma.$disconnect();

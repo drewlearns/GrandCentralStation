@@ -1,22 +1,26 @@
 const { PrismaClient } = require('@prisma/client');
 const { LambdaClient, InvokeCommand } = require('@aws-sdk/client-lambda');
 const { CognitoIdentityProviderClient, AdminDisableUserCommand } = require('@aws-sdk/client-cognito-identity-provider');
-const { v4: uuidv4 } = require('uuid');
 
 const prisma = new PrismaClient();
 const lambdaClient = new LambdaClient({ region: process.env.AWS_REGION });
 const cognitoClient = new CognitoIdentityProviderClient({ region: process.env.AWS_REGION });
-
+const corsHeaders = {
+  'Content-Type': 'application/json',
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Headers': 'Content-Type',
+  'Access-Control-Allow-Methods': 'OPTIONS,POST,GET'
+};
 exports.handler = async (event) => {
-  const { authorizationToken} = JSON.parse(event.body);
+  const { authorizationToken } = JSON.parse(event.body);
 
   if (!authorizationToken) {
     return {
       statusCode: 401,
+      headers: corsHeaders,
       body: JSON.stringify({
         message: 'Access denied. No token provided.'
       }),
-      headers: { 'Content-Type': 'application/json' },
     };
   }
 
@@ -42,11 +46,11 @@ exports.handler = async (event) => {
     console.error('Token verification failed:', error);
     return {
       statusCode: 401,
+      headers: corsHeaders,
       body: JSON.stringify({
         message: 'Invalid token.',
         error: error.message,
       }),
-      headers: { 'Content-Type': 'application/json' },
     };
   }
 
@@ -58,6 +62,7 @@ exports.handler = async (event) => {
     if (!user) {
       return {
         statusCode: 404,
+        headers: corsHeaders,
         body: JSON.stringify({ message: 'User not found' }),
         headers: { 'Content-Type': 'application/json' },
       };
@@ -85,14 +90,14 @@ exports.handler = async (event) => {
         message: 'User disabled successfully',
         user: updatedUser,
       }),
-      headers: { 'Content-Type': 'application/json' },
+      headers: corsHeaders,
     };
   } catch (error) {
     console.error('Error disabling user:', error);
     return {
       statusCode: 500,
+      headers: corsHeaders,
       body: JSON.stringify({ message: 'Failed to disable user', errorDetails: error.message }),
-      headers: { 'Content-Type': 'application/json' },
     };
   } finally {
     await prisma.$disconnect();

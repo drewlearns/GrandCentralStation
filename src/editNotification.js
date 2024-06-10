@@ -3,17 +3,22 @@ const { LambdaClient, InvokeCommand } = require("@aws-sdk/client-lambda");
 
 const prisma = new PrismaClient();
 const lambdaClient = new LambdaClient({ region: process.env.AWS_REGION });
+const corsHeaders = {
+  'Content-Type': 'application/json',
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Headers': 'Content-Type',
+  'Access-Control-Allow-Methods': 'OPTIONS,POST,GET'
+};
 
 exports.handler = async (event) => {
   try {
-    console.log("Received event:", event);
-
     const body = typeof event.body === "string" ? JSON.parse(event.body) : event;
     const { authorizationToken, notificationId, billId, title, message, dayOfMonth } = body;
 
     if (!authorizationToken) {
       return {
         statusCode: 401,
+        headers: corsHeaders,
         body: JSON.stringify({
           message: 'Access denied. No token provided.'
         })
@@ -43,6 +48,7 @@ exports.handler = async (event) => {
       console.error('Token verification failed:', error);
       return {
         statusCode: 401,
+        headers: corsHeaders,
         body: JSON.stringify({
           message: 'Invalid token.',
           error: error.message,
@@ -53,6 +59,7 @@ exports.handler = async (event) => {
     if (!notificationId) {
       return {
         statusCode: 400,
+        headers: corsHeaders,
         body: JSON.stringify({ message: "Missing notificationId parameter" }),
       };
     }
@@ -62,9 +69,9 @@ exports.handler = async (event) => {
     });
 
     if (!notification) {
-      console.log(`Error: Notification ${notificationId} does not exist`);
       return {
         statusCode: 404,
+        headers: corsHeaders,
         body: JSON.stringify({ message: "Notification not found" }),
       };
     }
@@ -77,9 +84,9 @@ exports.handler = async (event) => {
       });
 
       if (!billExists) {
-        console.log(`Error: Bill ${billId} does not exist`);
         return {
           statusCode: 404,
+          headers: corsHeaders,
           body: JSON.stringify({ message: "Bill not found" }),
         };
       }
@@ -104,9 +111,9 @@ exports.handler = async (event) => {
       },
     });
 
-    console.log(`Success: Notification ${notificationId} updated`);
     return {
       statusCode: 200,
+      headers: corsHeaders,
       body: JSON.stringify({
         message: "Notification updated successfully",
         notification: updatedNotification,
@@ -119,6 +126,7 @@ exports.handler = async (event) => {
 
     return {
       statusCode: 500,
+      headers: corsHeaders,
       body: JSON.stringify({
         message: "Error processing request",
         error: error.message,

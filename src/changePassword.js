@@ -5,7 +5,12 @@ const {
   ChangePasswordCommand,
 } = require('@aws-sdk/client-cognito-identity-provider');
 const crypto = require('crypto');
-
+const corsHeaders = {
+  'Content-Type': 'application/json',
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Headers': 'Content-Type',
+  'Access-Control-Allow-Methods': 'OPTIONS,POST,GET'
+};
 const client = new CognitoIdentityProviderClient({ region: 'us-east-1' });
 
 function generateSecretHash(username, clientId, clientSecret) {
@@ -33,6 +38,7 @@ exports.handler = async (event) => {
     if (!user) {
       return {
         statusCode: 404,
+        headers: corsHeaders,
         body: JSON.stringify({ message: 'User not found' }),
         headers: { 'Content-Type': 'application/json' },
       };
@@ -42,6 +48,7 @@ exports.handler = async (event) => {
     if (user.subscriptionStatus !== 'trial' && user.subscriptionStatus !== 'active') {
       return {
         statusCode: 403,
+        headers: corsHeaders,
         body: JSON.stringify({ message: 'Account is not in trial or active status' }),
         headers: { 'Content-Type': 'application/json' },
       };
@@ -53,6 +60,7 @@ exports.handler = async (event) => {
     console.error('Error during password change:', error);
     return {
       statusCode: 500,
+      headers: corsHeaders,
       body: JSON.stringify({ message: 'Internal server error', errorDetails: error.message }),
       headers: { 'Content-Type': 'application/json' },
     };
@@ -72,7 +80,7 @@ function changePassword(accessToken, oldPassword, newPassword) {
       return {
         statusCode: 200,
         body: JSON.stringify({ message: 'Password changed successfully' }),
-        headers: { 'Content-Type': 'application/json' },
+        headers: corsHeaders,
       };
     })
     .catch((error) => {
@@ -83,7 +91,7 @@ function changePassword(accessToken, oldPassword, newPassword) {
           message: 'Password change failed',
           errorDetails: error.message,
         }),
-        headers: { 'Content-Type': 'application/json' },
+        headers: corsHeaders,
       };
     });
 }

@@ -5,6 +5,12 @@ const { v4: uuidv4 } = require("uuid");
 
 const prisma = new PrismaClient();
 const lambdaClient = new LambdaClient({ region: process.env.AWS_REGION });
+const corsHeaders = {
+  'Content-Type': 'application/json',
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Headers': 'Content-Type',
+  'Access-Control-Allow-Methods': 'OPTIONS,POST,GET'
+};
 
 const calculateOccurrences = (startDate, frequency) => {
   let occurrences = [];
@@ -53,6 +59,7 @@ exports.handler = async (event) => {
     if (!authorizationToken) {
       return {
         statusCode: 401,
+        headers: corsHeaders,
         body: JSON.stringify({
           message: 'Access denied. No token provided.'
         })
@@ -82,6 +89,7 @@ exports.handler = async (event) => {
       console.error('Token verification failed:', error);
       return {
         statusCode: 401,
+        headers: corsHeaders,
         body: JSON.stringify({
           message: 'Invalid token.',
           error: error.message,
@@ -94,9 +102,9 @@ exports.handler = async (event) => {
     });
 
     if (!householdExists) {
-      console.log(`Error: Household ${householdId} does not exist`);
       return {
         statusCode: 404,
+        headers: corsHeaders,
         body: JSON.stringify({ message: "Household not found" }),
       };
     }
@@ -106,9 +114,9 @@ exports.handler = async (event) => {
     });
 
     if (!paymentSourceExists) {
-      console.log(`Error: Payment source ${paymentSourceId} does not exist`);
       return {
         statusCode: 404,
+        headers: corsHeaders,
         body: JSON.stringify({ message: "Payment source not found" }),
       };
     }
@@ -118,9 +126,9 @@ exports.handler = async (event) => {
     });
 
     if (!incomeExists) {
-      console.log(`Error: Income ${incomeId} does not exist`);
       return {
         statusCode: 404,
+        headers: corsHeaders,
         body: JSON.stringify({ message: "Income not found" }),
       };
     }
@@ -172,9 +180,9 @@ exports.handler = async (event) => {
 
     await lambdaClient.send(calculateTotalsCommand);
 
-    console.log(`Success: Income and ledger entries updated for household ${householdId}`);
     return {
       statusCode: 200,
+      headers: corsHeaders,
       body: JSON.stringify({
         message: "Income and ledger entries updated successfully",
         income: updatedIncome,
@@ -187,6 +195,7 @@ exports.handler = async (event) => {
 
     return {
       statusCode: 500,
+      headers: corsHeaders,
       body: JSON.stringify({
         message: "Error processing request",
         error: error.message,

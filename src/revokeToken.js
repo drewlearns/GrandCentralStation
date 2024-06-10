@@ -5,6 +5,12 @@ const { PrismaClient } = require('@prisma/client');
 const cognitoClient = new CognitoIdentityProviderClient({ region: process.env.AWS_REGION });
 const lambdaClient = new LambdaClient({ region: process.env.AWS_REGION });
 const prisma = new PrismaClient();
+const corsHeaders = {
+  'Content-Type': 'application/json',
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Headers': 'Content-Type',
+  'Access-Control-Allow-Methods': 'OPTIONS,POST,GET'
+};
 
 exports.handler = async (event) => {
   const { authorizationToken, refreshToken } = JSON.parse(event.body);
@@ -15,7 +21,7 @@ exports.handler = async (event) => {
     return {
       statusCode: 400,
       body: JSON.stringify({ message: 'Authorization token and refresh token are required.' }),
-      headers: { 'Content-Type': 'application/json' },
+      headers: corsHeaders,
     };
   }
 
@@ -42,7 +48,7 @@ exports.handler = async (event) => {
     return {
       statusCode: 401,
       body: JSON.stringify({ message: 'Invalid token.', error: error.message }),
-      headers: { 'Content-Type': 'application/json' },
+      headers: corsHeaders,
     };
   }
 
@@ -65,14 +71,14 @@ exports.handler = async (event) => {
     return {
       statusCode: 200,
       body: JSON.stringify({ message: 'Token revoked successfully.' }),
-      headers: { 'Content-Type': 'application/json' },
+      headers: corsHeaders,
     };
   } catch (error) {
     console.error('Error revoking token:', error);
     return {
       statusCode: 500,
       body: JSON.stringify({ message: 'Failed to revoke token.', errorDetails: error.message }),
-      headers: { 'Content-Type': 'application/json' },
+      headers: corsHeaders,
     };
   }
 };

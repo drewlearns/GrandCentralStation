@@ -2,6 +2,12 @@ const { PrismaClient } = require('@prisma/client');
 const axios = require('axios');
 
 const prisma = new PrismaClient();
+const corsHeaders = {
+  'Content-Type': 'application/json',
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Headers': 'Content-Type',
+  'Access-Control-Allow-Methods': 'OPTIONS,POST,GET'
+};
 
 exports.handler = async (event) => {
   const { receiptData, platform, userId } = JSON.parse(event.body);
@@ -48,11 +54,13 @@ exports.handler = async (event) => {
 
       return {
         statusCode: 200,
+        headers: corsHeaders,
         body: JSON.stringify({ success: true })
       };
     } else {
       return {
         statusCode: 400,
+        headers: corsHeaders,
         body: JSON.stringify({ success: false, message: 'Invalid purchase' })
       };
     }
@@ -60,6 +68,7 @@ exports.handler = async (event) => {
     console.error(error);
     return {
       statusCode: 500,
+      headers: corsHeaders,
       body: JSON.stringify({ success: false, error: error.message })
     };
   } finally {
