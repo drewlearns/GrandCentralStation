@@ -16,7 +16,6 @@ exports.handler = async (event) => {
     householdId,
     threshold,
     paymentSourceId,
-
   } = JSON.parse(event.body);
 
   if (!authorizationToken) {
@@ -62,8 +61,7 @@ exports.handler = async (event) => {
         statusCode: 400,
         headers: corsHeaders,
         body: JSON.stringify({
-          message:
-            "Missing householdId, threshold, or paymentSourceId parameter",
+          message: "Missing householdId, threshold, or paymentSourceId parameter",
         }),
       };
     }
@@ -71,20 +69,27 @@ exports.handler = async (event) => {
     // Fetch ledger entries with running total for the specified paymentSourceId
     const ledgerEntries = await prisma.ledger.findMany({
       where: { householdId: householdId, paymentSourceId: paymentSourceId },
-      orderBy: { transactionDate: "asc" }, // Update to a valid field from your schema
+      orderBy: { transactionDate: "asc" },
       select: {
-        transactionDate: true, // Update to a valid field from your schema
+        transactionDate: true,
         amount: true,
         runningTotal: true,
+        description: true,  // Fetching description directly from the Ledger table
       },
     });
 
     const entriesBelowThreshold = ledgerEntries.filter(
       (entry) => entry.runningTotal < threshold
-    );
+    ).map(entry => ({
+      transactionDate: entry.transactionDate,
+      amount: entry.amount,
+      runningTotal: entry.runningTotal,
+      description: entry.description,
+    }));
 
     return {
       statusCode: 200,
+      headers: corsHeaders,
       body: JSON.stringify({ entries: entriesBelowThreshold }),
     };
   } catch (error) {

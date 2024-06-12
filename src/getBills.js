@@ -66,12 +66,16 @@ exports.handler = async (event) => {
     const currentDate = new Date();
     const endOfMonth = new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 0);
 
-    // Fetch bills from the ledger where the householdId matches and the due date is between any past date and the end of the current month
+    // Fetch bills related to transactions in the ledger where the householdId matches and the transactionDate is between any past date and the end of the current month
     const allBills = await prisma.bill.findMany({
       where: {
         householdId: householdId,
-        dueDate: {
-          lte: endOfMonth
+        ledgers: {
+          some: {
+            transactionDate: {
+              lte: endOfMonth
+            }
+          }
         }
       }
     });
