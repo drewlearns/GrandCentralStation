@@ -10,7 +10,6 @@ resource "aws_api_gateway_resource" "this_resource" {
   path_part   = each.key
 }
 
-# Configure OPTIONS method for CORS
 resource "aws_api_gateway_method" "options_method" {
   for_each = var.lambdas
 
@@ -63,7 +62,6 @@ resource "aws_api_gateway_integration_response" "options_integration_response" {
   }
 }
 
-# Configure actual resource methods
 resource "aws_api_gateway_method" "this_method" {
   for_each = var.lambdas
 
@@ -82,12 +80,11 @@ resource "aws_api_gateway_integration" "lambda_integration" {
   resource_id = aws_api_gateway_resource.this_resource[each.key].id
   http_method = aws_api_gateway_method.this_method[each.key].http_method
 
-  integration_http_method = each.value.method
+  integration_http_method = "POST"
   type                    = "AWS_PROXY"
   uri                     = aws_lambda_function.this_lambda[each.key].invoke_arn
 }
 
-# Method Response for the actual resource methods
 resource "aws_api_gateway_method_response" "method_response" {
   for_each = var.lambdas
 
@@ -144,13 +141,11 @@ resource "aws_api_gateway_authorizer" "cognito_authorizer" {
   identity_source = "method.request.header.Authorization"
 }
 
-# Generate a random string for the API key
 resource "random_string" "api_key" {
   length  = 32
   special = false
 }
 
-# Add API Key
 resource "aws_api_gateway_api_key" "this_api_key" {
   name        = "MyAPIKey"
   description = "API Key for my API Gateway"
@@ -158,7 +153,6 @@ resource "aws_api_gateway_api_key" "this_api_key" {
   value       = random_string.api_key.result
 }
 
-# Create a usage plan
 resource "aws_api_gateway_usage_plan" "this_usage_plan" {
   name        = "MyUsagePlan"
   description = "Usage plan for my API Gateway"
@@ -168,7 +162,6 @@ resource "aws_api_gateway_usage_plan" "this_usage_plan" {
   }
 }
 
-# Associate API Key with Usage Plan
 resource "aws_api_gateway_usage_plan_key" "this_usage_plan_key" {
   key_id        = aws_api_gateway_api_key.this_api_key.id
   key_type      = "API_KEY"

@@ -128,12 +128,22 @@ exports.handler = async (event) => {
     if (ledgerEntries.length === 0) {
       return {
         statusCode: 404,
+        headers: corsHeaders,
         body: JSON.stringify({ message: "No ledger entries found" }),
       };
     }
 
     // Helper function to format numbers with two decimal places
-    const formatNumber = (num) => Number(new Decimal(num).toFixed(2));
+    const formatNumber = (num) => Number(new Decimal(num).toFixed(2)).toFixed(2);
+
+    // Helper function to set default values
+    const setDefaultValues = (entry) => {
+      if (entry.billId === null) entry.billId = '';
+      if (entry.incomeId === null) entry.incomeId = '';
+      if (entry.transactionId === null) entry.transactionId = '';
+      if (entry.interestRate === null) entry.interestRate = 0.0;
+      if (entry.cashBack === null) entry.cashBack = 0.0;
+    };
 
     // Flatten the transactions and merge the first transactionId into the ledger entry
     const flattenedLedgerEntries = ledgerEntries.map(entry => {
@@ -149,7 +159,21 @@ exports.handler = async (event) => {
         flattenedEntry.type = 'income';
       } else {
         flattenedEntry.type = 'transaction';
-      } 
+      }
+
+      // Set default values
+      setDefaultValues(flattenedEntry);
+      if (flattenedEntry.bill) setDefaultValues(flattenedEntry.bill);
+      if (flattenedEntry.income) setDefaultValues(flattenedEntry.income);
+      if (flattenedEntry.transactions && flattenedEntry.transactions.length > 0) {
+        flattenedEntry.transactions = flattenedEntry.transactions.map(transaction => {
+          setDefaultValues(transaction);
+          return {
+            ...transaction,
+            amount: formatNumber(transaction.amount),
+          };
+        });
+      }
 
       // Format amounts and runningTotal as numbers with two decimal places
       if (flattenedEntry.amount !== null) {
@@ -164,12 +188,7 @@ exports.handler = async (event) => {
       if (flattenedEntry.income) {
         flattenedEntry.income.amount = formatNumber(flattenedEntry.income.amount);
       }
-      if (flattenedEntry.transactions && flattenedEntry.transactions.length > 0) {
-        flattenedEntry.transactions = flattenedEntry.transactions.map(transaction => ({
-          ...transaction,
-          amount: formatNumber(transaction.amount),
-        }));
-      }
+
       delete flattenedEntry.transactions; // Remove the nested transactions array
       return flattenedEntry;
     });
@@ -177,18 +196,15 @@ exports.handler = async (event) => {
     // Convert to JSON manually to ensure numbers maintain .00
     const jsonString = JSON.stringify({ ledgerEntries: flattenedLedgerEntries }, (key, value) => {
       if (typeof value === 'number') {
-        return Number(value).toFixed(2);
+        return value.toFixed(2);
       }
       return value;
     });
 
-    // Replace the .00 quotes to maintain them as numbers
-    const formattedJsonString = jsonString.replace(/"(-?\d+\.\d{2})"/g, '$1');
-
     return {
       statusCode: 200,
       headers: corsHeaders,
-      body: formattedJsonString,
+      body: jsonString,
     };
   } catch (error) {
     console.error('Error retrieving ledger entries:', error);

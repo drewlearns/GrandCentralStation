@@ -59,6 +59,7 @@ exports.handler = async (event) => {
     if (!incomeId) {
       return {
         statusCode: 400,
+        headers: corsHeaders,
         body: JSON.stringify({ message: "Missing incomeId parameter" }),
       };
     }
@@ -67,7 +68,7 @@ exports.handler = async (event) => {
       where: { incomeId: incomeId },
       include: {
         household: true,
-        ledgers: true, // Corrected field name
+        ledgers: true,
       },
     });
 
@@ -79,10 +80,48 @@ exports.handler = async (event) => {
       };
     }
 
+    const flattenedResponse = {
+      incomeId: income.incomeId,
+      householdId: income.householdId,
+      name: income.name,
+      amount: income.amount,
+      frequency: income.frequency,
+      firstPayDay: income.firstPayDay,
+      createdAt: income.createdAt,
+      updatedAt: income.updatedAt,
+      householdId: income.household.householdId,
+      householdName: income.household.householdName,
+      householdCreationDate: income.household.creationDate,
+      householdCreatedAt: income.household.createdAt,
+      householdUpdatedAt: income.household.updatedAt,
+      householdSetupComplete: income.household.setupComplete,
+      householdActiveSubscription: income.household.activeSubscription,
+      ledgers: income.ledgers.map(ledger => ({
+        ledgerId: ledger.ledgerId,
+        householdId: ledger.householdId,
+        paymentSourceId: ledger.paymentSourceId,
+        amount: ledger.amount,
+        transactionType: ledger.transactionType,
+        transactionDate: ledger.transactionDate,
+        category: ledger.category,
+        description: ledger.description,
+        status: ledger.status,
+        ledgerCreatedAt: ledger.createdAt,
+        ledgerUpdatedAt: ledger.updatedAt,
+        updatedBy: ledger.updatedBy,
+        billId: ledger.billId,
+        incomeId: ledger.incomeId,
+        runningTotal: ledger.runningTotal,
+        interestRate: ledger.interestRate,
+        cashBack: ledger.cashBack,
+        tags: ledger.tags
+      }))
+    };
+
     return {
       statusCode: 200,
       headers: corsHeaders,
-      body: JSON.stringify({ income: income }),
+      body: JSON.stringify({ income: flattenedResponse }),
     };
   } catch (error) {
     console.error('Error retrieving income:', error);
