@@ -134,7 +134,7 @@ exports.handler = async (event) => {
     }
 
     // Helper function to format numbers with two decimal places
-    const formatNumber = (num) => Number(new Decimal(num).toFixed(2)).toFixed(2);
+    const formatNumber = (num) => Number(new Decimal(num).toFixed(2));
 
     // Helper function to set default values
     const setDefaultValues = (entry) => {
@@ -196,7 +196,7 @@ exports.handler = async (event) => {
     // Convert to JSON manually to ensure numbers maintain .00
     const jsonString = JSON.stringify({ ledgerEntries: flattenedLedgerEntries }, (key, value) => {
       if (typeof value === 'number') {
-        return value.toFixed(2);
+        return parseFloat(value.toFixed(2));
       }
       return value;
     });
