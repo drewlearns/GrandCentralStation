@@ -2,22 +2,22 @@ const { PrismaClient } = require("@prisma/client");
 const { v4: uuidv4 } = require("uuid");
 const { LambdaClient, InvokeCommand } = require("@aws-sdk/client-lambda");
 const { SecretsManagerClient, CreateSecretCommand } = require("@aws-sdk/client-secrets-manager");
-const { add, eachMonthOfInterval, eachWeekOfInterval, eachDayOfInterval, isValid, set, getDate, setDate } = require("date-fns");
+const { add, eachMonthOfInterval, eachWeekOfInterval, eachDayOfInterval, isValid, setDate } = require("date-fns");
 
 const prisma = new PrismaClient();
 const lambdaClient = new LambdaClient({ region: process.env.AWS_REGION });
 const secretsManagerClient = new SecretsManagerClient({ region: process.env.AWS_REGION });
+
 const corsHeaders = {
   'Content-Type': 'application/json',
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'Content-Type',
   'Access-Control-Allow-Methods': 'OPTIONS,POST,GET'
 };
+
 const calculateOccurrences = (startDate, frequency, dayOfMonth) => {
   let occurrences = [];
   const endDate = add(startDate, { months: 12 });
-
-
 
   const adjustDayOfMonth = (date, dayOfMonth) => {
     const lastDayOfMonth = new Date(date.getFullYear(), date.getMonth() + 1, 0).getDate();
@@ -82,27 +82,23 @@ exports.handler = async (event) => {
       'billName',
       'dayOfMonth',
       'frequency',
-      'username',
-      'password',
       'amount',
       'category',
     ];
 
-    // Validate required fields
     for (const field of requiredFields) {
       if (!body[field]) {
         return {
           statusCode: 400,
-          body: JSON.stringify({ message: `${field} is required` })
+          body: JSON.stringify({ message: `${field} is required` }),
+          headers: corsHeaders
         };
       }
     }
 
     const { authorizationToken, householdId, paymentSourceId, billName, dayOfMonth, frequency, username, password, tags, description, amount, category, interestRate, cashBack, isDebt, status, url } = body;
 
-
     let updatedBy;
-
     try {
       const verifyTokenCommand = new InvokeCommand({
         FunctionName: 'verifyToken',
@@ -124,7 +120,8 @@ exports.handler = async (event) => {
       console.error('Token verification failed:', error);
       return {
         statusCode: 401,
-        body: JSON.stringify({ message: 'Invalid token.', error: error.message })
+        body: JSON.stringify({ message: 'Invalid token.', error: error.message }),
+        headers: corsHeaders
       };
     }
 
@@ -135,7 +132,8 @@ exports.handler = async (event) => {
     if (!householdExists) {
       return {
         statusCode: 404,
-        body: JSON.stringify({ message: "Household not found" })
+        body: JSON.stringify({ message: "Household not found" }),
+        headers: corsHeaders
       };
     }
 
@@ -147,20 +145,22 @@ exports.handler = async (event) => {
       return {
         statusCode: 404,
         body: JSON.stringify({ message: "Payment source not found" }),
-        headers: corsHeaders,
+        headers: corsHeaders
       };
     }
 
-    let credentialsArn;
-    try {
-      credentialsArn = await storeCredentialsInSecretsManager(username, password);
-    } catch (error) {
-      console.error('Error storing credentials in Secrets Manager:', error);
-      return {
-        statusCode: 500,
-        body: JSON.stringify({ message: "Error storing credentials", error: error.message }),
-        headers: corsHeaders,
-      };
+    let credentialsArn = null;
+    if (username && password) {
+      try {
+        credentialsArn = await storeCredentialsInSecretsManager(username, password);
+      } catch (error) {
+        console.error('Error storing credentials in Secrets Manager:', error);
+        return {
+          statusCode: 500,
+          body: JSON.stringify({ message: "Error storing credentials", error: error.message }),
+          headers: corsHeaders
+        };
+      }
     }
 
     let newBill;
@@ -174,7 +174,7 @@ exports.handler = async (event) => {
           dayOfMonth: parseInt(dayOfMonth),
           frequency: frequency,
           isDebt: isDebt === "true",
-          interestRate: interestRate ? parseFloat(interestRate) : 0.0, // Set default value
+          interestRate: interestRate ? parseFloat(interestRate) : 0.0,
           cashBack: cashBack ? parseFloat(cashBack) : 0.0,
           description: description,
           status: false,
@@ -193,21 +193,30 @@ exports.handler = async (event) => {
       return {
         statusCode: 500,
         body: JSON.stringify({ message: "Error creating bill", error: error.message }),
-        headers: corsHeaders,
-
+        headers: corsHeaders
       };
     }
 
-    // Calculate the first valid date based on the day of the month provided
-    let firstBillDate = setDate(new Date(), parseInt(dayOfMonth));
+    const notification = await prisma.notification.create({
+      data: {
+        notificationId: uuidv4(),
+        userUuid: updatedBy,
+        billId: newBill.billId,
+        title: `Bill Due: ${billName}`,
+        message: `Your bill for ${billName} is due on ${dayOfMonth}.`,
+        read: false,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      },
+    });
 
-    // Ensure the date is valid
+    let firstBillDate = setDate(new Date(), parseInt(dayOfMonth));
     if (!isValid(firstBillDate)) {
       console.error('Invalid date value:', firstBillDate);
       return {
         statusCode: 400,
         body: JSON.stringify({ message: "Invalid date value" }),
-        headers: corsHeaders,
+        headers: corsHeaders
       };
     }
 
@@ -250,7 +259,7 @@ exports.handler = async (event) => {
         authorizationToken: authorizationToken,
         billId: newBill.billId,
         title: `Bill Due: ${billName}`,
-        message: `Your bill for ${billName} is due on ${firstBillDate.toISOString().split('T')[0]}.`,
+        message: `Your bill for ${billName} is due on the ${firstBillDate.toISOString().split('T')[0]}.`,
         recipientEmail: recipientEmails,
       }),
     });

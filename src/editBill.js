@@ -9,6 +9,7 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'Content-Type',
   'Access-Control-Allow-Methods': 'OPTIONS,POST,GET'
 };
+
 exports.handler = async (event) => {
   const { authorizationToken, billId, updates } = JSON.parse(event.body);
 
@@ -90,27 +91,12 @@ exports.handler = async (event) => {
       data: {
         category: updates.category || bill.category,
         billName: updates.billName || bill.billName,
-        amount:
-          updates.amount !== undefined
-            ? parseFloat(updates.amount)
-            : bill.amount,
-        dayOfMonth:
-          updates.dayOfMonth !== undefined
-            ? parseInt(updates.dayOfMonth)
-            : bill.dayOfMonth,
+        amount: updates.amount !== undefined ? parseFloat(updates.amount) : bill.amount,
+        dayOfMonth: updates.dayOfMonth !== undefined ? parseInt(updates.dayOfMonth) : bill.dayOfMonth,
         frequency: updates.frequency || bill.frequency,
-        isDebt:
-          updates.isDebt !== undefined
-            ? updates.isDebt === "true"
-            : bill.isDebt,
-        interestRate:
-          updates.interestRate !== undefined
-            ? parseFloat(updates.interestRate)
-            : bill.interestRate,
-        cashBack:
-          updates.cashBack !== undefined
-            ? parseFloat(updates.cashBack)
-            : bill.cashBack,
+        isDebt: updates.isDebt !== undefined ? updates.isDebt === "true" : bill.isDebt,
+        interestRate: updates.interestRate !== undefined ? parseFloat(updates.interestRate) : bill.interestRate,
+        cashBack: updates.cashBack !== undefined ? parseFloat(updates.cashBack) : bill.cashBack,
         description: updates.description || bill.description,
         status: updates.status || bill.status,
         url: updates.url || bill.url,
@@ -121,25 +107,25 @@ exports.handler = async (event) => {
       },
     });
 
-    // Get household members' emails if the billId or householdId has changed
+    // Get household members' emails if the householdId has changed
     let recipientEmails;
     if (updates.householdId && updates.householdId !== bill.householdId) {
       const householdMembers = await prisma.householdMembers.findMany({
         where: { householdId: updates.householdId },
-        select: { user: { select: { email: true } } },
+        select: { member: { select: { email: true } } },
       });
 
       recipientEmails = householdMembers
-        .map((member) => member.user.email)
+        .map((member) => member.member.email)
         .join(";");
     } else {
       const householdMembers = await prisma.householdMembers.findMany({
         where: { householdId: bill.householdId },
-        select: { user: { select: { email: true } } },
+        select: { member: { select: { email: true } } },
       });
 
       recipientEmails = householdMembers
-        .map((member) => member.user.email)
+        .map((member) => member.member.email)
         .join(";");
     }
 
@@ -158,6 +144,7 @@ exports.handler = async (event) => {
     });
 
     const response = await lambdaClient.send(editNotificationCommand);
+
     // Calculate running totals
     const calculateTotalsCommand = new InvokeCommand({
       FunctionName: 'calculateRunningTotal',

@@ -1,5 +1,6 @@
 const { PrismaClient } = require("@prisma/client");
 const { LambdaClient, InvokeCommand } = require("@aws-sdk/client-lambda");
+const Decimal = require('decimal.js');
 
 const prisma = new PrismaClient();
 const lambdaClient = new LambdaClient({ region: process.env.AWS_REGION });
@@ -97,12 +98,12 @@ exports.handler = async (event) => {
 
     const monthSpend = monthTransactions.map(transaction => ({
       category: transaction.category,
-      amount: transaction._sum.amount
+      amount: new Decimal(transaction._sum.amount).toFixed(2)
     }));
 
     const yearToDateSpend = yearToDateTransactions.map(transaction => ({
       category: transaction.category,
-      amount: transaction._sum.amount
+      amount: new Decimal(transaction._sum.amount).toFixed(2)
     }));
 
     return {

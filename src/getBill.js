@@ -81,6 +81,7 @@ exports.handler = async (event) => {
         password: true,
         createdAt: true,
         updatedAt: true,
+        notificationNotificationId: true,
       },
     });
 
@@ -95,7 +96,27 @@ exports.handler = async (event) => {
     return {
       statusCode: 200,
       headers: corsHeaders,
-      body: JSON.stringify({ bill: bill }),
+      body: JSON.stringify({
+        bill: {
+          billId: bill.billId,
+          billName: bill.billName,
+          amount: bill.amount,
+          frequency: bill.frequency,
+          status: bill.status,
+          category: bill.category,
+          description: bill.description,
+          dayOfMonth: bill.dayOfMonth,
+          isDebt: bill.isDebt,
+          interestRate: bill.interestRate,
+          cashBack: bill.cashBack,
+          url: bill.url,
+          username: bill.username,
+          password: bill.password,
+          createdAt: bill.createdAt,
+          updatedAt: bill.updatedAt,
+          notificationId: bill.notificationNotificationId,
+        }
+      }),
     };
   } catch (error) {
     console.error(`Error retrieving bill with id ${billId}:`, error);
