@@ -149,7 +149,7 @@ exports.handler = async (event) => {
     return {
       statusCode: 200,
       body: JSON.stringify({
-        totalIncome: totalIncome.toFixed(2),
+        totalIncome: totalIncome,
         safeToSpend: safeToSpend.toFixed(2),
         nextPayday: nextPayday.toISOString()
       }),

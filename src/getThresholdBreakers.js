@@ -66,9 +66,18 @@ exports.handler = async (event) => {
       };
     }
 
-    // Fetch ledger entries with running total for the specified paymentSourceId
+    const currentDate = new Date();
+
+    // Fetch ledger entries with running total for the specified paymentSourceId and future transactions only
     const ledgerEntries = await prisma.ledger.findMany({
-      where: { householdId: householdId, paymentSourceId: paymentSourceId },
+      where: {
+        householdId: householdId,
+        paymentSourceId: paymentSourceId,
+        transactionDate: {
+          gt: currentDate, // Only fetch transactions that haven't happened yet
+        },
+        status: false, // Only include entries where status is false
+      },
       orderBy: { transactionDate: "asc" },
       select: {
         transactionDate: true,

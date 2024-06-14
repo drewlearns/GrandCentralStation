@@ -16,6 +16,17 @@ resource "aws_s3_bucket_public_access_block" "receipts_bucket_public_access_bloc
   restrict_public_buckets = true
 }
 
+resource "aws_s3_bucket_cors_configuration" "receipts_bucket_cors" {
+  bucket = aws_s3_bucket.receipts_bucket.id
+
+  cors_rule {
+    allowed_headers = ["*"]
+    allowed_methods = ["GET", "POST", "PUT", "DELETE", "HEAD"]
+    allowed_origins = ["https://app.thepurplepiggybank.com"]
+    expose_headers  = ["ETag"]
+    max_age_seconds = 3000
+  }
+}
 
 resource "aws_vpc_endpoint" "s3_endpoint" {
   vpc_id            = aws_vpc.main.id

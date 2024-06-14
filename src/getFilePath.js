@@ -73,6 +73,7 @@ exports.handler = async (event) => {
     if (!transaction) {
       return {
         statusCode: 404,
+        headers: corsHeaders,
         body: JSON.stringify({ message: "Transaction not found" }),
       };
     }
@@ -109,9 +110,10 @@ exports.handler = async (event) => {
 
       return {
         statusCode: 200,
+        headers: corsHeaders,  // Correctly place headers here
         body: JSON.stringify({
           message: "Presigned URL generated successfully",
-          url: bodyPayload.url, // Include the URL in the response
+          url: bodyPayload.url,  // Include the URL in the response
         }),
       };
     } catch (error) {
