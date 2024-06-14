@@ -150,7 +150,7 @@ exports.handler = async (event) => {
           incomeId: newIncome.incomeId,
           paymentSourceId: paymentSourceId,
           runningTotal: 0, // Initial placeholder
-          tags: tags || null, // Add the tags field here
+          tags: tags || `Income,${name}`, // Add the tags field here
         },
       });
     }
