@@ -12,7 +12,7 @@ const corsHeaders = {
 };
 
 exports.handler = async (event) => {
-  const { authorizationToken, householdId, clearedOnly, currentMonthOnly } = JSON.parse(event.body);
+  const { authorizationToken, householdId, filters = {}, pagination = {} } = JSON.parse(event.body);
 
   if (!authorizationToken) {
     return {
@@ -66,14 +66,13 @@ exports.handler = async (event) => {
   }
 
   try {
-    // Prepare the where clause based on the provided arguments
     const whereClause = { householdId: householdId };
 
-    if (clearedOnly) {
+    if (filters.clearedOnly) {
       whereClause.status = true;
     }
 
-    if (currentMonthOnly) {
+    if (filters.currentMonthOnly) {
       const today = new Date();
       const firstDayOfMonth = new Date(today.getFullYear(), today.getMonth(), 1);
       const lastDayOfMonth = new Date(today.getFullYear(), today.getMonth() + 1, 0);
@@ -84,7 +83,51 @@ exports.handler = async (event) => {
       };
     }
 
-    // Fetch all ledger entries based on the where clause
+    if (filters.transactionName) {
+      whereClause.description = { contains: filters.transactionName };
+    }
+
+    if (filters.minAmount || filters.maxAmount) {
+      whereClause.amount = {};
+      if (filters.minAmount) {
+        whereClause.amount.gte = new Decimal(filters.minAmount);
+      }
+      if (filters.maxAmount) {
+        whereClause.amount.lte = new Decimal(filters.maxAmount);
+      }
+    }
+
+    if (filters.year) {
+      const year = parseInt(filters.year, 10);
+      if (!isNaN(year)) {
+        const firstDayOfYear = new Date(year, 0, 1);
+        const lastDayOfYear = new Date(year, 11, 31);
+        whereClause.transactionDate = {
+          ...whereClause.transactionDate,
+          gte: firstDayOfYear,
+          lte: lastDayOfYear,
+        };
+      }
+    }
+
+    if (filters.month) {
+      const monthIndex = new Date(Date.parse(filters.month +" 1, 2022")).getMonth();
+      if (!isNaN(monthIndex)) {
+        const year = filters.year ? parseInt(filters.year, 10) : new Date().getFullYear();
+        const firstDayOfMonth = new Date(year, monthIndex, 1);
+        const lastDayOfMonth = new Date(year, monthIndex + 1, 0);
+        whereClause.transactionDate = {
+          ...whereClause.transactionDate,
+          gte: firstDayOfMonth,
+          lte: lastDayOfMonth,
+        };
+      }
+    }
+
+    const page = pagination.page || 1;
+    const itemsPerPage = pagination.itemsPerPage || 10;
+    const skip = (page - 1) * itemsPerPage;
+
     const ledgerEntries = await prisma.ledger.findMany({
       where: whereClause,
       include: {
@@ -121,9 +164,13 @@ exports.handler = async (event) => {
       },
       orderBy: [
         { transactionDate: 'desc' },
-        { createdAt: 'desc' }
-      ]
+      ],
+      skip: skip,
+      take: itemsPerPage,
     });
+
+    const totalItems = await prisma.ledger.count({ where: whereClause });
+    const totalPages = Math.ceil(totalItems / itemsPerPage);
 
     if (ledgerEntries.length === 0) {
       return {
@@ -133,10 +180,8 @@ exports.handler = async (event) => {
       };
     }
 
-    // Helper function to format numbers with two decimal places
     const formatNumber = (num) => Number(new Decimal(num).toFixed(2));
 
-    // Helper function to set default values
     const setDefaultValues = (entry) => {
       if (entry.billId === null) entry.billId = '';
       if (entry.incomeId === null) entry.incomeId = '';
@@ -145,14 +190,12 @@ exports.handler = async (event) => {
       if (entry.cashBack === null) entry.cashBack = 0.0;
     };
 
-    // Flatten the transactions and merge the first transactionId into the ledger entry
     const flattenedLedgerEntries = ledgerEntries.map(entry => {
       const flattenedEntry = { ...entry };
       if (entry.transactions && entry.transactions.length > 0) {
         flattenedEntry.transactionId = entry.transactions[0].transactionId;
       }
 
-      // Determine the type based on the presence of associated IDs
       if (flattenedEntry.bill && flattenedEntry.bill.billId) {
         flattenedEntry.type = 'bill';
       } else if (flattenedEntry.income && flattenedEntry.income.incomeId) {
@@ -161,7 +204,6 @@ exports.handler = async (event) => {
         flattenedEntry.type = 'transaction';
       }
 
-      // Set default values
       setDefaultValues(flattenedEntry);
       if (flattenedEntry.bill) setDefaultValues(flattenedEntry.bill);
       if (flattenedEntry.income) setDefaultValues(flattenedEntry.income);
@@ -175,7 +217,6 @@ exports.handler = async (event) => {
         });
       }
 
-      // Format amounts and runningTotal as numbers with two decimal places
       if (flattenedEntry.amount !== null) {
         flattenedEntry.amount = formatNumber(flattenedEntry.amount);
       }
@@ -189,22 +230,26 @@ exports.handler = async (event) => {
         flattenedEntry.income.amount = formatNumber(flattenedEntry.income.amount);
       }
 
-      delete flattenedEntry.transactions; // Remove the nested transactions array
+      delete flattenedEntry.transactions;
+
+      // Add year and month fields
+      const date = new Date(flattenedEntry.transactionDate);
+      flattenedEntry.year = date.getFullYear();
+      flattenedEntry.month = date.toLocaleString('default', { month: 'long' }).toLowerCase();
+
       return flattenedEntry;
     });
 
-    // Convert to JSON manually to ensure numbers maintain .00
-    const jsonString = JSON.stringify({ ledgerEntries: flattenedLedgerEntries }, (key, value) => {
-      if (typeof value === 'number') {
-        return parseFloat(value.toFixed(2));
-      }
-      return value;
-    });
+    const response = {
+      nextPageNumber: page < totalPages ? page + 1 : null,
+      numberOfItemsLoaded: flattenedLedgerEntries.length,
+      lastResponse: flattenedLedgerEntries
+    };
 
     return {
       statusCode: 200,
       headers: corsHeaders,
-      body: jsonString,
+      body: JSON.stringify(response),
     };
   } catch (error) {
     console.error('Error retrieving ledger entries:', error);

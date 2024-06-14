@@ -81,12 +81,22 @@ exports.handler = async (event) => {
       };
     }
 
-    await prisma.ledger.delete({
-      where: { ledgerId: ledgerEntry.ledgerId },
-    });
+    // Perform the operations in a transaction
+    await prisma.$transaction(async (prisma) => {
+      // Delete the transaction first
+      await prisma.transaction.delete({
+        where: { transactionId: transactionId },
+      });
 
-    await prisma.transaction.delete({
-      where: { transactionId: transactionId },
+      // Delete attachments linked to the ledger entry
+      await prisma.attachments.deleteMany({
+        where: { ledgerId: ledgerEntry.ledgerId },
+      });
+
+      // Delete the ledger entry
+      await prisma.ledger.delete({
+        where: { ledgerId: ledgerEntry.ledgerId },
+      });
     });
 
     // Invoke the secondary Lambda function to update running totals
