@@ -1,6 +1,6 @@
 const { PrismaClient } = require("@prisma/client");
 const { v4: uuidv4 } = require("uuid");
-const { S3Client, PutObjectCommand, HeadBucketCommand } = require("@aws-sdk/client-s3");
+const { S3Client, PutObjectCommand, HeadBucketCommand, DeleteObjectCommand } = require("@aws-sdk/client-s3");
 const { LambdaClient, InvokeCommand } = require("@aws-sdk/client-lambda");
 const { Buffer } = require("buffer");
 const Decimal = require("decimal.js");
@@ -18,9 +18,11 @@ const corsHeaders = {
 const BUCKET = process.env.BUCKET;
 
 const uploadToS3 = async (bucket, key, base64String) => {
+  console.log(`Attempting to upload to bucket ${bucket} with key ${key}`);
   try {
     await s3Client.send(new HeadBucketCommand({ Bucket: bucket }));
   } catch (err) {
+    console.error(`Bucket ${bucket} does not exist or you have no access.`, err);
     throw new Error(`Bucket ${bucket} does not exist or you have no access.`);
   }
 
@@ -36,17 +38,37 @@ const uploadToS3 = async (bucket, key, base64String) => {
 
   try {
     await s3Client.send(new PutObjectCommand(params));
+    console.log(`Successfully uploaded to S3 with key ${key}`);
   } catch (err) {
+    console.error(`Error uploading to S3: ${err.message}`, err);
     throw new Error(`Error uploading to S3: ${err.message}`);
   }
 };
 
+const deleteFromS3 = async (bucket, key) => {
+  console.log(`Attempting to delete from bucket ${bucket} with key ${key}`);
+  const params = {
+    Bucket: bucket,
+    Key: key
+  };
+
+  try {
+    await s3Client.send(new DeleteObjectCommand(params));
+    console.log(`Successfully deleted from S3 with key ${key}`);
+  } catch (err) {
+    console.error(`Error deleting from S3: ${err.message}`, err);
+    throw new Error(`Error deleting from S3: ${err.message}`);
+  }
+};
+
 exports.handler = async (event) => {
+  console.log('Event received:', event);
   try {
     const body = JSON.parse(event.body);
     const { authorizationToken, transactionId, householdId, amount, transactionType, transactionDate, category, description, status, sourceId, tags, image } = body;
 
     if (!authorizationToken) {
+      console.warn('No authorization token provided');
       return {
         statusCode: 401,
         headers: corsHeaders,
@@ -54,40 +76,54 @@ exports.handler = async (event) => {
       };
     }
 
+    console.log('Invoking verifyToken function');
     const verifyTokenCommand = new InvokeCommand({ FunctionName: 'verifyToken', Payload: JSON.stringify({ authorizationToken }) });
     const verifyTokenResponse = await lambdaClient.send(verifyTokenCommand);
     const payload = JSON.parse(new TextDecoder('utf-8').decode(verifyTokenResponse.Payload));
 
     if (verifyTokenResponse.FunctionError) {
+      console.error('Token verification failed:', payload);
       throw new Error(payload.errorMessage || 'Token verification failed.');
     }
 
     const updatedBy = payload.username;
     if (!updatedBy) throw new Error('Token verification did not return a valid username.');
 
+    console.log('Checking if transaction exists');
     const transactionExists = await prisma.transaction.findUnique({ where: { transactionId } });
     if (!transactionExists) return { statusCode: 404, body: JSON.stringify({ message: "Transaction not found" }) };
 
+    console.log('Checking if household exists');
     const householdExists = await prisma.household.findUnique({ where: { householdId } });
     if (!householdExists) return { statusCode: 404, body: JSON.stringify({ message: "Household not found" }) };
 
+    console.log('Checking if payment source exists');
     const paymentSourceExists = await prisma.paymentSource.findUnique({ where: { sourceId } });
     if (!paymentSourceExists) return { statusCode: 404, body: JSON.stringify({ message: "Payment source not found" }) };
 
+    if (!prisma.attachments) {
+      console.error('Prisma attachments model is undefined. Please check your Prisma schema and ensure the model is defined correctly.');
+      throw new Error('Internal server error');
+    }
+
     let filePath = null;
+    let existingAttachment = null;
     if (image) {
+      console.log('Uploading image to S3');
       const imageKey = `transaction-images/${uuidv4()}.jpg`;
       await uploadToS3(BUCKET, imageKey, image);
 
-      const existingAttachment = await prisma.attachment.findFirst({ where: { ledgerId: transactionExists.ledgerId } });
+      existingAttachment = await prisma.attachments.findFirst({ where: { ledgerId: transactionExists.ledgerId, fileType: "receipt" } });
       if (existingAttachment) {
+        console.log('Deleting existing attachment from S3');
         await deleteFromS3(BUCKET, existingAttachment.filePath);
-        await prisma.attachment.update({
+        await prisma.attachments.update({
           where: { attachmentId: existingAttachment.attachmentId },
           data: { filePath: imageKey, updatedAt: new Date() }
         });
       } else {
-        await prisma.attachment.create({
+        console.log('Creating new attachment in database');
+        await prisma.attachments.create({
           data: {
             attachmentId: uuidv4(),
             ledgerId: transactionExists.ledgerId,
@@ -102,8 +138,10 @@ exports.handler = async (event) => {
       filePath = imageKey;
     }
 
+    console.log('Calculating running total');
     const runningTotal = await getRunningTotal(householdId, sourceId);
 
+    console.log('Updating ledger');
     const updatedLedger = await prisma.ledger.update({
       where: { ledgerId: transactionExists.ledgerId },
       data: {
@@ -122,6 +160,7 @@ exports.handler = async (event) => {
       },
     });
 
+    console.log('Updating transaction');
     const updatedTransaction = await prisma.transaction.update({
       where: { transactionId },
       data: {
@@ -135,13 +174,9 @@ exports.handler = async (event) => {
     });
 
     if (filePath) {
-      await prisma.attachment.upsert({
-        where: {
-          ledgerId_fileType: {
-            ledgerId: updatedLedger.ledgerId,
-            fileType: "receipt"
-          }
-        },
+      console.log('Upserting attachment');
+      await prisma.attachments.upsert({
+        where: { attachmentId: existingAttachment ? existingAttachment.attachmentId : uuidv4() },
         update: {
           filePath: filePath,
           updatedAt: new Date()
@@ -158,7 +193,7 @@ exports.handler = async (event) => {
       });
     }
 
-    // Calculate running totals
+    console.log('Invoking calculateRunningTotal function');
     const calculateTotalsCommand = new InvokeCommand({
       FunctionName: 'calculateRunningTotal',
       Payload: JSON.stringify({ householdId: householdId, paymentSourceId: sourceId }),
@@ -172,20 +207,30 @@ exports.handler = async (event) => {
       body: JSON.stringify({ message: "Transaction updated successfully", transaction: updatedTransaction })
     };
   } catch (error) {
-    return { statusCode: 500, 
+    console.error('Error processing request:', error);
+    return { 
+      statusCode: 500, 
       headers: corsHeaders,
-      body: JSON.stringify({ message: "Error processing request", error: error.message }) };
+      body: JSON.stringify({ message: "Error processing request", error: error.message }) 
+    };
   } finally {
     await prisma.$disconnect();
   }
 };
 
 async function getRunningTotal(householdId, paymentSourceId) {
+  console.log(`Calculating running total for householdId ${householdId} and paymentSourceId ${paymentSourceId}`);
   const transactions = await prisma.ledger.findMany({
     where: { householdId, paymentSourceId },
   });
 
   return transactions.reduce((total, transaction) => {
-    return transaction.transactionType.toLowerCase() === 'debit' ? new Decimal(total).minus(new Decimal(transaction.amount)).toFixed(2) : new Decimal(total).plus(new Decimal(transaction.amount)).toFixed(2);
+    if (transaction.amount === null) {
+      console.warn(`Transaction with id ${transaction.ledgerId} has a null amount. Skipping.`);
+      return total;
+    }
+    return transaction.transactionType.toLowerCase() === 'debit' ? 
+      new Decimal(total).minus(new Decimal(transaction.amount)).toFixed(2) : 
+      new Decimal(total).plus(new Decimal(transaction.amount)).toFixed(2);
   }, new Decimal(0));
 }
