@@ -2,12 +2,14 @@ const { PrismaClient } = require('@prisma/client');
 const { CognitoIdentityProviderClient, InitiateAuthCommand } = require('@aws-sdk/client-cognito-identity-provider');
 const { LambdaClient, InvokeCommand } = require('@aws-sdk/client-lambda');
 const crypto = require('crypto');
+
 const corsHeaders = {
   'Content-Type': 'application/json',
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'Content-Type',
   'Access-Control-Allow-Methods': 'OPTIONS,POST,GET'
 };
+
 const prisma = new PrismaClient();
 const cognitoClient = new CognitoIdentityProviderClient({ region: process.env.AWS_REGION });
 const lambdaClient = new LambdaClient({ region: process.env.AWS_REGION });
@@ -150,16 +152,19 @@ async function handleRefreshResponse(response, username, originalRefreshToken) {
       };
     }
 
-    await storeTokens(username, {
-      ...tokens,
-      RefreshToken: refreshTokenToStore,
-    });
+    // Calculate the expiration timestamp
+    const expiresAt = new Date(Date.now() + ExpiresIn * 1000).toISOString();
 
     return {
       statusCode: 200,
       body: JSON.stringify({
         message: 'Token refresh successful',
-        tokens: tokens,
+        tokens: {
+          AccessToken,
+          RefreshToken: refreshTokenToStore,
+          IdToken,
+          ExpiresIn: expiresAt,
+        },
       }),
       headers: corsHeaders,
     };
@@ -170,27 +175,5 @@ async function handleRefreshResponse(response, username, originalRefreshToken) {
       body: JSON.stringify({ message: 'Unexpected response' }),
       headers: corsHeaders,
     };
-  }
-}
-
-async function storeTokens(username, tokens) {
-  try {
-    await prisma.token.create({
-      data: {
-        tokenId: crypto.randomUUID(),
-        userUuid: username,
-        accessToken: tokens.AccessToken,
-        refreshToken: tokens.RefreshToken, // Store the refresh token
-        idToken: tokens.IdToken,
-        issuedAt: new Date(),
-        expiresIn: tokens.ExpiresIn,
-        token: tokens.IdToken,
-        type: 'access',
-      },
-    });
-    console.log('Stored tokens for user:', username);
-  } catch (error) {
-    console.error('Error storing tokens:', error.message);
-    throw error;
   }
 }
