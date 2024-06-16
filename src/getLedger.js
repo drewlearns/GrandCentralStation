@@ -12,7 +12,7 @@ const corsHeaders = {
 };
 
 exports.handler = async (event) => {
-  const { authorizationToken, householdId, filters = {}, pagination = {} } = JSON.parse(event.body);
+  const { authorizationToken, householdId, filters = {}, pagination = {}, numberOfItemsLoaded, lastResponse } = JSON.parse(event.body);
 
   if (!authorizationToken) {
     return {
@@ -66,7 +66,10 @@ exports.handler = async (event) => {
   }
 
   try {
-    const whereClause = { householdId: householdId };
+    const whereClause = { 
+      householdId: householdId,
+      isInitial: false // Exclude initial ledger entries
+    };
 
     if (filters.clearedOnly) {
       whereClause.status = true;
@@ -111,7 +114,7 @@ exports.handler = async (event) => {
     }
 
     if (filters.month) {
-      const monthIndex = new Date(Date.parse(filters.month +" 1, 2022")).getMonth();
+      const monthIndex = new Date(Date.parse(filters.month + " 1, 2022")).getMonth();
       if (!isNaN(monthIndex)) {
         const year = filters.year ? parseInt(filters.year, 10) : new Date().getFullYear();
         const firstDayOfMonth = new Date(year, monthIndex, 1);
@@ -243,6 +246,7 @@ exports.handler = async (event) => {
     const response = {
       nextPageNumber: page < totalPages ? page + 1 : null,
       numberOfItemsLoaded: flattenedLedgerEntries.length,
+      hasMore: page < totalPages,
       lastResponse: flattenedLedgerEntries
     };
 

@@ -10,8 +10,8 @@ TMP_DIR="$DEPLOY_DIR/tmp"
 npm i
 
 # Clean and prepare the deploy directory
-# rm -rf $DEPLOY_DIR
-# mkdir -p $DEPLOY_DIR
+rm -rf $DEPLOY_DIR
+mkdir -p $DEPLOY_DIR
 
 # Copy the schema.prisma and the .so.node file to the deploy directory if not already copied
 cp "prisma/schema.prisma" "$DEPLOY_DIR"
@@ -21,13 +21,6 @@ cp "node_modules/.prisma/client/libquery_engine-rhel-openssl-3.0.x.so.node" "$DE
 process_file() {
   entry=$1
   base_name=$(basename "$entry" .js)
-  zip_file="$DEPLOY_DIR/$base_name.zip"
-
-  # Check if the zip file already exists
-  if [ -f "$zip_file" ]; then
-    echo "Zip file for $base_name already exists, skipping."
-    return
-  fi
 
   echo "Full path of the file being processed: $entry"
   relative_path=${entry#"$SRC_DIR/"}
@@ -116,6 +109,10 @@ process_file() {
   mkdir -p "$TMP_DIR/node_modules/jsonwebtoken/"
   cp -r node_modules/jsonwebtoken/* "$TMP_DIR/node_modules/jsonwebtoken/"
 
+  # # Include jwksClient module
+  # mkdir -p "$TMP_DIR/node_modules/jwksClient/"
+  # cp -r node_modules/jwksClient/* "$TMP_DIR/node_modules/jwksClient/"
+
   # Include jws module
   mkdir -p "$TMP_DIR/node_modules/jws/"
   cp -r node_modules/jws/* "$TMP_DIR/node_modules/jws/"
@@ -126,7 +123,7 @@ process_file() {
 
   # Include jwa module
   mkdir -p "$TMP_DIR/node_modules/jwa/"
-  cp -r node modules/jwa/* "$TMP_DIR/node_modules/jwa/"
+  cp -r node_modules/jwa/* "$TMP_DIR/node_modules/jwa/"
 
   # Include buffer-equal-constant-time module
   mkdir -p "$TMP_DIR/node_modules/buffer-equal-constant-time/"
@@ -178,7 +175,7 @@ process_file() {
 
   # Include debug module
   mkdir -p "$TMP_DIR/node_modules/debug/"
-  cp -r node modules/debug/* "$TMP_DIR/node_modules/debug/"
+  cp -r node_modules/debug/* "$TMP_DIR/node_modules/debug/"
 
   # Include jose module
   mkdir -p "$TMP_DIR/node_modules/jose/"
@@ -194,38 +191,38 @@ process_file() {
 
   # Include limiter module
   mkdir -p "$TMP_DIR/node_modules/limiter/"
-  cp -r node modules/limiter/* "$TMP_DIR/node_modules/limiter/"
+  cp -r node_modules/limiter/* "$TMP_DIR/node_modules/limiter/"
 
   # Include json2csv module
   mkdir -p "$TMP_DIR/node_modules/json2csv/"
-  cp -r node modules/json2csv/* "$TMP_DIR/node_modules/json2csv/"
+  cp -r node_modules/json2csv/* "$TMP_DIR/node_modules/json2csv/"
 
   # Include date-fns module
   mkdir -p "$TMP_DIR/node_modules/date-fns/"
-  cp -r node modules/date-fns/* "$TMP_DIR/node_modules/date-fns/"
+  cp -r node_modules/date-fns/* "$TMP_DIR/node_modules/date-fns/"
 
   # Include lodash.get module
   mkdir -p "$TMP_DIR/node_modules/lodash.get/"
-  cp -r node modules/lodash.get/* "$TMP_DIR/node_modules/lodash.get/"
+  cp -r node_modules/lodash.get/* "$TMP_DIR/node_modules/lodash.get/"
 
   # Include @streamparser/json module
   mkdir -p "$TMP_DIR/node_modules/@streamparser/json/"
-  cp -r node modules/@streamparser/json/* "$TMP_DIR/node_modules/@streamparser/json/"
+  cp -r node_modules/@streamparser/json/* "$TMP_DIR/node_modules/@streamparser/json/"
 
   # Include @aws-sdk/client-cognito-identity-provider module
   mkdir -p "$TMP_DIR/node_modules/@aws-sdk/client-cognito-identity-provider/"
-  cp -r node modules/@aws-sdk/client-cognito-identity-provider/* "$TMP_DIR/node_modules/@aws-sdk/client-cognito-identity-provider/"
+  cp -r node_modules/@aws-sdk/client-cognito-identity-provider/* "$TMP_DIR/node_modules/@aws-sdk/client-cognito-identity-provider/"
   
   # Include decimal.js module
   mkdir -p "$TMP_DIR/node_modules/decimal.js/"
-  cp -r node modules/decimal.js/* "$TMP_DIR/node_modules/decimal.js/"
+  cp -r node_modules/decimal.js/* "$TMP_DIR/node_modules/decimal.js/"
 
   if [ -d "node_modules/busboy" ]; then
     mkdir -p "$TMP_DIR/node_modules/busboy"
-    cp -r node modules/busboy/* "$TMP_DIR/node_modules/busboy/"
+    cp -r node_modules/busboy/* "$TMP_DIR/node_modules/busboy/"
     if [ -d "node_modules/streamsearch" ]; then
       mkdir -p "$TMP_DIR/node_modules/streamsearch"
-      cp -r node modules/streamsearch/* "$TMP_DIR/node_modules/streamsearch/"
+      cp -r node_modules/streamsearch/* "$TMP_DIR/node_modules/streamsearch/"
     else
       echo "streamsearch module not found in node_modules, ensure it's installed."
     fi

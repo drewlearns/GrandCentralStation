@@ -158,7 +158,7 @@ exports.handler = async (event) => {
                         transactionType: 'Credit',
                         transactionDate: new Date(),
                         category: 'Initial Setup',
-                        description: 'Initially created ledger - This can be deleted',
+                        description: 'Initially created ledger - This cannot be deleted',
                         createdAt: new Date(),
                         updatedAt: new Date(),
                         updatedBy: createdBy,

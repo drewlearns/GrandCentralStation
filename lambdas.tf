@@ -11,9 +11,6 @@ module "lambdas" {
   db_name                       = "tppb${var.environment}"
   database_url                  = "postgresql://root:${aws_secretsmanager_secret_version.db_master_password_version.secret_string}@${aws_rds_cluster.aurora_cluster.endpoint}:5432/tppb${var.environment}?schema=public"
   lambdas = {
-    ################
-    # User
-    ################
     "addUser" = {
       runtime       = "nodejs20.x"
       method        = "POST" # CAN ONLY BE POST
@@ -149,9 +146,6 @@ module "lambdas" {
         DATABASE_URL            = "postgresql://root:${aws_secretsmanager_secret_version.db_master_password_version.secret_string}@${aws_rds_cluster.aurora_cluster.endpoint}:5432/tppb${var.environment}?schema=public"
       }
     },
-    ######################
-    # HOUSEHOLD
-    ######################
     "addHousehold" = {
       runtime       = "nodejs20.x"
       method        = "POST" # CAN ONLY BE POST
@@ -494,9 +488,6 @@ module "lambdas" {
         DATABASE_URL = "postgresql://root:${aws_secretsmanager_secret_version.db_master_password_version.secret_string}@${aws_rds_cluster.aurora_cluster.endpoint}:5432/tppb${var.environment}?schema=public"
       }
     },
-    ##########################
-    # NOTIFICATIONS
-    ##########################
     "addNotification" = {
       runtime       = "nodejs20.x"
       method        = "POST" # CAN ONLY BE POST
@@ -533,9 +524,6 @@ module "lambdas" {
         DATABASE_URL = "postgresql://root:${aws_secretsmanager_secret_version.db_master_password_version.secret_string}@${aws_rds_cluster.aurora_cluster.endpoint}:5432/tppb${var.environment}?schema=public"
       }
     },
-    ##########################
-    # Preferences
-    ##########################
     "setDefaultPaymentSource" = {
       runtime       = "nodejs20.x"
       method        = "POST" # CAN ONLY BE POST
@@ -599,9 +587,6 @@ module "lambdas" {
         DATABASE_URL = "postgresql://root:${aws_secretsmanager_secret_version.db_master_password_version.secret_string}@${aws_rds_cluster.aurora_cluster.endpoint}:5432/tppb${var.environment}?schema=public"
       }
     },
-    #########################
-    # Reporting
-    #########################
     "getCategories" = {
       runtime       = "nodejs20.x"
       method        = "POST" # CAN ONLY BE POST
