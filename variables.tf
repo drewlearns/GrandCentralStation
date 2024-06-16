@@ -24,3 +24,9 @@ variable "region" {
   default     = "us-east-1"
   type        = string
 }
+
+variable "account_number" {
+  description = "aws account number"
+  default     = "891377088894"
+  type        = string
+}

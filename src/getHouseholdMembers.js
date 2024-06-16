@@ -8,7 +8,7 @@ const corsHeaders = {
     'Access-Control-Allow-Origin': '*',
     'Access-Control-Allow-Headers': 'Content-Type',
     'Access-Control-Allow-Methods': 'OPTIONS,POST,GET'
-  };
+};
 
 exports.handler = async (event) => {
     const { authorizationToken, householdId } = JSON.parse(event.body);
@@ -93,7 +93,7 @@ exports.handler = async (event) => {
                 householdId: householdId,
             },
             include: {
-                user: true
+                member: true // Corrected relationship field
             }
         });
 
@@ -102,11 +102,11 @@ exports.handler = async (event) => {
             role: member.role,
             joinedDate: member.joinedDate,
             user: {
-                username: member.user.username,
-                firstName: member.user.firstName,
-                lastName: member.user.lastName,
-                email: member.user.email,
-                phoneNumber: member.user.phoneNumber,
+                username: member.member.username,
+                firstName: member.member.firstName,
+                lastName: member.member.lastName,
+                email: member.member.email,
+                phoneNumber: member.member.phoneNumber,
             }
         }));
 

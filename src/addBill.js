@@ -207,6 +207,7 @@ exports.handler = async (event) => {
         read: false,
         createdAt: new Date(),
         updatedAt: new Date(),
+        dueDate: firstBillDate, // Set the dueDate
       },
     });
 

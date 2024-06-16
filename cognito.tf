@@ -18,12 +18,12 @@ resource "aws_cognito_user_pool" "cognito_user_pool" {
     }
   }
 
-  # email_configuration {
-  #   email_sending_account  = "DEVELOPER"
-  #   source_arn             = "arn:aws:ses:${var.region}:${data.aws_caller_identity.current.account_id}:identity/noReply@${var.domain_name}"
-  #   from_email_address     = "noReply@${var.domain_name}"
-  #   reply_to_email_address = "help@thepurplepiggybank.com"
-  # }
+  email_configuration {
+    email_sending_account  = "DEVELOPER"
+    source_arn             = "arn:aws:ses:${var.region}:${data.aws_caller_identity.current.account_id}:identity/noreply@app.thepurplepiggybank.com"
+    from_email_address     = "noreply@app.thepurplepiggybank.com"
+    reply_to_email_address = "help@thepurplepiggybank.com"
+  }
 }
 
 
@@ -57,7 +57,7 @@ resource "aws_iam_policy" "cognito_ses_policy" {
           "ses:SendRawEmail",
           "sns:Publish"
         ],
-        Resource = "arn:aws:ses:${var.region}:${data.aws_caller_identity.current.account_id}:identity/noReply@${var.domain_name}"
+        Resource = "arn:aws:ses:${var.region}:${data.aws_caller_identity.current.account_id}:identity/noreply@${var.domain_name}"
       }
     ]
   })

@@ -12,11 +12,12 @@ exports.handler = async (event) => {
   // Determine the target day, handling special cases
   const targetDay = day > 28 ? 28 : day;
 
+  const targetDate = new Date(Date.UTC(year, month - 1, targetDay)); // target date in UTC
+
   try {
     const notifications = await prisma.notification.findMany({
       where: {
-        dueDay: targetDay,
-        dueMonth: month,
+        dueDate: targetDate,
       },
     });
 
@@ -35,7 +36,7 @@ exports.handler = async (event) => {
             Data: notification.title,
           },
         },
-        Source: `NoReply@${process.env.TPPB_DOMAIN}`,
+        Source: `noreply@${process.env.TPPB_DOMAIN}`,
       };
 
       const command = new SendEmailCommand(params);

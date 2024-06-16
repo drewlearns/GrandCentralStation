@@ -9,6 +9,7 @@ const cognitoClient = new CognitoIdentityProviderClient({ region: process.env.AW
 const generateSecretHash = (username, clientId, clientSecret) => {
   return crypto.createHmac('SHA256', clientSecret).update(username + clientId).digest('base64');
 };
+
 const corsHeaders = {
   'Content-Type': 'application/json',
   'Access-Control-Allow-Origin': '*',
@@ -185,7 +186,7 @@ exports.handler = async (event) => {
       statusCode: 200,
       body: JSON.stringify({
         message: 'User registered successfully',
-        user: newUser,
+        user: { ...newUser, uuid: username }, // Ensure uuid is included in the response
         household: householdTransaction,
         details: signUpResponse,
       }),

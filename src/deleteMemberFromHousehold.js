@@ -9,6 +9,7 @@ const corsHeaders = {
     'Access-Control-Allow-Headers': 'Content-Type',
     'Access-Control-Allow-Methods': 'OPTIONS,POST,GET'
 };
+
 exports.handler = async (event) => {
     const { authorizationToken, householdId, memberUuid } = JSON.parse(event.body);
 
@@ -58,11 +59,7 @@ exports.handler = async (event) => {
         const household = await prisma.household.findUnique({
             where: { householdId: householdId },
             include: {
-                members: {
-                    where: {
-                        role: 'Owner',
-                    }
-                }
+                members: true
             }
         });
 
@@ -77,7 +74,7 @@ exports.handler = async (event) => {
         }
 
         // Check if the removing user is an owner of the household
-        const isOwner = household.members.some(member => member.memberUuid === removingUserUuid);
+        const isOwner = household.members.some(member => member.memberUuid === removingUserUuid && member.role === 'Owner');
 
         if (!isOwner) {
             return {

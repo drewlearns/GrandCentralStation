@@ -76,6 +76,7 @@ exports.handler = async (event) => {
 
     const recipientEmails = householdMembers.map(member => member.user.email).join(';');
 
+    // In addNotification.js, ensure dueDate is included
     const newNotification = await prisma.notification.create({
       data: {
         notificationId: uuidv4(),
@@ -86,11 +87,12 @@ exports.handler = async (event) => {
         recipientEmail: recipientEmails,
         read: false,
         sent: false,
-        dayOfMonth: billExists.dayOfMonth,  // Include the dayOfMonth field from the bill
         createdAt: new Date(),
         updatedAt: new Date(),
+        dueDate: new Date(billExists.createdAt.getUTCFullYear(), billExists.createdAt.getUTCMonth(), billExists.dayOfMonth), // Calculate dueDate
       },
     });
+
 
     return {
       statusCode: 201,

@@ -150,7 +150,8 @@ model Preferences {
 model Invitations {
   invitationId     String   @id @default(uuid())
   householdId      String
-  invitedUserUuid  String
+  invitedUserUuid  String?
+  invitedUserEmail String
   invitationStatus String
   sentDate         DateTime
   createdAt        DateTime
@@ -158,7 +159,7 @@ model Invitations {
 
   // Relations
   household   Household @relation(fields: [householdId], references: [householdId])
-  invitedUser User      @relation(fields: [invitedUserUuid], references: [uuid])
+  invitedUser User?     @relation(fields: [invitedUserUuid], references: [uuid])
 }
 
 model Attachments {
@@ -183,11 +184,13 @@ model Notification {
   read           Boolean
   createdAt      DateTime
   updatedAt      DateTime
+  dueDate        DateTime // Added dueDate field
 
   // Relations
   user User  @relation(fields: [userUuid], references: [uuid])
   bill Bill? @relation(fields: [billId], references: [billId])
 }
+
 
 model PaymentSource {
   sourceId    String   @id @default(uuid())

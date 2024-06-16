@@ -50,6 +50,8 @@ resource "aws_api_gateway_method_response" "options_method_response" {
 resource "aws_api_gateway_integration_response" "options_integration_response" {
   for_each = var.lambdas
 
+  depends_on = [aws_api_gateway_integration.options_integration]
+
   rest_api_id = aws_api_gateway_rest_api.this_api.id
   resource_id = aws_api_gateway_resource.this_resource[each.key].id
   http_method = aws_api_gateway_method.options_method[each.key].http_method
@@ -102,6 +104,8 @@ resource "aws_api_gateway_method_response" "method_response" {
 
 resource "aws_api_gateway_integration_response" "integration_response" {
   for_each = var.lambdas
+
+  depends_on = [aws_api_gateway_integration.lambda_integration]
 
   rest_api_id = aws_api_gateway_rest_api.this_api.id
   resource_id = aws_api_gateway_resource.this_resource[each.key].id

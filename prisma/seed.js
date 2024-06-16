@@ -240,6 +240,7 @@ async function main() {
       read: false,
       createdAt: new Date(),
       updatedAt: new Date(),
+      dueDate: new Date(2024, new Date().getMonth(), 1), // Include dueDate
       billId: bill1.billId
     }
   });
@@ -253,6 +254,7 @@ async function main() {
       read: false,
       createdAt: new Date(),
       updatedAt: new Date(),
+      dueDate: new Date(2024, new Date().getMonth(), 1), // Include dueDate
       billId: bill2.billId
     }
   });
