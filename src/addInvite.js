@@ -1,7 +1,9 @@
-const { PrismaClient } = require("@prisma/client");
-const { v4: uuidv4 } = require("uuid");
-const { LambdaClient, InvokeCommand } = require("@aws-sdk/client-lambda");
-const { SESClient, SendEmailCommand } = require("@aws-sdk/client-ses");
+const { PrismaClient } = require('@prisma/client');
+const { v4: uuidv4 } = require('uuid');
+const { LambdaClient, InvokeCommand } = require('@aws-sdk/client-lambda');
+const { SESClient, SendEmailCommand } = require('@aws-sdk/client-ses');
+const { verifyToken } = require('./tokenUtils');
+const { refreshAndVerifyToken } = require('./refreshAndVerifyToken'); // Ensure this is correctly pointing to the file
 
 const prisma = new PrismaClient();
 const lambdaClient = new LambdaClient({ region: process.env.AWS_REGION });
@@ -16,12 +18,12 @@ const corsHeaders = {
 exports.handler = async (event) => {
   try {
     const body = typeof event.body === "string" ? JSON.parse(event.body) : event;
-    const { authorizationToken, email, householdId } = body;
+    const { authorizationToken, refreshToken, email, householdId } = body;
 
     console.log(`Received request to add email ${email} to household ${householdId}`);
 
-    if (!authorizationToken) {
-      console.log('No authorization token provided');
+    if (!authorizationToken || !refreshToken) {
+      console.log('No authorization token or refresh token provided');
       return {
         statusCode: 401,
         headers: corsHeaders,
@@ -32,37 +34,31 @@ exports.handler = async (event) => {
     }
 
     let updatedBy;
+    let tokenValid = false;
 
+    // First attempt to verify the token
     try {
-      const verifyTokenCommand = new InvokeCommand({
-        FunctionName: 'verifyToken',
-        Payload: JSON.stringify({ authorizationToken })
-      });
-
-      const verifyTokenResponse = await lambdaClient.send(verifyTokenCommand);
-      const payload = JSON.parse(new TextDecoder('utf-8').decode(verifyTokenResponse.Payload));
-
-      if (verifyTokenResponse.FunctionError) {
-        throw new Error(payload.errorMessage || 'Token verification failed.');
-      }
-
-      updatedBy = payload.username;
-      if (!updatedBy) {
-        throw new Error('Token verification did not return a valid username.');
-      }
-
-      console.log(`Token verified. Updated by ${updatedBy}`);
+      updatedBy = await verifyToken(authorizationToken);
+      tokenValid = true;
     } catch (error) {
-      console.error('Token verification failed:', error);
+      console.error('Token verification failed, attempting refresh:', error.message);
+
+      // Attempt to refresh the token and verify again
+      const result = await refreshAndVerifyToken(authorizationToken, refreshToken);
+      updatedBy = result.userId;
+      authorizationToken = result.newToken; // Update authorizationToken with new token
+      tokenValid = true;
+    }
+
+    if (!tokenValid) {
       return {
         statusCode: 401,
         headers: corsHeaders,
-        body: JSON.stringify({
-          message: 'Invalid token.',
-          error: error.message,
-        }),
+        body: JSON.stringify({ message: 'Invalid token.' }),
       };
     }
+
+    console.log(`Token verified. Updated by ${updatedBy}`);
 
     // Check if household exists
     const householdExists = await prisma.household.findUnique({
@@ -142,7 +138,7 @@ exports.handler = async (event) => {
             Data: 'Household Membership'
           }
         },
-        Source: 'noreply@app.thepurplepiggybank.com'  
+        Source: 'noreply@app.thepurplepiggybank.com'
       };
 
       try {
@@ -176,7 +172,7 @@ exports.handler = async (event) => {
           invitationId: uuidv4(),
           householdId: householdId,
           invitedUserEmail: email,  // Use email as invitedUserEmail
-          invitedUserUuid: userUUID, // Set to email as user does not exist
+          invitedUserUuid: email, // Set to email as user does not exist
           invitationStatus: 'Pending',
           sentDate: new Date(),
           createdAt: new Date(),
@@ -203,7 +199,7 @@ exports.handler = async (event) => {
             Data: 'Household Invitation'
           }
         },
-        Source: 'noreply@app.thepurplepiggybank.com'  
+        Source: 'noreply@app.thepurplepiggybank.com'
       };
 
       try {

@@ -1,5 +1,7 @@
 const { PrismaClient } = require('@prisma/client');
 const { LambdaClient, InvokeCommand } = require('@aws-sdk/client-lambda');
+const { verifyToken } = require('./tokenUtils');
+const { refreshAndVerifyToken } = require('./refreshAndVerifyToken'); // Ensure this is correctly pointing to the file
 
 const prisma = new PrismaClient();
 const lambdaClient = new LambdaClient({ region: process.env.AWS_REGION });
@@ -8,12 +10,12 @@ const corsHeaders = {
     'Access-Control-Allow-Origin': '*',
     'Access-Control-Allow-Headers': 'Content-Type',
     'Access-Control-Allow-Methods': 'OPTIONS,POST,GET'
-  };
+};
 
 exports.handler = async (event) => {
-    const { authorizationToken, householdId, householdName, account, setupComplete, activeSubscription } = JSON.parse(event.body);
+    const { authorizationToken, refreshToken, householdId, householdName, account, setupComplete, activeSubscription } = JSON.parse(event.body);
 
-    if (!authorizationToken) {
+    if (!authorizationToken || !refreshToken) {
         return {
             statusCode: 401,
             headers: corsHeaders,
@@ -22,34 +24,37 @@ exports.handler = async (event) => {
             })
         };
     }
+
     let updatedBy;
+    let tokenValid = false;
+
+    // First attempt to verify the token
     try {
-        // Invoke verifyToken Lambda function
-        const verifyTokenCommand = new InvokeCommand({
-            FunctionName: 'verifyToken',
-            Payload: JSON.stringify({ authorizationToken })
-        });
-
-        const verifyTokenResponse = await lambdaClient.send(verifyTokenCommand);
-        const payload = JSON.parse(new TextDecoder('utf-8').decode(verifyTokenResponse.Payload));
-
-        if (verifyTokenResponse.FunctionError) {
-            throw new Error(payload.errorMessage || 'Token verification failed.');
-        }
-
-        updatedBy = payload.username;
-        if (!updatedBy) {
-            throw new Error('Token verification did not return a valid UUID.');
-        }
+        updatedBy = await verifyToken(authorizationToken);
+        tokenValid = true;
     } catch (error) {
-        console.error('Token verification failed:', error);
+        console.error('Token verification failed, attempting refresh:', error.message);
+
+        // Attempt to refresh the token and verify again
+        try {
+            const result = await refreshAndVerifyToken(authorizationToken, refreshToken);
+            updatedBy = result.userId;
+            tokenValid = true;
+        } catch (refreshError) {
+            console.error('Token refresh and verification failed:', refreshError);
+            return {
+                statusCode: 401,
+                headers: corsHeaders,
+                body: JSON.stringify({ message: 'Invalid token.', error: refreshError.message }),
+            };
+        }
+    }
+
+    if (!tokenValid) {
         return {
             statusCode: 401,
             headers: corsHeaders,
-            body: JSON.stringify({
-                message: 'Invalid token.',
-                error: error.message,
-            }),
+            body: JSON.stringify({ message: 'Invalid token.' }),
         };
     }
 
@@ -73,7 +78,7 @@ exports.handler = async (event) => {
             where: { householdId: householdId },
             data: {
                 householdName: householdName,
-                ccount: account,
+                account: account,
                 setupComplete: setupComplete,
                 activeSubscription: activeSubscription,
                 updatedAt: new Date(),

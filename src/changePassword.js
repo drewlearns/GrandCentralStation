@@ -1,17 +1,18 @@
 const { PrismaClient } = require('@prisma/client');
-const prisma = new PrismaClient();
-const {
-  CognitoIdentityProviderClient,
-  ChangePasswordCommand,
-} = require('@aws-sdk/client-cognito-identity-provider');
+const { CognitoIdentityProviderClient, ChangePasswordCommand } = require('@aws-sdk/client-cognito-identity-provider');
 const crypto = require('crypto');
+const { verifyToken } = require('./tokenUtils');
+const { refreshAndVerifyToken } = require('./refreshAndVerifyToken'); // Ensure this is correctly pointing to the file
+
+const prisma = new PrismaClient();
+const client = new CognitoIdentityProviderClient({ region: process.env.AWS_REGION });
+
 const corsHeaders = {
   'Content-Type': 'application/json',
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'Content-Type',
   'Access-Control-Allow-Methods': 'OPTIONS,POST,GET'
 };
-const client = new CognitoIdentityProviderClient({ region: 'us-east-1' });
 
 function generateSecretHash(username, clientId, clientSecret) {
   return crypto
@@ -21,9 +22,43 @@ function generateSecretHash(username, clientId, clientSecret) {
 }
 
 exports.handler = async (event) => {
-  const { username, oldPassword, newPassword } = JSON.parse(event.body);
+  const { username, oldPassword, newPassword, authorizationToken, refreshToken } = JSON.parse(event.body);
   const clientId = process.env.USER_POOL_CLIENT_ID;
   const clientSecret = process.env.USER_POOL_CLIENT_SECRET;
+
+  let tokenValid = false;
+  let updatedBy = username;
+
+  // First attempt to verify the token
+  try {
+    await verifyToken(authorizationToken);
+    tokenValid = true;
+  } catch (error) {
+    console.error('Token verification failed, attempting refresh:', error.message);
+
+    // Attempt to refresh the token and verify again
+    try {
+      const result = await refreshAndVerifyToken(authorizationToken, refreshToken);
+      updatedBy = result.userId;
+      tokenValid = true;
+    } catch (refreshError) {
+      console.error('Token refresh and verification failed:', refreshError);
+      return {
+        statusCode: 401,
+        headers: corsHeaders,
+        body: JSON.stringify({ message: 'Invalid token.', error: refreshError.message }),
+      };
+    }
+  }
+
+  if (!tokenValid) {
+    return {
+      statusCode: 401,
+      headers: corsHeaders,
+      body: JSON.stringify({ message: 'Invalid token.' }),
+    };
+  }
+
   const accessToken = event.headers.Authorization;
 
   try {
@@ -40,7 +75,6 @@ exports.handler = async (event) => {
         statusCode: 404,
         headers: corsHeaders,
         body: JSON.stringify({ message: 'User not found' }),
-        headers: { 'Content-Type': 'application/json' },
       };
     }
 
@@ -50,48 +84,44 @@ exports.handler = async (event) => {
         statusCode: 403,
         headers: corsHeaders,
         body: JSON.stringify({ message: 'Account is not in trial or active status' }),
-        headers: { 'Content-Type': 'application/json' },
       };
     }
 
     // Change the password
-    return changePassword(accessToken, oldPassword, newPassword);
+    return await changePassword(accessToken, oldPassword, newPassword);
   } catch (error) {
     console.error('Error during password change:', error);
     return {
       statusCode: 500,
       headers: corsHeaders,
       body: JSON.stringify({ message: 'Internal server error', errorDetails: error.message }),
-      headers: { 'Content-Type': 'application/json' },
     };
   }
 };
 
-function changePassword(accessToken, oldPassword, newPassword) {
+async function changePassword(accessToken, oldPassword, newPassword) {
   const params = {
     AccessToken: accessToken,
     PreviousPassword: oldPassword,
     ProposedPassword: newPassword,
   };
 
-  return client
-    .send(new ChangePasswordCommand(params))
-    .then((response) => {
-      return {
-        statusCode: 200,
-        body: JSON.stringify({ message: 'Password changed successfully' }),
-        headers: corsHeaders,
-      };
-    })
-    .catch((error) => {
-      console.error('Password change error:', error);
-      return {
-        statusCode: 401,
-        body: JSON.stringify({
-          message: 'Password change failed',
-          errorDetails: error.message,
-        }),
-        headers: corsHeaders,
-      };
-    });
+  try {
+    await client.send(new ChangePasswordCommand(params));
+    return {
+      statusCode: 200,
+      body: JSON.stringify({ message: 'Password changed successfully' }),
+      headers: corsHeaders,
+    };
+  } catch (error) {
+    console.error('Password change error:', error);
+    return {
+      statusCode: 401,
+      body: JSON.stringify({
+        message: 'Password change failed',
+        errorDetails: error.message,
+      }),
+      headers: corsHeaders,
+    };
+  }
 }

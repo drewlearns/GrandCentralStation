@@ -80,7 +80,7 @@ exports.handler = async (event) => {
       return {
         statusCode: 404,
         body: JSON.stringify({ message: 'User not found' }),
-        headers: { 'Content-Type': 'application/json' },
+        headers: corsHeaders,
       };
     }
 
@@ -89,7 +89,7 @@ exports.handler = async (event) => {
       return {
         statusCode: 403,
         body: JSON.stringify({ message: 'Account is not in trial or active status' }),
-        headers: { 'Content-Type': 'application/json' },
+        headers: corsHeaders,
       };
     }
 
@@ -101,6 +101,8 @@ exports.handler = async (event) => {
       body: JSON.stringify({ message: 'Internal server error', errorDetails: error.message }),
       headers: corsHeaders,
     };
+  } finally {
+    await prisma.$disconnect();
   }
 };
 

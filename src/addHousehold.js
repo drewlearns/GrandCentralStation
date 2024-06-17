@@ -1,6 +1,7 @@
 const { PrismaClient } = require('@prisma/client');
 const { v4: uuidv4 } = require('uuid');
 const { LambdaClient, InvokeCommand } = require('@aws-sdk/client-lambda');
+const { verifyToken } = require('./tokenUtils');
 
 const prisma = new PrismaClient();
 const lambdaClient = new LambdaClient({ region: process.env.AWS_REGION });
@@ -9,12 +10,39 @@ const corsHeaders = {
     'Access-Control-Allow-Origin': '*',
     'Access-Control-Allow-Headers': 'Content-Type',
     'Access-Control-Allow-Methods': 'OPTIONS,POST,GET'
-  };
+};
+
+const refreshAndVerifyToken = async (authorizationToken, refreshToken) => {
+    try {
+        // Try to refresh the token
+        const refreshTokenCommand = new InvokeCommand({
+            FunctionName: 'refreshToken',
+            Payload: JSON.stringify({ authorizationToken, refreshToken }),
+        });
+
+        const refreshTokenResponse = await lambdaClient.send(refreshTokenCommand);
+        const refreshTokenPayload = JSON.parse(new TextDecoder('utf-8').decode(refreshTokenResponse.Payload));
+
+        if (refreshTokenResponse.FunctionError || refreshTokenPayload.statusCode !== 200) {
+            throw new Error(refreshTokenPayload.message || 'Token refresh failed.');
+        }
+
+        const newToken = JSON.parse(refreshTokenPayload.body).newToken;
+
+        // Verify the new token
+        const userId = await verifyToken(newToken);
+
+        return { userId, newToken };
+    } catch (error) {
+        console.error('Token refresh and verification failed:', error);
+        throw new Error('Invalid token.');
+    }
+};
 
 exports.handler = async (event) => {
-    const { authorizationToken, householdName } = JSON.parse(event.body);
+    const { authorizationToken, refreshToken, householdName } = JSON.parse(event.body);
 
-    if (!authorizationToken) {
+    if (!authorizationToken || !refreshToken) {
         return {
             statusCode: 401,
             headers: corsHeaders,
@@ -23,34 +51,29 @@ exports.handler = async (event) => {
             })
         };
     }
+
     let createdBy;
+    let tokenValid = false;
+
+    // First attempt to verify the token
     try {
-        // Invoke verifyToken Lambda function
-        const verifyTokenCommand = new InvokeCommand({
-            FunctionName: 'verifyToken', // Replace with the actual function name
-            Payload: JSON.stringify({ authorizationToken })
-        });
-
-        const verifyTokenResponse = await lambdaClient.send(verifyTokenCommand);
-        const payload = JSON.parse(new TextDecoder('utf-8').decode(verifyTokenResponse.Payload));
-
-        if (verifyTokenResponse.FunctionError) {
-            throw new Error(payload.errorMessage || 'Token verification failed.');
-        }
-
-        createdBy = payload.username;
-        if (!createdBy) {
-            throw new Error('Token verification did not return a valid UUID.');
-        }
+        createdBy = await verifyToken(authorizationToken);
+        tokenValid = true;
     } catch (error) {
-        console.error('Token verification failed:', error);
+        console.error('Token verification failed, attempting refresh:', error.message);
+
+        // Attempt to refresh the token and verify again
+        const result = await refreshAndVerifyToken(authorizationToken, refreshToken);
+        createdBy = result.userId;
+        authorizationToken = result.newToken; // Update authorizationToken with new token
+        tokenValid = true;
+    }
+
+    if (!tokenValid) {
         return {
             statusCode: 401,
             headers: corsHeaders,
-            body: JSON.stringify({
-                message: 'Invalid token.',
-                error: error.message,
-            }),
+            body: JSON.stringify({ message: 'Invalid token.' }),
         };
     }
 

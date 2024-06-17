@@ -1,9 +1,37 @@
 const { PrismaClient } = require('@prisma/client');
 const { v4: uuidv4 } = require('uuid');
 const { LambdaClient, InvokeCommand } = require('@aws-sdk/client-lambda');
+const { verifyToken } = require('./tokenUtils');
 
 const prisma = new PrismaClient();
 const lambdaClient = new LambdaClient({ region: process.env.AWS_REGION });
+
+const refreshAndVerifyToken = async (authorizationToken, refreshToken) => {
+    try {
+        // Try to refresh the token
+        const refreshTokenCommand = new InvokeCommand({
+            FunctionName: 'refreshToken',
+            Payload: JSON.stringify({ authorizationToken, refreshToken }),
+        });
+
+        const refreshTokenResponse = await lambdaClient.send(refreshTokenCommand);
+        const refreshTokenPayload = JSON.parse(new TextDecoder('utf-8').decode(refreshTokenResponse.Payload));
+
+        if (refreshTokenResponse.FunctionError || refreshTokenPayload.statusCode !== 200) {
+            throw new Error(refreshTokenPayload.message || 'Token refresh failed.');
+        }
+
+        const newToken = JSON.parse(refreshTokenPayload.body).newToken;
+
+        // Verify the new token
+        const userId = await verifyToken(newToken);
+
+        return { userId, newToken };
+    } catch (error) {
+        console.error('Token refresh and verification failed:', error);
+        throw new Error('Invalid token.');
+    }
+};
 
 exports.handler = async (event) => {
     const corsHeaders = {
@@ -27,6 +55,16 @@ exports.handler = async (event) => {
     }
 
     const { invitationId, username, mailOptIn, firstName, lastName, phoneNumber, password } = parsedBody;
+    const authorizationToken = event.headers.Authorization;
+    const refreshToken = event.headers['Refresh-Token'];
+
+    if (!authorizationToken || !refreshToken) {
+        return {
+            statusCode: 401,
+            headers: corsHeaders,
+            body: JSON.stringify({ message: 'Missing authorization or refresh token.' }),
+        };
+    }
 
     // Validate required fields
     if (!invitationId || !username || !password || !firstName || !lastName || !phoneNumber) {
@@ -41,6 +79,33 @@ exports.handler = async (event) => {
     }
 
     try {
+        let userId;
+        let tokenValid = false;
+
+        // First attempt to verify the token
+        try {
+            userId = await verifyToken(authorizationToken);
+            tokenValid = true;
+        } catch (error) {
+            console.error('Token verification failed, attempting refresh:', error.message);
+
+            // Attempt to refresh the token and verify again
+            const result = await refreshAndVerifyToken(authorizationToken, refreshToken);
+            userId = result.userId;
+            event.headers.Authorization = result.newToken; // Update event with new token
+            tokenValid = true;
+        }
+
+        if (!tokenValid) {
+            return {
+                statusCode: 401,
+                headers: corsHeaders,
+                body: JSON.stringify({ message: 'Invalid token.' }),
+            };
+        }
+
+        console.log('Token verified for user ID:', userId);
+
         console.log('Checking invitation...');
         // Check if the invitation exists and is still pending
         const invitation = await prisma.invitations.findUnique({

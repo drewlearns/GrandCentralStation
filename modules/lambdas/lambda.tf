@@ -1,4 +1,3 @@
-
 resource "aws_lambda_function" "this_lambda" {
   for_each = var.lambdas
 
@@ -10,7 +9,7 @@ resource "aws_lambda_function" "this_lambda" {
   timeout       = 30
   memory_size   = 256
   tags = {
-    Name = "each.key"
+    Name = each.key
   }
   environment {
     variables = each.value.environment
@@ -30,4 +29,11 @@ resource "aws_lambda_permission" "api_gateway_permission" {
   principal     = "apigateway.amazonaws.com"
   source_arn    = "${aws_api_gateway_rest_api.this_api.execution_arn}/*/*"
   depends_on    = [aws_lambda_function.this_lambda]
+}
+
+resource "aws_cloudwatch_log_group" "lambda_log_groups" {
+  for_each = var.lambdas
+
+  name              = "/aws/lambda/${each.key}"
+  retention_in_days = 7
 }

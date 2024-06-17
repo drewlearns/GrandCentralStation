@@ -1,5 +1,7 @@
 const { PrismaClient } = require("@prisma/client");
 const { LambdaClient, InvokeCommand } = require("@aws-sdk/client-lambda");
+const { verifyToken } = require('./tokenUtils');
+const { refreshAndVerifyToken } = require('./refreshAndVerifyToken'); // Ensure this is correctly pointing to the file
 
 const prisma = new PrismaClient();
 const lambdaClient = new LambdaClient({ region: process.env.AWS_REGION });
@@ -13,9 +15,9 @@ const corsHeaders = {
 exports.handler = async (event) => {
   try {
     const body = typeof event.body === "string" ? JSON.parse(event.body) : event;
-    const { authorizationToken, notificationId } = body;
+    const { authorizationToken, refreshToken, notificationId } = body;
 
-    if (!authorizationToken) {
+    if (!authorizationToken || !refreshToken) {
       return {
         statusCode: 401,
         headers: corsHeaders,
@@ -26,33 +28,35 @@ exports.handler = async (event) => {
     }
 
     let updatedBy;
+    let tokenValid = false;
 
+    // First attempt to verify the token
     try {
-      const verifyTokenCommand = new InvokeCommand({
-        FunctionName: 'verifyToken',
-        Payload: JSON.stringify({ authorizationToken })
-      });
-
-      const verifyTokenResponse = await lambdaClient.send(verifyTokenCommand);
-      const payload = JSON.parse(new TextDecoder('utf-8').decode(verifyTokenResponse.Payload));
-
-      if (verifyTokenResponse.FunctionError) {
-        throw new Error(payload.errorMessage || 'Token verification failed.');
-      }
-
-      updatedBy = payload.username;
-      if (!updatedBy) {
-        throw new Error('Token verification did not return a valid username.');
-      }
+      updatedBy = await verifyToken(authorizationToken);
+      tokenValid = true;
     } catch (error) {
-      console.error('Token verification failed:', error);
+      console.error('Token verification failed, attempting refresh:', error.message);
+
+      // Attempt to refresh the token and verify again
+      try {
+        const result = await refreshAndVerifyToken(authorizationToken, refreshToken);
+        updatedBy = result.userId;
+        tokenValid = true;
+      } catch (refreshError) {
+        console.error('Token refresh and verification failed:', refreshError);
+        return {
+          statusCode: 401,
+          headers: corsHeaders,
+          body: JSON.stringify({ message: 'Invalid token.', error: refreshError.message }),
+        };
+      }
+    }
+
+    if (!tokenValid) {
       return {
         statusCode: 401,
         headers: corsHeaders,
-        body: JSON.stringify({
-          message: 'Invalid token.',
-          error: error.message,
-        }),
+        body: JSON.stringify({ message: 'Invalid token.' }),
       };
     }
 
@@ -75,7 +79,6 @@ exports.handler = async (event) => {
     return {
       statusCode: 200,
       headers: corsHeaders,
-
       body: JSON.stringify({
         message: "Notification deleted successfully",
       }),

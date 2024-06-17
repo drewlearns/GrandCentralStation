@@ -4,6 +4,8 @@ const { S3Client, PutObjectCommand, HeadBucketCommand, DeleteObjectCommand } = r
 const { LambdaClient, InvokeCommand } = require("@aws-sdk/client-lambda");
 const { Buffer } = require("buffer");
 const Decimal = require("decimal.js");
+const { verifyToken } = require('./tokenUtils');
+const { refreshAndVerifyToken } = require('./refreshAndVerifyToken'); // Ensure this is correctly pointing to the file
 
 const prisma = new PrismaClient();
 const lambdaClient = new LambdaClient({ region: process.env.AWS_REGION });
@@ -65,10 +67,10 @@ exports.handler = async (event) => {
   console.log('Event received:', event);
   try {
     const body = JSON.parse(event.body);
-    const { authorizationToken, transactionId, householdId, amount, transactionType, transactionDate, category, description, status, sourceId, tags, image } = body;
+    const { authorizationToken, refreshToken, transactionId, householdId, amount, transactionType, transactionDate, category, description, status, sourceId, tags, image } = body;
 
-    if (!authorizationToken) {
-      console.warn('No authorization token provided');
+    if (!authorizationToken || !refreshToken) {
+      console.warn('No authorization token or refresh token provided');
       return {
         statusCode: 401,
         headers: corsHeaders,
@@ -76,18 +78,38 @@ exports.handler = async (event) => {
       };
     }
 
-    console.log('Invoking verifyToken function');
-    const verifyTokenCommand = new InvokeCommand({ FunctionName: 'verifyToken', Payload: JSON.stringify({ authorizationToken }) });
-    const verifyTokenResponse = await lambdaClient.send(verifyTokenCommand);
-    const payload = JSON.parse(new TextDecoder('utf-8').decode(verifyTokenResponse.Payload));
+    let username;
+    let tokenValid = false;
 
-    if (verifyTokenResponse.FunctionError) {
-      console.error('Token verification failed:', payload);
-      throw new Error(payload.errorMessage || 'Token verification failed.');
+    // First attempt to verify the token
+    try {
+      username = await verifyToken(authorizationToken);
+      tokenValid = true;
+    } catch (error) {
+      console.error('Token verification failed, attempting refresh:', error.message);
+
+      // Attempt to refresh the token and verify again
+      try {
+        const result = await refreshAndVerifyToken(authorizationToken, refreshToken);
+        username = result.userId;
+        tokenValid = true;
+      } catch (refreshError) {
+        console.error('Token refresh and verification failed:', refreshError);
+        return {
+          statusCode: 401,
+          headers: corsHeaders,
+          body: JSON.stringify({ message: 'Invalid token.', error: refreshError.message }),
+        };
+      }
     }
 
-    const updatedBy = payload.username;
-    if (!updatedBy) throw new Error('Token verification did not return a valid username.');
+    if (!tokenValid) {
+      return {
+        statusCode: 401,
+        headers: corsHeaders,
+        body: JSON.stringify({ message: 'Invalid token.' }),
+      };
+    }
 
     console.log('Checking if transaction exists');
     const transactionExists = await prisma.transaction.findUnique({ where: { transactionId } });
@@ -153,7 +175,7 @@ exports.handler = async (event) => {
         category,
         description,
         updatedAt: new Date(),
-        updatedBy,
+        updatedBy: username,
         runningTotal: parseFloat(transactionType.toLowerCase() === 'debit' ? new Decimal(runningTotal).minus(new Decimal(amount)).toFixed(2) : new Decimal(runningTotal).plus(new Decimal(amount)).toFixed(2)),
         status: status === "true",
         tags: tags || null,

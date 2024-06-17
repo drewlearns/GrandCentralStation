@@ -129,11 +129,10 @@ model Bill {
   password                   String?
   createdAt                  DateTime
   updatedAt                  DateTime
-  notificationNotificationId String?  @unique
 
   // Relations
   household    Household     @relation(fields: [householdId], references: [householdId])
-  notification Notification?
+  notifications Notification[]
   ledgers      Ledger[]
 }
 
@@ -180,19 +179,18 @@ model Attachments {
 model Notification {
   notificationId String   @id @default(uuid())
   userUuid       String
-  billId         String?  @unique
+  billId         String?
   title          String
   message        String
   read           Boolean
   createdAt      DateTime
   updatedAt      DateTime
-  dueDate        DateTime // Added dueDate field
+  dueDate        DateTime
 
   // Relations
   user User  @relation(fields: [userUuid], references: [uuid])
   bill Bill? @relation(fields: [billId], references: [billId])
 }
-
 
 model PaymentSource {
   sourceId    String   @id @default(uuid())

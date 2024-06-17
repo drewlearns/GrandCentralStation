@@ -1,7 +1,8 @@
-const { PrismaClient } = require("@prisma/client");
-const { v4: uuidv4 } = require("uuid");
-const { LambdaClient, InvokeCommand } = require("@aws-sdk/client-lambda");
-const { add, eachMonthOfInterval, eachWeekOfInterval, eachDayOfInterval } = require("date-fns");
+const { PrismaClient } = require('@prisma/client');
+const { v4: uuidv4 } = require('uuid');
+const { LambdaClient, InvokeCommand } = require('@aws-sdk/client-lambda');
+const { add, eachMonthOfInterval, eachWeekOfInterval, eachDayOfInterval } = require('date-fns');
+const { verifyToken } = require('./tokenUtils');
 
 const prisma = new PrismaClient();
 const lambdaClient = new LambdaClient({ region: process.env.AWS_REGION });
@@ -11,34 +12,60 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'Content-Type',
   'Access-Control-Allow-Methods': 'OPTIONS,POST,GET'
 };
+
+const refreshAndVerifyToken = async (authorizationToken, refreshToken) => {
+  try {
+    // Try to refresh the token
+    const refreshTokenCommand = new InvokeCommand({
+      FunctionName: 'refreshToken',
+      Payload: JSON.stringify({ authorizationToken, refreshToken }),
+    });
+
+    const refreshTokenResponse = await lambdaClient.send(refreshTokenCommand);
+    const refreshTokenPayload = JSON.parse(new TextDecoder('utf-8').decode(refreshTokenResponse.Payload));
+
+    if (refreshTokenResponse.FunctionError || refreshTokenPayload.statusCode !== 200) {
+      throw new Error(refreshTokenPayload.message || 'Token refresh failed.');
+    }
+
+    const newToken = JSON.parse(refreshTokenPayload.body).newToken;
+
+    // Verify the new token
+    const userId = await verifyToken(newToken);
+
+    return { userId, newToken };
+  } catch (error) {
+    console.error('Token refresh and verification failed:', error);
+    throw new Error('Invalid token.');
+  }
+};
+
 const calculateOccurrences = (startDate, frequency) => {
   let occurrences = [];
-  const endDate = add(startDate, { months: 12 });
+  const endDate = add(startDate, { years: 1 });
 
   switch (frequency) {
     case "once":
       occurrences.push(startDate);
       break;
     case "weekly":
-      occurrences = eachWeekOfInterval({ start: startDate, end: endDate });
+      occurrences = eachDayOfInterval({ start: startDate, end: endDate })
+        .filter((date) => date.getDay() === startDate.getDay());
       break;
     case "biweekly":
-      occurrences = eachDayOfInterval({ start: startDate, end: endDate }).filter(
-        (date, index) => index % 14 === 0
-      );
+      occurrences = eachDayOfInterval({ start: startDate, end: endDate })
+        .filter((date, index) => (index % 14) === 0);
       break;
     case "monthly":
       occurrences = eachMonthOfInterval({ start: startDate, end: endDate });
       break;
     case "bi-monthly":
-      occurrences = eachDayOfInterval({ start: startDate, end: endDate }).filter(
-        (date, index) => index % 60 === 0
-      );
+      occurrences = eachDayOfInterval({ start: startDate, end: endDate })
+        .filter((date, index) => (index % 60) === 0);
       break;
     case "quarterly":
-      occurrences = eachMonthOfInterval({ start: startDate, end: endDate }).filter(
-        (date, index) => index % 3 === 0
-      );
+      occurrences = eachMonthOfInterval({ start: startDate, end: endDate })
+        .filter((date, index) => (index % 3) === 0);
       break;
     case "annually":
       occurrences.push(add(startDate, { years: 1 }));
@@ -53,9 +80,9 @@ const calculateOccurrences = (startDate, frequency) => {
 exports.handler = async (event) => {
   try {
     const body = JSON.parse(event.body);
-    const { authorizationToken, householdId, name, amount, firstPayDay, frequency, description, paymentSourceId, tags } = body;
+    const { authorizationToken, refreshToken, householdId, name, amount, firstPayDay, frequency, description, paymentSourceId, tags } = body;
 
-    if (!authorizationToken) {
+    if (!authorizationToken || !refreshToken) {
       return {
         statusCode: 401,
         body: JSON.stringify({
@@ -65,33 +92,27 @@ exports.handler = async (event) => {
     }
 
     let updatedBy;
+    let tokenValid = false;
 
+    // First attempt to verify the token
     try {
-      const verifyTokenCommand = new InvokeCommand({
-        FunctionName: 'verifyToken',
-        Payload: JSON.stringify({ authorizationToken })
-      });
-
-      const verifyTokenResponse = await lambdaClient.send(verifyTokenCommand);
-      const payload = JSON.parse(new TextDecoder('utf-8').decode(verifyTokenResponse.Payload));
-
-      if (verifyTokenResponse.FunctionError) {
-        throw new Error(payload.errorMessage || 'Token verification failed.');
-      }
-
-      updatedBy = payload.username;
-      if (!updatedBy) {
-        throw new Error('Token verification did not return a valid username.');
-      }
+      updatedBy = await verifyToken(authorizationToken);
+      tokenValid = true;
     } catch (error) {
-      console.error('Token verification failed:', error);
+      console.error('Token verification failed, attempting refresh:', error.message);
+
+      // Attempt to refresh the token and verify again
+      const result = await refreshAndVerifyToken(authorizationToken, refreshToken);
+      updatedBy = result.userId;
+      authorizationToken = result.newToken; // Update authorizationToken with new token
+      tokenValid = true;
+    }
+
+    if (!tokenValid) {
       return {
         statusCode: 401,
         headers: corsHeaders,
-        body: JSON.stringify({
-          message: 'Invalid token.',
-          error: error.message,
-        }),
+        body: JSON.stringify({ message: 'Invalid token.' }),
       };
     }
 
@@ -150,7 +171,7 @@ exports.handler = async (event) => {
           incomeId: newIncome.incomeId,
           paymentSourceId: paymentSourceId,
           runningTotal: 0, // Initial placeholder
-          tags: tags || `Income,${name}`, // Add the tags field here
+          tags: tags || `Income,${name}`, 
         },
       });
     }

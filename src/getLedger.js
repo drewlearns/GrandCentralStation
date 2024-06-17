@@ -1,6 +1,8 @@
 const { PrismaClient } = require("@prisma/client");
 const { LambdaClient, InvokeCommand } = require("@aws-sdk/client-lambda");
 const Decimal = require('decimal.js');
+const { verifyToken } = require('./tokenUtils'); // Ensure this is correctly pointing to the file
+const { refreshAndVerifyToken } = require('./refreshAndVerifyToken'); // Ensure this is correctly pointing to the file
 
 const prisma = new PrismaClient();
 const lambdaClient = new LambdaClient({ region: process.env.AWS_REGION });
@@ -12,14 +14,27 @@ const corsHeaders = {
 };
 
 exports.handler = async (event) => {
-  const { authorizationToken, householdId, filters = {}, pagination = {}, numberOfItemsLoaded, lastResponse } = JSON.parse(event.body);
+  let parsedBody;
+  try {
+    parsedBody = JSON.parse(event.body);
+  } catch (error) {
+    return {
+      statusCode: 400,
+      headers: corsHeaders,
+      body: JSON.stringify({
+        message: 'Invalid JSON body.'
+      })
+    };
+  }
 
-  if (!authorizationToken) {
+  const { authorizationToken, refreshToken, householdId, filters = {}, pagination = {} } = parsedBody;
+
+  if (!authorizationToken || !refreshToken) {
     return {
       statusCode: 401,
       headers: corsHeaders,
       body: JSON.stringify({
-        message: 'Access denied. No token provided.'
+        message: 'Access denied. No token or refresh token provided.'
       })
     };
   }
@@ -35,38 +50,43 @@ exports.handler = async (event) => {
   }
 
   let username;
+  let tokenValid = false;
 
+  // First attempt to verify the token
   try {
-    const verifyTokenCommand = new InvokeCommand({
-      FunctionName: 'verifyToken',
-      Payload: JSON.stringify({ authorizationToken })
-    });
-
-    const verifyTokenResponse = await lambdaClient.send(verifyTokenCommand);
-    const payload = JSON.parse(new TextDecoder('utf-8').decode(verifyTokenResponse.Payload));
-
-    if (verifyTokenResponse.FunctionError) {
-      throw new Error(payload.errorMessage || 'Token verification failed.');
-    }
-
-    username = payload.username;
-    if (!username) {
-      throw new Error('Token verification did not return a valid username.');
-    }
+    username = await verifyToken(authorizationToken);
+    tokenValid = true;
   } catch (error) {
-    console.error('Token verification failed:', error);
+    console.error('Token verification failed, attempting refresh:', error.message);
+
+    // Attempt to refresh the token and verify again
+    try {
+      const result = await refreshAndVerifyToken(authorizationToken, refreshToken);
+      username = result.userId;
+      tokenValid = true;
+    } catch (refreshError) {
+      console.error('Token refresh and verification failed:', refreshError);
+      return {
+        statusCode: 401,
+        headers: corsHeaders,
+        body: JSON.stringify({
+          message: 'Invalid token.',
+          error: refreshError.message,
+        }),
+      };
+    }
+  }
+
+  if (!tokenValid) {
     return {
       statusCode: 401,
       headers: corsHeaders,
-      body: JSON.stringify({
-        message: 'Invalid token.',
-        error: error.message,
-      }),
+      body: JSON.stringify({ message: 'Invalid token.' }),
     };
   }
 
   try {
-    const whereClause = { 
+    const whereClause = {
       householdId: householdId,
       isInitial: false // Exclude initial ledger entries
     };
@@ -193,10 +213,14 @@ exports.handler = async (event) => {
       if (entry.cashBack === null) entry.cashBack = 0.0;
     };
 
-    const flattenedLedgerEntries = ledgerEntries.map(entry => {
+    const flattenedLedgerEntries = ledgerEntries.map((entry, index) => {
       const flattenedEntry = { ...entry };
+
+      // Assign the first transaction's ID if available
       if (entry.transactions && entry.transactions.length > 0) {
         flattenedEntry.transactionId = entry.transactions[0].transactionId;
+      } else {
+        flattenedEntry.transactionId = null; // Handle cases with no transactions
       }
 
       if (flattenedEntry.bill && flattenedEntry.bill.billId) {
@@ -235,7 +259,6 @@ exports.handler = async (event) => {
 
       delete flattenedEntry.transactions;
 
-      // Add year and month fields
       const date = new Date(flattenedEntry.transactionDate);
       flattenedEntry.year = date.getFullYear();
       flattenedEntry.month = date.toLocaleString('default', { month: 'long' }).toLowerCase();

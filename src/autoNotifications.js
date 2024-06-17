@@ -14,17 +14,29 @@ exports.handler = async (event) => {
 
   const targetDate = new Date(Date.UTC(year, month - 1, targetDay)); // target date in UTC
 
+  // Log the target date
+  console.log(`Target Date: ${targetDate.toISOString()}`);
+
   try {
     const notifications = await prisma.notification.findMany({
       where: {
         dueDate: targetDate,
       },
+      include: {
+        user: true, // Include user relation to get email
+      },
     });
 
+    // Log the number of notifications found
+    console.log(`Notifications found: ${notifications.length}`);
+
     for (const notification of notifications) {
+      // Log detailed information about each notification
+      console.log(`Preparing to send email to: ${notification.user.email}, Title: ${notification.title}, Message: ${notification.message}`);
+
       const params = {
         Destination: {
-          ToAddresses: [notification.recipientEmail],
+          ToAddresses: [notification.user.email],
         },
         Message: {
           Body: {
@@ -41,9 +53,12 @@ exports.handler = async (event) => {
 
       const command = new SendEmailCommand(params);
       await sesClient.send(command);
+
+      // Log success
+      console.log(`Email sent to: ${notification.user.email}`);
     }
 
-    console.log(`Emails sent for ${targetDay}/${month}/${year}`);
+    console.log(`Emails processed for ${targetDay}/${month}/${year}`);
   } catch (error) {
     console.error("Error sending notifications:", error);
   } finally {

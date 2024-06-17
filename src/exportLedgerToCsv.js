@@ -4,6 +4,8 @@ const { S3Client, PutObjectCommand, GetObjectCommand } = require("@aws-sdk/clien
 const { getSignedUrl } = require("@aws-sdk/s3-request-presigner");
 const { Parser } = require('json2csv');
 const { v4: uuidv4 } = require("uuid");
+const { verifyToken } = require('./tokenUtils'); // Ensure this is correctly pointing to the file
+const { refreshAndVerifyToken } = require('./refreshAndVerifyToken'); // Ensure this is correctly pointing to the file
 
 const prisma = new PrismaClient();
 const lambdaClient = new LambdaClient({ region: process.env.AWS_REGION });
@@ -16,14 +18,14 @@ const corsHeaders = {
 };
 
 exports.handler = async (event) => {
-  const { authorizationToken, householdId, paymentSourceId } = JSON.parse(event.body);
+  const { authorizationToken, refreshToken, householdId, paymentSourceId } = JSON.parse(event.body);
 
-  if (!authorizationToken) {
+  if (!authorizationToken || !refreshToken) {
     return {
       statusCode: 401,
       headers: corsHeaders,
       body: JSON.stringify({
-        message: 'Access denied. No token provided.'
+        message: 'Access denied. No token or refresh token provided.'
       })
     };
   }
@@ -39,32 +41,35 @@ exports.handler = async (event) => {
   const s3Key = `ledger-exports/${uuidv4()}.csv`;
 
   let username;
+  let tokenValid = false;
+
+  // First attempt to verify the token
   try {
-    const verifyTokenCommand = new InvokeCommand({
-      FunctionName: 'verifyToken',
-      Payload: JSON.stringify({ authorizationToken })
-    });
-
-    const verifyTokenResponse = await lambdaClient.send(verifyTokenCommand);
-    const payload = JSON.parse(new TextDecoder('utf-8').decode(verifyTokenResponse.Payload));
-
-    if (verifyTokenResponse.FunctionError) {
-      throw new Error(payload.errorMessage || 'Token verification failed.');
-    }
-
-    username = payload.username;
-    if (!username) {
-      throw new Error('Token verification did not return a valid username.');
-    }
+    username = await verifyToken(authorizationToken);
+    tokenValid = true;
   } catch (error) {
-    console.error('Token verification failed:', error);
+    console.error('Token verification failed, attempting refresh:', error.message);
+
+    // Attempt to refresh the token and verify again
+    try {
+      const result = await refreshAndVerifyToken(authorizationToken, refreshToken);
+      username = result.userId;
+      tokenValid = true;
+    } catch (refreshError) {
+      console.error('Token refresh and verification failed:', refreshError);
+      return {
+        statusCode: 401,
+        headers: corsHeaders,
+        body: JSON.stringify({ message: 'Invalid token.', error: refreshError.message }),
+      };
+    }
+  }
+
+  if (!tokenValid) {
     return {
       statusCode: 401,
       headers: corsHeaders,
-      body: JSON.stringify({
-        message: 'Invalid token.',
-        error: error.message,
-      }),
+      body: JSON.stringify({ message: 'Invalid token.' }),
     };
   }
 
@@ -106,7 +111,7 @@ exports.handler = async (event) => {
       Bucket: s3Bucket,
       Key: s3Key,
       Body: csv,
-      // ContentType: "text/csv"
+      ContentType: "text/csv"
     };
 
     const putObjectCommand = new PutObjectCommand(s3Params);

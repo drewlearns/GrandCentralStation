@@ -1,5 +1,7 @@
 const { PrismaClient } = require('@prisma/client');
 const axios = require('axios');
+const { verifyToken } = require('./tokenUtils'); // Ensure this is correctly pointing to the file
+const { refreshAndVerifyToken } = require('./refreshAndVerifyToken'); // Ensure this is correctly pointing to the file
 
 const prisma = new PrismaClient();
 const corsHeaders = {
@@ -10,7 +12,51 @@ const corsHeaders = {
 };
 
 exports.handler = async (event) => {
-  const { receiptData, platform, userId } = JSON.parse(event.body);
+  const { receiptData, platform, userId, authorizationToken, refreshToken } = JSON.parse(event.body);
+
+  if (!authorizationToken || !refreshToken) {
+    return {
+      statusCode: 401,
+      headers: corsHeaders,
+      body: JSON.stringify({
+        message: 'Access denied. No token or refresh token provided.'
+      }),
+    };
+  }
+
+  let tokenValid = false;
+
+  // First attempt to verify the token
+  try {
+    await verifyToken(authorizationToken);
+    tokenValid = true;
+  } catch (error) {
+    console.error('Token verification failed, attempting refresh:', error.message);
+
+    // Attempt to refresh the token and verify again
+    try {
+      await refreshAndVerifyToken(authorizationToken, refreshToken);
+      tokenValid = true;
+    } catch (refreshError) {
+      console.error('Token refresh and verification failed:', refreshError);
+      return {
+        statusCode: 401,
+        headers: corsHeaders,
+        body: JSON.stringify({
+          message: 'Invalid token.',
+          error: refreshError.message,
+        }),
+      };
+    }
+  }
+
+  if (!tokenValid) {
+    return {
+      statusCode: 401,
+      headers: corsHeaders,
+      body: JSON.stringify({ message: 'Invalid token.' }),
+    };
+  }
 
   try {
     let response;

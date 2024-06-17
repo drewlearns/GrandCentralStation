@@ -1,6 +1,4 @@
 #!/bin/bash
-# set -vex
-# set -o pipefail
 
 # Define the source and deploy directories
 SRC_DIR="./src"
@@ -16,6 +14,11 @@ mkdir -p $DEPLOY_DIR
 # Copy the schema.prisma and the .so.node file to the deploy directory if not already copied
 cp "prisma/schema.prisma" "$DEPLOY_DIR"
 cp "node_modules/.prisma/client/libquery_engine-rhel-openssl-3.0.x.so.node" "$DEPLOY_DIR"
+
+# Copy tokenUtils.js if it exists
+if [ -f "$SRC_DIR/tokenUtils.js" ]; then
+  cp "$SRC_DIR/tokenUtils.js" "$DEPLOY_DIR"
+fi
 
 # Function to process a single file
 process_file() {
@@ -46,189 +49,17 @@ process_file() {
   mkdir -p "$TMP_DIR/node_modules"
   cp -r node_modules/uuid "$TMP_DIR/node_modules/uuid"
 
-  # Include necessary AWS SDK modules and their dependencies
-  mkdir -p "$TMP_DIR/node_modules/@smithy"
-  cp -r node_modules/@smithy/* "$TMP_DIR/node_modules/@smithy/"
+  # Copy all required node modules
+  modules=("date-fns" "@smithy" "@aws-sdk" "tslib" "fast-xml-parser" "strnum" "axios" "follow-redirects" "form-data" "proxy-from-env" "combined-stream" "delayed-stream" "mime-types" "mime-db" "asynckit" "@aws-crypto" "jsonwebtoken" "jws" "safe-buffer" "jwa" "buffer-equal-constant-time" "ecdsa-sig-formatter" "ms" "lodash" "lodash.includes" "lodash.isboolean" "lodash.isinteger" "lodash.isnumber" "lodash.isplainobject" "lodash.once" "lodash.isstring" "jwks-rsa" "debug" "jose" "lru-memoizer" "lodash.clonedeep" "limiter" "json2csv" "@streamparser/json" "@aws-sdk/client-cognito-identity-provider" "decimal.js" "busboy" "streamsearch" "lodash.get")
 
-  mkdir -p "$TMP_DIR/node_modules/@aws-sdk"
-  cp -r node_modules/@aws-sdk/* "$TMP_DIR/node_modules/@aws-sdk/"
-
-  # Include tslib module
-  mkdir -p "$TMP_DIR/node_modules/tslib"
-  cp -r node_modules/tslib/* "$TMP_DIR/node_modules/tslib/"
-
-  # Include fast-xml-parser module
-  mkdir -p "$TMP_DIR/node_modules/fast-xml-parser"
-  cp -r node_modules/fast-xml-parser/* "$TMP_DIR/node_modules/fast-xml-parser/"
-
-  # Include strnum module
-  mkdir -p "$TMP_DIR/node_modules/strnum"
-  cp -r node_modules/strnum/* "$TMP_DIR/node_modules/strnum/"
-
-  # Include axios module
-  mkdir -p "$TMP_DIR/node_modules/axios"
-  cp -r node_modules/axios/* "$TMP_DIR/node_modules/axios/"
-
-  # Include follow-redirects module
-  mkdir -p "$TMP_DIR/node_modules/follow-redirects"
-  cp -r node_modules/follow-redirects/* "$TMP_DIR/node_modules/follow-redirects/"
-
-  # Include form-data module
-  mkdir -p "$TMP_DIR/node_modules/form-data"
-  cp -r node_modules/form-data/* "$TMP_DIR/node_modules/form-data/"
-
-  # Include proxy-from-env module
-  mkdir -p "$TMP_DIR/node_modules/proxy-from-env"
-  cp -r node_modules/proxy-from-env/* "$TMP_DIR/node_modules/proxy-from-env/"
-
-  # Include combined-stream module
-  mkdir -p "$TMP_DIR/node_modules/combined-stream"
-  cp -r node_modules/combined-stream/* "$TMP_DIR/node_modules/combined-stream/"
-
-  # Include delayed-stream module
-  mkdir -p "$TMP_DIR/node_modules/delayed-stream"
-  cp -r node_modules/delayed-stream/* "$TMP_DIR/node_modules/delayed-stream/"
-
-  # Include mime-types module
-  mkdir -p "$TMP_DIR/node_modules/mime-types"
-  cp -r node_modules/mime-types/* "$TMP_DIR/node_modules/mime-types/"
-
-  # Include mime-db module
-  mkdir -p "$TMP_DIR/node_modules/mime-db"
-  cp -r node_modules/mime-db/* "$TMP_DIR/node_modules/mime-db/"
-
-  # Include asynckit module
-  mkdir -p "$TMP_DIR/node_modules/asynckit"
-  cp -r node_modules/asynckit/* "$TMP_DIR/node_modules/asynckit/"
-
-  # Include @aws-crypto module
-  mkdir -p "$TMP_DIR/node_modules/@aws-crypto/"
-  cp -r node_modules/@aws-crypto/* "$TMP_DIR/node_modules/@aws-crypto/"
-
-  # Include jsonwebtoken module
-  mkdir -p "$TMP_DIR/node_modules/jsonwebtoken/"
-  cp -r node_modules/jsonwebtoken/* "$TMP_DIR/node_modules/jsonwebtoken/"
-
-  # # Include jwksClient module
-  # mkdir -p "$TMP_DIR/node_modules/jwksClient/"
-  # cp -r node_modules/jwksClient/* "$TMP_DIR/node_modules/jwksClient/"
-
-  # Include jws module
-  mkdir -p "$TMP_DIR/node_modules/jws/"
-  cp -r node_modules/jws/* "$TMP_DIR/node_modules/jws/"
-
-  # Include safe-buffer module
-  mkdir -p "$TMP_DIR/node_modules/safe-buffer/"
-  cp -r node_modules/safe-buffer/* "$TMP_DIR/node_modules/safe-buffer/"
-
-  # Include jwa module
-  mkdir -p "$TMP_DIR/node_modules/jwa/"
-  cp -r node_modules/jwa/* "$TMP_DIR/node_modules/jwa/"
-
-  # Include buffer-equal-constant-time module
-  mkdir -p "$TMP_DIR/node_modules/buffer-equal-constant-time/"
-  cp -r node_modules/buffer-equal-constant-time/* "$TMP_DIR/node_modules/buffer-equal-constant-time/"
-
-  # Include ecdsa-sig-formatter module
-  mkdir -p "$TMP_DIR/node_modules/ecdsa-sig-formatter/"
-  cp -r node_modules/ecdsa-sig-formatter/* "$TMP_DIR/node_modules/ecdsa-sig-formatter/"
-
-  # Include ms module
-  mkdir -p "$TMP_DIR/node_modules/ms/"
-  cp -r node_modules/ms/* "$TMP_DIR/node_modules/ms/"
-
-  # Include lodash module
-  mkdir -p "$TMP_DIR/node_modules/lodash/"
-  cp -r node_modules/lodash/* "$TMP_DIR/node_modules/lodash/"
-
-  # Include lodash.includes module
-  mkdir -p "$TMP_DIR/node_modules/lodash.includes/"
-  cp -r node_modules/lodash.includes/* "$TMP_DIR/node_modules/lodash.includes/"
-
-  # Include lodash.isboolean module
-  mkdir -p "$TMP_DIR/node_modules/lodash.isboolean/"
-  cp -r node_modules/lodash.isboolean/* "$TMP_DIR/node_modules/lodash.isboolean/"
-
-  # Include lodash.isinteger module
-  mkdir -p "$TMP_DIR/node_modules/lodash.isinteger/"
-  cp -r node_modules/lodash.isinteger/* "$TMP_DIR/node_modules/lodash.isinteger/"
-
-  # Include lodash.isnumber module
-  mkdir -p "$TMP_DIR/node_modules/lodash.isnumber/"
-  cp -r node_modules/lodash.isnumber/* "$TMP_DIR/node_modules/lodash.isnumber/"
-
-  # Include lodash.isplainobject module
-  mkdir -p "$TMP_DIR/node_modules/lodash.isplainobject/"
-  cp -r node_modules/lodash.isplainobject/* "$TMP_DIR/node_modules/lodash.isplainobject/"
-
-  # Include lodash.once module
-  mkdir -p "$TMP_DIR/node_modules/lodash.once/"
-  cp -r node_modules/lodash.once/* "$TMP_DIR/node_modules/lodash.once/"
-
-  # Include lodash.isstring module
-  mkdir -p "$TMP_DIR/node_modules/lodash.isstring/"
-  cp -r node_modules/lodash.isstring/* "$TMP_DIR/node_modules/lodash.isstring/"
-
-  # Include jwks-rsa module
-  mkdir -p "$TMP_DIR/node_modules/jwks-rsa/"
-  cp -r node_modules/jwks-rsa/* "$TMP_DIR/node_modules/jwks-rsa/"
-
-  # Include debug module
-  mkdir -p "$TMP_DIR/node_modules/debug/"
-  cp -r node_modules/debug/* "$TMP_DIR/node_modules/debug/"
-
-  # Include jose module
-  mkdir -p "$TMP_DIR/node_modules/jose/"
-  cp -r node_modules/jose/* "$TMP_DIR/node_modules/jose/"
-
-  # Include lru-memoizer module
-  mkdir -p "$TMP_DIR/node_modules/lru-memoizer/"
-  cp -r node_modules/lru-memoizer/* "$TMP_DIR/node_modules/lru-memoizer/"
-
-  # Include lodash.clonedeep module
-  mkdir -p "$TMP_DIR/node_modules/lodash.clonedeep/"
-  cp -r node_modules/lodash.clonedeep/* "$TMP_DIR/node_modules/lodash.clonedeep/"
-
-  # Include limiter module
-  mkdir -p "$TMP_DIR/node_modules/limiter/"
-  cp -r node_modules/limiter/* "$TMP_DIR/node_modules/limiter/"
-
-  # Include json2csv module
-  mkdir -p "$TMP_DIR/node_modules/json2csv/"
-  cp -r node_modules/json2csv/* "$TMP_DIR/node_modules/json2csv/"
-
-  # Include date-fns module
-  mkdir -p "$TMP_DIR/node_modules/date-fns/"
-  cp -r node_modules/date-fns/* "$TMP_DIR/node_modules/date-fns/"
-
-  # Include lodash.get module
-  mkdir -p "$TMP_DIR/node_modules/lodash.get/"
-  cp -r node_modules/lodash.get/* "$TMP_DIR/node_modules/lodash.get/"
-
-  # Include @streamparser/json module
-  mkdir -p "$TMP_DIR/node_modules/@streamparser/json/"
-  cp -r node_modules/@streamparser/json/* "$TMP_DIR/node_modules/@streamparser/json/"
-
-  # Include @aws-sdk/client-cognito-identity-provider module
-  mkdir -p "$TMP_DIR/node_modules/@aws-sdk/client-cognito-identity-provider/"
-  cp -r node_modules/@aws-sdk/client-cognito-identity-provider/* "$TMP_DIR/node_modules/@aws-sdk/client-cognito-identity-provider/"
-  
-  # Include decimal.js module
-  mkdir -p "$TMP_DIR/node_modules/decimal.js/"
-  cp -r node_modules/decimal.js/* "$TMP_DIR/node_modules/decimal.js/"
-
-  if [ -d "node_modules/busboy" ]; then
-    mkdir -p "$TMP_DIR/node_modules/busboy"
-    cp -r node_modules/busboy/* "$TMP_DIR/node_modules/busboy/"
-    if [ -d "node_modules/streamsearch" ]; then
-      mkdir -p "$TMP_DIR/node_modules/streamsearch"
-      cp -r node_modules/streamsearch/* "$TMP_DIR/node_modules/streamsearch/"
+  for module in "${modules[@]}"; do
+    if [ -d "node_modules/$module" ]; then
+      mkdir -p "$TMP_DIR/node_modules/$module"
+      cp -r node_modules/$module/* "$TMP_DIR/node_modules/$module/"
     else
-      echo "streamsearch module not found in node_modules, ensure it's installed."
+      echo "$module module not found in node_modules, ensure it's installed."
     fi
-  else
-    echo "busboy module not found in node_modules, ensure it's installed."
-  fi
+  done
 
   echo "Zipping contents for $base_name..."
   (cd "$TMP_DIR" && zip -r "../$base_name.zip" ./*)
