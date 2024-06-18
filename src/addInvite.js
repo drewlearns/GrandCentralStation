@@ -1,9 +1,10 @@
+// Import necessary modules and initialize clients
 const { PrismaClient } = require('@prisma/client');
 const { v4: uuidv4 } = require('uuid');
 const { LambdaClient, InvokeCommand } = require('@aws-sdk/client-lambda');
 const { SESClient, SendEmailCommand } = require('@aws-sdk/client-ses');
 const { verifyToken } = require('./tokenUtils');
-const { refreshAndVerifyToken } = require('./refreshAndVerifyToken'); // Ensure this is correctly pointing to the file
+const { refreshAndVerifyToken } = require('./refreshAndVerifyToken');
 
 const prisma = new PrismaClient();
 const lambdaClient = new LambdaClient({ region: process.env.AWS_REGION });
@@ -15,13 +16,16 @@ const corsHeaders = {
   'Access-Control-Allow-Methods': 'OPTIONS,POST,GET'
 };
 
+// Lambda handler function
 exports.handler = async (event) => {
   try {
+    // Parse request body
     const body = typeof event.body === "string" ? JSON.parse(event.body) : event;
     const { authorizationToken, refreshToken, email, householdId } = body;
 
     console.log(`Received request to add email ${email} to household ${householdId}`);
 
+    // Check for authorization and refresh tokens
     if (!authorizationToken || !refreshToken) {
       console.log('No authorization token or refresh token provided');
       return {
@@ -36,14 +40,14 @@ exports.handler = async (event) => {
     let updatedBy;
     let tokenValid = false;
 
-    // First attempt to verify the token
+    // Verify token
     try {
       updatedBy = await verifyToken(authorizationToken);
       tokenValid = true;
     } catch (error) {
       console.error('Token verification failed, attempting refresh:', error.message);
 
-      // Attempt to refresh the token and verify again
+      // Refresh and verify token
       const result = await refreshAndVerifyToken(authorizationToken, refreshToken);
       updatedBy = result.userId;
       authorizationToken = result.newToken; // Update authorizationToken with new token
@@ -171,12 +175,12 @@ exports.handler = async (event) => {
         data: {
           invitationId: uuidv4(),
           householdId: householdId,
-          invitedUserEmail: email,  // Use email as invitedUserEmail
-          invitedUserUuid: email, // Set to email as user does not exist
+          invitedUserEmail: email,
+          invitedUserUuid: null, // Set to null if user does not exist
           invitationStatus: 'Pending',
           sentDate: new Date(),
           createdAt: new Date(),
-          updatedAt: new Date()
+          updatedAt: new Date(),
         },
       });
 
