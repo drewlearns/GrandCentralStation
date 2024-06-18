@@ -2,6 +2,7 @@ const { PrismaClient } = require("@prisma/client");
 const { LambdaClient, InvokeCommand } = require("@aws-sdk/client-lambda");
 const { S3Client, PutObjectCommand, GetObjectCommand } = require("@aws-sdk/client-s3");
 const { getSignedUrl } = require("@aws-sdk/s3-request-presigner");
+const { SESClient, SendEmailCommand } = require("@aws-sdk/client-ses");
 const { v4: uuidv4 } = require("uuid");
 const { format } = require('date-fns');
 const { verifyToken } = require('./tokenUtils'); // Ensure this is correctly pointing to the file
@@ -10,6 +11,7 @@ const { refreshAndVerifyToken } = require('./refreshAndVerifyToken'); // Ensure 
 const prisma = new PrismaClient();
 const lambdaClient = new LambdaClient({ region: process.env.AWS_REGION });
 const s3Client = new S3Client({ region: process.env.AWS_REGION });
+const sesClient = new SESClient({ region: process.env.AWS_REGION });
 const corsHeaders = {
   'Content-Type': 'application/json',
   'Access-Control-Allow-Origin': '*',
@@ -193,17 +195,38 @@ exports.handler = async (event) => {
     const getObjectCommand = new GetObjectCommand({ Bucket: s3Bucket, Key: s3Key });
     const presignedUrl = await getSignedUrl(s3Client, getObjectCommand, { expiresIn: 3600 });
 
+    // Send email with presigned URL
+    const sesParams = {
+      Destination: {
+        ToAddresses: [username] // Using username as the email
+      },
+      Message: {
+        Body: {
+          Text: {
+            Data: `Hello,\n\nYour requested QBO export is ready. You can download it from the following link:\n\n${presignedUrl}\n\nThis link will expire in 1 hour.\n\nBest regards,\nThe Purple Piggy Bank Team`
+          }
+        },
+        Subject: {
+          Data: "Your Requested QBO Export is Ready"
+        }
+      },
+      Source: "noreply@app.thepurplepiggybank.com"
+    };
+
+    const sendEmailCommand = new SendEmailCommand(sesParams);
+    await sesClient.send(sendEmailCommand);
+
     return {
       statusCode: 200,
       headers: corsHeaders,
-      body: JSON.stringify({ message: "QBO export successful", presignedUrl: presignedUrl }),
+      body: JSON.stringify({ message: "QBO export successful and email sent", presignedUrl: presignedUrl }),
     };
   } catch (error) {
-    console.error('Error exporting ledger to QBO:', error);
+    console.error('Error exporting ledger to QBO and sending email:', error);
     return {
       statusCode: 500,
       headers: corsHeaders,
-      body: JSON.stringify({ message: "Error exporting ledger to QBO", error: error.message }),
+      body: JSON.stringify({ message: "Error exporting ledger to QBO and sending email", error: error.message }),
     };
   } finally {
     await prisma.$disconnect();

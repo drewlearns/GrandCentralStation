@@ -203,7 +203,7 @@ resource "aws_iam_policy" "ses_send_email_policy" {
           "ses:SendRawEmail"
         ],
         Effect   = "Allow",
-        Resource = "*"
+        Resource = "arn:aws:ses:us-east-1:339712783646:identity/noreply@app.thepurplepiggybank.com"
       }
     ]
   })
