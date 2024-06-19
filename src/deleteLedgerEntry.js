@@ -13,7 +13,7 @@ const corsHeaders = {
 };
 
 exports.handler = async (event) => {
-  const { authorizationToken, refreshToken, ledgerId, updatedData } = JSON.parse(event.body);
+  const { authorizationToken, refreshToken, ledgerId } = JSON.parse(event.body);
 
   if (!authorizationToken || !refreshToken) {
     return {
@@ -61,11 +61,6 @@ exports.handler = async (event) => {
   try {
     const ledgerEntry = await prisma.ledger.findUnique({
       where: { ledgerId: ledgerId },
-      include: {
-        bill: true,
-        income: true,
-        transaction: true,
-      },
     });
 
     if (!ledgerEntry) {
@@ -76,61 +71,25 @@ exports.handler = async (event) => {
       };
     }
 
-    // Update the ledger entry
-    const updatedLedger = await prisma.ledger.update({
+    // Delete the ledger entry
+    await prisma.ledger.delete({
       where: { ledgerId: ledgerId },
-      data: {
-        ...updatedData.ledger,
-        updatedAt: new Date(),
-      },
     });
-
-    // Update the connected bill, income, or transaction if they exist
-    if (updatedData.bill && ledgerEntry.bill) {
-      await prisma.bill.update({
-        where: { billId: ledgerEntry.bill.billId },
-        data: {
-          ...updatedData.bill,
-          updatedAt: new Date(),
-        },
-      });
-    }
-
-    if (updatedData.income && ledgerEntry.income) {
-      await prisma.income.update({
-        where: { incomeId: ledgerEntry.income.incomeId },
-        data: {
-          ...updatedData.income,
-          updatedAt: new Date(),
-        },
-      });
-    }
-
-    if (updatedData.transaction && ledgerEntry.transaction) {
-      await prisma.transaction.update({
-        where: { transactionId: ledgerEntry.transaction.transactionId },
-        data: {
-          ...updatedData.transaction,
-          updatedAt: new Date(),
-        },
-      });
-    }
 
     return {
       statusCode: 200,
       headers: corsHeaders,
       body: JSON.stringify({
-        message: 'Ledger entry updated successfully',
-        ledger: updatedLedger,
+        message: 'Ledger entry deleted successfully',
       }),
     };
   } catch (error) {
-    console.error('Error updating ledger entry:', error);
+    console.error('Error deleting ledger entry:', error);
     return {
       statusCode: 500,
       headers: corsHeaders,
       body: JSON.stringify({
-        message: 'Failed to update ledger entry',
+        message: 'Failed to delete ledger entry',
         errorDetails: error.message,
       }),
     };

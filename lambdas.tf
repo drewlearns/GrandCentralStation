@@ -632,5 +632,32 @@ module "lambdas" {
         DATABASE_URL = "postgresql://root:${aws_secretsmanager_secret_version.db_master_password_version.secret_string}@${aws_rds_cluster.aurora_cluster.endpoint}:5432/tppb${var.environment}?schema=public"
       }
     },
+    "refreshAndVerifyToken" = {
+      runtime       = "nodejs20.x"
+      method        = "POST" # CAN ONLY BE POST
+      authorization = "NONE" # "NONE" OR "COGNITO_USER_POOLS"
+      policy_arns   = [aws_iam_policy.lambda_invoke_policy.arn, ]
+      environment = {
+        DATABASE_URL = "postgresql://root:${aws_secretsmanager_secret_version.db_master_password_version.secret_string}@${aws_rds_cluster.aurora_cluster.endpoint}:5432/tppb${var.environment}?schema=public"
+      }
+    },
+    "getLedgerEntry" = {
+      runtime       = "nodejs20.x"
+      method        = "POST" # CAN ONLY BE POST
+      authorization = "NONE" # "NONE" OR "COGNITO_USER_POOLS"
+      policy_arns   = [aws_iam_policy.lambda_invoke_policy.arn, ]
+      environment = {
+        DATABASE_URL = "postgresql://root:${aws_secretsmanager_secret_version.db_master_password_version.secret_string}@${aws_rds_cluster.aurora_cluster.endpoint}:5432/tppb${var.environment}?schema=public"
+      }
+    },
+    "deleteLedgerEntry" = {
+      runtime       = "nodejs20.x"
+      method        = "POST" # CAN ONLY BE POST
+      authorization = "NONE" # "NONE" OR "COGNITO_USER_POOLS"
+      policy_arns   = [aws_iam_policy.lambda_invoke_policy.arn, ]
+      environment = {
+        DATABASE_URL = "postgresql://root:${aws_secretsmanager_secret_version.db_master_password_version.secret_string}@${aws_rds_cluster.aurora_cluster.endpoint}:5432/tppb${var.environment}?schema=public"
+      }
+    },
   }
 }

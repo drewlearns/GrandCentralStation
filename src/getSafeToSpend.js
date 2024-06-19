@@ -74,6 +74,7 @@ exports.handler = async (event) => {
 
   try {
     const today = new Date();
+    today.setUTCHours(0, 0, 0, 0); // Normalize today's date to midnight UTC
     console.log(`Today's date: ${today}`);
 
     // Fetch all incomes for the household
@@ -94,14 +95,11 @@ exports.handler = async (event) => {
 
     // Find the next payday
     let nextPayday = null;
-    let lastPaydayBeforeToday = null;
-
     for (const income of incomes) {
       const frequency = income.frequency.toLowerCase();
       let payday = new Date(income.firstPayDay);
 
       while (payday <= today) {
-        lastPaydayBeforeToday = new Date(payday);
         if (frequency === 'weekly') {
           payday.setDate(payday.getDate() + 7);
         } else if (frequency === 'biweekly') {
@@ -131,13 +129,17 @@ exports.handler = async (event) => {
       };
     }
 
-    // Fetch ledger entries up to the next payday
+    // Fetch ledger entries up to the end of the day before the next payday
+    const dayBeforeNextPayday = new Date(nextPayday);
+    dayBeforeNextPayday.setDate(nextPayday.getDate() - 1);
+    dayBeforeNextPayday.setUTCHours(23, 59, 59, 999); // Set to the end of the previous day
+    
     const ledgerEntries = await prisma.ledger.findMany({
       where: {
         householdId: householdId,
         transactionDate: {
           gte: today,
-          lte: nextPayday,
+          lte: dayBeforeNextPayday,
         },
       },
       orderBy: [
@@ -169,7 +171,7 @@ exports.handler = async (event) => {
       };
     }
 
-    // Find the lowest running total
+    // Find the lowest running total between today and the end of the day before the next payday
     const lowestRunningTotal = ledgerEntries.reduce((lowest, entry) => {
       const runningTotal = new Decimal(entry.runningTotal);
       return runningTotal.lessThan(lowest) ? runningTotal : lowest;
