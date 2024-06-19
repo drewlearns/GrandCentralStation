@@ -91,12 +91,8 @@ exports.handler = async (event) => {
       isInitial: false // Exclude initial ledger entries
     };
 
-    if (filters.clearedOnly) {
-      whereClause.status = true;
-    }
-
-    // Default to showing current month only if the filter is not provided or is explicitly true
-    if (filters.currentMonthOnly !== false) {
+    // Default to showing current month only if currentMonthOnly is not explicitly set to true
+    if (filters.currentMonthOnly !== true) {
       const today = new Date();
       const firstDayOfMonth = new Date(today.getFullYear(), today.getMonth(), 1);
       const lastDayOfMonth = new Date(today.getFullYear(), today.getMonth() + 1, 0);
@@ -105,6 +101,10 @@ exports.handler = async (event) => {
         gte: firstDayOfMonth,
         lte: lastDayOfMonth
       };
+    }
+
+    if (filters.clearedOnly) {
+      whereClause.status = true;
     }
 
     if (filters.transactionName) {
