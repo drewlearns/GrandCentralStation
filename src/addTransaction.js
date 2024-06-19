@@ -48,6 +48,15 @@ exports.handler = async (event) => {
     const body = JSON.parse(event.body);
     const { authorizationToken, refreshToken, householdId, amount, transactionType, transactionDate, category, description, status, sourceId, tags, image } = body;
 
+    // Validate required fields
+    if (!sourceId || !transactionDate || !transactionType || !amount || !description) {
+      return {
+        statusCode: 400,
+        headers: corsHeaders,
+        body: JSON.stringify({ message: 'Missing required fields: sourceId, transactionDate, transactionType, amount, and description are required.' })
+      };
+    }
+
     if (!authorizationToken || !refreshToken) {
       return {
         statusCode: 401,

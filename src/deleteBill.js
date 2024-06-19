@@ -113,7 +113,7 @@ exports.handler = async (event) => {
 
     // Invoke the updateRunningTotal Lambda function to update running totals
     const updateTotalsCommand = new InvokeCommand({
-      FunctionName: 'updateRunningTotal',
+      FunctionName: 'calculateRunningTotal',
       Payload: JSON.stringify({ householdId: bill.householdId, paymentSourceId: bill.paymentSourceId }),
     });
 

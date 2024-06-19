@@ -16,7 +16,7 @@ const corsHeaders = {
 
 const calculateOccurrences = (startDate, frequency) => {
   let occurrences = [];
-  const endDate = add(startDate, { months: 60 });
+  const endDate = add(startDate, { months: 12 });
 
   switch (frequency) {
     case "once":
@@ -165,7 +165,7 @@ exports.handler = async (event) => {
           transactionDate: occurrence,
           category: 'Income',
           description: `${name} - ${description}`,
-          status: true,
+          status: false,
           createdAt: new Date(),
           updatedAt: new Date(),
           updatedBy: updatedBy,

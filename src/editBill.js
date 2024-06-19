@@ -1,5 +1,7 @@
 const { PrismaClient } = require("@prisma/client");
 const { LambdaClient, InvokeCommand } = require("@aws-sdk/client-lambda");
+const { add, eachMonthOfInterval, eachWeekOfInterval, eachDayOfInterval } = require("date-fns");
+const { v4: uuidv4 } = require("uuid");
 const { verifyToken } = require('./tokenUtils');
 const { refreshAndVerifyToken } = require('./refreshAndVerifyToken'); // Ensure this is correctly pointing to the file
 
@@ -10,6 +12,45 @@ const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'Content-Type',
   'Access-Control-Allow-Methods': 'OPTIONS,POST,GET'
+};
+
+const calculateOccurrences = (startDate, frequency) => {
+  let occurrences = [];
+  const endDate = add(startDate, { months: 12 });
+
+  switch (frequency) {
+    case "once":
+      occurrences.push(startDate);
+      break;
+    case "weekly":
+      occurrences = eachWeekOfInterval({ start: startDate, end: endDate });
+      break;
+    case "biweekly":
+      occurrences = eachDayOfInterval({ start: startDate, end: endDate }).filter(
+        (date, index) => index % 14 === 0
+      );
+      break;
+    case "monthly":
+      occurrences = eachMonthOfInterval({ start: startDate, end: endDate });
+      break;
+    case "bi-monthly":
+      occurrences = eachDayOfInterval({ start: startDate, end: endDate }).filter(
+        (date, index) => index % 60 === 0
+      );
+      break;
+    case "quarterly":
+      occurrences = eachMonthOfInterval({ start: startDate, end: endDate }).filter(
+        (date, index) => index % 3 === 0
+      );
+      break;
+    case "annually":
+      occurrences.push(add(startDate, { years: 1 }));
+      break;
+    default:
+      throw new Error(`Unsupported frequency: ${frequency}`);
+  }
+
+  return occurrences;
 };
 
 exports.handler = async (event) => {
@@ -110,6 +151,37 @@ exports.handler = async (event) => {
       },
     });
 
+    // Delete existing ledger entries for this bill
+    await prisma.ledger.deleteMany({
+      where: { billId: billId },
+    });
+
+    // Calculate new occurrences
+    const firstPayDay = new Date(updatedBill.updatedAt);
+    const occurrences = calculateOccurrences(firstPayDay, updatedBill.frequency);
+
+    for (const occurrence of occurrences) {
+      await prisma.ledger.create({
+        data: {
+          ledgerId: uuidv4(),
+          householdId: updatedBill.householdId,
+          amount: updatedBill.amount,
+          transactionType: "debit",
+          transactionDate: occurrence,
+          category: updatedBill.category,
+          description: `${updatedBill.billName} - ${updatedBill.description}`,
+          status: true,
+          createdAt: new Date(),
+          updatedAt: new Date(),
+          updatedBy: username,
+          billId: updatedBill.billId,
+          paymentSourceId: null, // Set this appropriately if you have a specific payment source
+          runningTotal: 0, // Initial placeholder
+          tags: updatedBill.tags || null, // Add the tags field here
+        },
+      });
+    }
+
     // Get household members' emails if the householdId has changed
     let recipientEmails;
     if (updates.householdId && updates.householdId !== bill.householdId) {
@@ -146,12 +218,12 @@ exports.handler = async (event) => {
       }),
     });
 
-    const response = await lambdaClient.send(editNotificationCommand);
+    await lambdaClient.send(editNotificationCommand);
 
     // Calculate running totals
     const calculateTotalsCommand = new InvokeCommand({
       FunctionName: 'calculateRunningTotal',
-      Payload: JSON.stringify({ householdId: bill.householdId, paymentSourceId: bill.paymentSourceId }),
+      Payload: JSON.stringify({ householdId: updatedBill.householdId, paymentSourceId: updatedBill.paymentSourceId }),
     });
 
     await lambdaClient.send(calculateTotalsCommand);

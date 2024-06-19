@@ -80,11 +80,19 @@ exports.handler = async (event) => {
       where: { incomeId: incomeId },
     });
 
+    // Invoke the calculateRunningTotal Lambda function to update running totals
+    const calculateTotalsCommand = new InvokeCommand({
+      FunctionName: 'calculateRunningTotal',
+      Payload: JSON.stringify({ householdId: incomeExists.householdId, paymentSourceId: incomeExists.paymentSourceId }),
+    });
+
+    await lambdaClient.send(calculateTotalsCommand);
+
     return {
       statusCode: 200,
       headers: corsHeaders,
       body: JSON.stringify({
-        message: "Income and ledger entries deleted successfully",
+        message: "Income and ledger entries deleted successfully, running totals updated",
       }),
     };
   } catch (error) {

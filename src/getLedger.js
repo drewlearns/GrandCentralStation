@@ -95,7 +95,8 @@ exports.handler = async (event) => {
       whereClause.status = true;
     }
 
-    if (filters.currentMonthOnly) {
+    // Default to showing current month only if the filter is not provided or is explicitly true
+    if (filters.currentMonthOnly !== false) {
       const today = new Date();
       const firstDayOfMonth = new Date(today.getFullYear(), today.getMonth(), 1);
       const lastDayOfMonth = new Date(today.getFullYear(), today.getMonth() + 1, 0);

@@ -111,9 +111,10 @@ exports.handler = async (event) => {
 
     const billIds = bills.map(bill => bill.billId);
 
-    // Get notifications associated with these bills
+    // Get notifications associated with these bills, ordered by due date (oldest first)
     const notifications = await prisma.notification.findMany({
       where: { billId: { in: billIds } },
+      orderBy: { dueDate: 'asc' }
     });
 
     if (notifications.length === 0) {

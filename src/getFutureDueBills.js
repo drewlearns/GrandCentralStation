@@ -95,6 +95,9 @@ async function getFutureDueBills(event) {
             }
           }
         }
+      },
+      orderBy: {
+        transactionDate: 'asc', // Order by transactionDate ascending
       }
     });
 

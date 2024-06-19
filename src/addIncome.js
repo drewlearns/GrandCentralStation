@@ -49,23 +49,25 @@ const calculateOccurrences = (startDate, frequency) => {
       occurrences.push(startDate);
       break;
     case "weekly":
-      occurrences = eachDayOfInterval({ start: startDate, end: endDate })
-        .filter((date) => date.getDay() === startDate.getDay());
+      occurrences = eachWeekOfInterval({ start: startDate, end: endDate }, { weekStartsOn: startDate.getDay() });
       break;
     case "biweekly":
       occurrences = eachDayOfInterval({ start: startDate, end: endDate })
-        .filter((date, index) => (index % 14) === 0);
+        .filter((date, index) => (index % 14 === 0 && date >= startDate));
       break;
     case "monthly":
-      occurrences = eachMonthOfInterval({ start: startDate, end: endDate });
+      occurrences = eachMonthOfInterval({ start: startDate, end: endDate })
+        .map(date => add(date, { days: startDate.getDate() - 1 })); // Ensure the day of month is consistent
       break;
     case "bi-monthly":
-      occurrences = eachDayOfInterval({ start: startDate, end: endDate })
-        .filter((date, index) => (index % 60) === 0);
+      occurrences = eachMonthOfInterval({ start: startDate, end: endDate })
+        .filter((_, index) => (index % 2 === 0))
+        .map(date => add(date, { days: startDate.getDate() - 1 })); // Ensure the day of month is consistent
       break;
     case "quarterly":
       occurrences = eachMonthOfInterval({ start: startDate, end: endDate })
-        .filter((date, index) => (index % 3) === 0);
+        .filter((_, index) => (index % 3 === 0))
+        .map(date => add(date, { days: startDate.getDate() - 1 })); // Ensure the day of month is consistent
       break;
     case "annually":
       occurrences.push(add(startDate, { years: 1 }));
@@ -81,6 +83,15 @@ exports.handler = async (event) => {
   try {
     const body = JSON.parse(event.body);
     const { authorizationToken, refreshToken, householdId, name, amount, firstPayDay, frequency, description, paymentSourceId, tags } = body;
+
+    // Validate required fields
+    if (!authorizationToken || !refreshToken || !householdId || !name || !amount || !firstPayDay || !frequency || !description || !paymentSourceId) {
+      return {
+        statusCode: 400,
+        headers: corsHeaders,
+        body: JSON.stringify({ message: 'Missing required fields: authorizationToken, refreshToken, householdId, name, amount, firstPayDay, frequency, description, and paymentSourceId are required.' })
+      };
+    }
 
     if (!authorizationToken || !refreshToken) {
       return {
