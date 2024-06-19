@@ -31,9 +31,9 @@ resource "aws_lambda_permission" "api_gateway_permission" {
   depends_on    = [aws_lambda_function.this_lambda]
 }
 
-resource "aws_cloudwatch_log_group" "lambda_log_groups" {
-  for_each = var.lambdas
+# resource "aws_cloudwatch_log_group" "lambda_log_groups" {
+#   for_each = var.lambdas
 
-  name              = "/aws/lambda/${each.key}"
-  retention_in_days = 7
-}
+#   name              = "/aws/lambda/${each.key}"
+#   retention_in_days = 7
+# }

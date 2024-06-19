@@ -1,9 +1,9 @@
 # Define the Lambda function
-resource "aws_lambda_function" "auto_notifications" {
-  filename      = "./deploy/autoNotifications.zip"
-  function_name = "AutoNotifications"
+resource "aws_lambda_function" "end_trial" {
+  filename      = "./deploy/endTrial.zip"
+  function_name = "endTrial"
   role          = aws_iam_role.lambda_exec.arn
-  handler       = "autoNotifications.handler"
+  handler       = "endTrial.handler"
   runtime       = "nodejs20.x"
   environment {
     variables = {
@@ -18,8 +18,8 @@ resource "aws_lambda_function" "auto_notifications" {
 }
 
 # IAM role for Lambda
-resource "aws_iam_role" "lambda_exec" {
-  name = "lambda_exec_role"
+resource "aws_iam_role" "lambda_exec_end_trial" {
+  name = "lambda_exec_role_end_trial"
 
   assume_role_policy = jsonencode({
     Version = "2012-10-17",
@@ -34,8 +34,8 @@ resource "aws_iam_role" "lambda_exec" {
 }
 
 # IAM policy for Lambda
-resource "aws_iam_role_policy" "lambda_policy" {
-  name = "lambda_policy"
+resource "aws_iam_role_policy" "lambda_policy_end_trial" {
+  name = "lambda_policy_end_trial"
   role = aws_iam_role.lambda_exec.id
 
   policy = jsonencode({
@@ -69,27 +69,28 @@ resource "aws_iam_role_policy" "lambda_policy" {
 }
 
 # CloudWatch Event to trigger Lambda at 8 AM EST daily
-resource "aws_cloudwatch_event_rule" "daily_trigger" {
-  name                = "DailyTrigger"
+resource "aws_cloudwatch_event_rule" "daily_trigger_end_trial" {
+  name                = "endTrialTrigger"
   description         = "Triggers Lambda function daily at 8 AM EST"
   schedule_expression = "cron(0 13 * * ? *)" # 8 AM EST = 1 PM UTC
 }
 
-resource "aws_cloudwatch_event_target" "trigger_lambda" {
-  rule      = aws_cloudwatch_event_rule.daily_trigger.name
-  target_id = "AutoNotifications"
-  arn       = aws_lambda_function.auto_notifications.arn
+resource "aws_cloudwatch_event_target" "trigger_lambda_end_trial" {
+  rule      = aws_cloudwatch_event_rule.daily_trigger_end_trial.name
+  target_id = "endTrial"
+  arn       = aws_lambda_function.end_trial.arn
 }
 
-resource "aws_lambda_permission" "allow_cloudwatch" {
+resource "aws_lambda_permission" "allow_cloudwatch_end_trial" {
   statement_id  = "AllowExecutionFromCloudWatch"
   action        = "lambda:InvokeFunction"
-  function_name = aws_lambda_function.auto_notifications.function_name
+  function_name = aws_lambda_function.end_trial.function_name
   principal     = "events.amazonaws.com"
   source_arn    = aws_cloudwatch_event_rule.daily_trigger.arn
 }
 
-resource "aws_cloudwatch_log_group" "auto_notifications" {
-  name              = "/aws/lambda/autoNotifications"
+
+resource "aws_cloudwatch_log_group" "endTrial" {
+  name              = "/aws/lambda/endTrial"
   retention_in_days = 7
 }

@@ -15,7 +15,8 @@ exports.handler = async (event) => {
         }),
       };
     }
-    // Fetch all ledger entries for the household and payment source, ordered by transaction date
+
+    // Fetch all ledger entries for the household and payment source, ordered by transaction date ascending
     const ledgerEntries = await prisma.ledger.findMany({
       where: {
         householdId: householdId,
@@ -32,10 +33,33 @@ exports.handler = async (event) => {
         }),
       };
     }
-    // Calculate running totals for the specific payment source
+
+    // Initialize the running total from the previous entry's running total if it exists
     let runningTotal = new Decimal(0);
+    const firstTransactionDate = ledgerEntries[0].transactionDate;
+    const previousEntry = await prisma.ledger.findFirst({
+      where: {
+        householdId: householdId,
+        paymentSourceId: paymentSourceId,
+        transactionDate: {
+          lt: firstTransactionDate,
+        },
+      },
+      orderBy: { transactionDate: 'desc' },
+    });
+
+    if (previousEntry) {
+      runningTotal = new Decimal(previousEntry.runningTotal);
+    }
+
+    // Calculate running totals for the specific payment source, ordered by transaction date
     for (let entry of ledgerEntries) {
-      runningTotal = entry.transactionType.toLowerCase() === 'debit' ? runningTotal.minus(new Decimal(entry.amount)) : runningTotal.plus(new Decimal(entry.amount));
+      runningTotal = entry.transactionType.toLowerCase() === 'debit'
+        ? runningTotal.minus(new Decimal(entry.amount))
+        : runningTotal.plus(new Decimal(entry.amount));
+    
+      console.log(`Updated running total after entry: ${runningTotal.toFixed(2)}`);
+      
       await prisma.ledger.update({
         where: { ledgerId: entry.ledgerId },
         data: { runningTotal: parseFloat(runningTotal.toFixed(2)) },

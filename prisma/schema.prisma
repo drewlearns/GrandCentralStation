@@ -25,6 +25,7 @@ model User {
   subscriptionStatus  String?
   purchaseToken       String?
   receiptData         String?
+  emailSent          Boolean  @default(false) // New field
 
   // Relations
   householdMembers HouseholdMembers[]
