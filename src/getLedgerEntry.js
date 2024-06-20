@@ -74,8 +74,6 @@ exports.handler = async (event) => {
                 ledgerId: ledgerId
             },
             include: {
-                bill: true,
-                income: true,
                 transactions: true,
                 paymentSource: true,  // Assuming `paymentSource` is the correct relation name
             }
@@ -89,22 +87,9 @@ exports.handler = async (event) => {
             };
         }
 
-        let type;
-        if (ledgerEntry.billId) {
-            type = 'bill';
-        } else if (ledgerEntry.incomeId) {
-            type = 'income';
-        } else {
-            type = 'transaction';
-        }
-
-        if (type === 'transaction') {
-            return {
-                statusCode: 204,
-                headers: corsHeaders,
-                body: JSON.stringify({ message: "Transaction entries are ignored" }),
-            };
-        }
+        // Remove bill and income details
+        delete ledgerEntry.billId;
+        delete ledgerEntry.incomeId;
 
         return {
             statusCode: 200,
@@ -112,7 +97,7 @@ exports.handler = async (event) => {
             body: JSON.stringify({ 
                 ledgerEntry: {
                     ...ledgerEntry,
-                    type: type
+                    type: 'transaction'
                 } 
             }),
         };

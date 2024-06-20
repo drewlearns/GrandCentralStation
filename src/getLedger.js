@@ -154,7 +154,26 @@ exports.handler = async (event) => {
 
     const ledgerEntries = await prisma.ledger.findMany({
       where: whereClause,
-      include: {
+      select: {
+        ledgerId: true,
+        householdId: true,
+        paymentSourceId: true,
+        amount: true,
+        transactionType: true,
+        transactionDate: true,
+        category: true,
+        description: true,
+        status: true,
+        createdAt: true,
+        updatedAt: true,
+        updatedBy: true,
+        billId: true,
+        incomeId: true,
+        runningTotal: true,
+        interestRate: true,
+        cashBack: true,
+        tags: true,
+        isInitial: true,
         bill: {
           select: {
             billId: true,
@@ -215,7 +234,7 @@ exports.handler = async (event) => {
     };
 
     const flattenedLedgerEntries = ledgerEntries.map((entry, index) => {
-      const flattenedEntry = { ...entry };
+      const flattenedEntry = { ...entry, ledgerId: entry.ledgerId };
 
       // Assign the first transaction's ID if available
       if (entry.transactions && entry.transactions.length > 0) {

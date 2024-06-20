@@ -6,94 +6,96 @@ const { refreshAndVerifyToken } = require('./refreshAndVerifyToken'); // Ensure 
 const prisma = new PrismaClient();
 const lambdaClient = new LambdaClient({ region: process.env.AWS_REGION });
 const corsHeaders = {
-  'Content-Type': 'application/json',
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'Content-Type',
-  'Access-Control-Allow-Methods': 'OPTIONS,POST,GET'
+    'Content-Type': 'application/json',
+    'Access-Control-Allow-Origin': '*',
+    'Access-Control-Allow-Headers': 'Content-Type',
+    'Access-Control-Allow-Methods': 'OPTIONS,POST,DELETE'
 };
 
 exports.handler = async (event) => {
-  const { authorizationToken, refreshToken, ledgerId } = JSON.parse(event.body);
+    const { authorizationToken, refreshToken, ledgerId } = JSON.parse(event.body);
 
-  if (!authorizationToken || !refreshToken) {
-    return {
-      statusCode: 401,
-      headers: corsHeaders,
-      body: JSON.stringify({
-        message: 'Access denied. No token or refresh token provided.'
-      }),
-    };
-  }
+    if (!authorizationToken || !refreshToken) {
+        return {
+            statusCode: 401,
+            headers: corsHeaders,
+            body: JSON.stringify({
+                message: 'Access denied. No token or refresh token provided.'
+            })
+        };
+    }
 
-  let username;
-  let tokenValid = false;
+    let username;
+    let tokenValid = false;
 
-  // First attempt to verify the token
-  try {
-    username = await verifyToken(authorizationToken);
-    tokenValid = true;
-  } catch (error) {
-    console.error('Token verification failed, attempting refresh:', error.message);
-
-    // Attempt to refresh the token and verify again
+    // First attempt to verify the token
     try {
-      const result = await refreshAndVerifyToken(authorizationToken, refreshToken);
-      username = result.userId;
-      tokenValid = true;
-    } catch (refreshError) {
-      console.error('Token refresh and verification failed:', refreshError);
-      return {
-        statusCode: 401,
-        headers: corsHeaders,
-        body: JSON.stringify({ message: 'Invalid token.', error: refreshError.message }),
-      };
-    }
-  }
+        username = await verifyToken(authorizationToken);
+        tokenValid = true;
+    } catch (error) {
+        console.error('Token verification failed, attempting refresh:', error.message);
 
-  if (!tokenValid) {
-    return {
-      statusCode: 401,
-      headers: corsHeaders,
-      body: JSON.stringify({ message: 'Invalid token.' }),
-    };
-  }
-
-  try {
-    const ledgerEntry = await prisma.ledger.findUnique({
-      where: { ledgerId: ledgerId },
-    });
-
-    if (!ledgerEntry) {
-      return {
-        statusCode: 404,
-        headers: corsHeaders,
-        body: JSON.stringify({ message: 'Ledger entry not found' }),
-      };
+        // Attempt to refresh the token and verify again
+        try {
+            const result = await refreshAndVerifyToken(authorizationToken, refreshToken);
+            username = result.userId;
+            tokenValid = true;
+        } catch (refreshError) {
+            console.error('Token refresh and verification failed:', refreshError);
+            return {
+                statusCode: 401,
+                headers: corsHeaders,
+                body: JSON.stringify({ message: 'Invalid token.', error: refreshError.message }),
+            };
+        }
     }
 
-    // Delete the ledger entry
-    await prisma.ledger.delete({
-      where: { ledgerId: ledgerId },
-    });
+    if (!tokenValid) {
+        return {
+            statusCode: 401,
+            headers: corsHeaders,
+            body: JSON.stringify({ message: 'Invalid token.' }),
+        };
+    }
 
-    return {
-      statusCode: 200,
-      headers: corsHeaders,
-      body: JSON.stringify({
-        message: 'Ledger entry deleted successfully',
-      }),
-    };
-  } catch (error) {
-    console.error('Error deleting ledger entry:', error);
-    return {
-      statusCode: 500,
-      headers: corsHeaders,
-      body: JSON.stringify({
-        message: 'Failed to delete ledger entry',
-        errorDetails: error.message,
-      }),
-    };
-  } finally {
-    await prisma.$disconnect();
-  }
+    try {
+        if (!ledgerId) {
+            return {
+                statusCode: 400,
+                headers: corsHeaders,
+                body: JSON.stringify({
+                    message: 'Missing ledgerId parameter'
+                })
+            };
+        }
+
+        const deleteResult = await prisma.ledger.delete({
+            where: {
+                ledgerId: ledgerId
+            }
+        });
+
+        // Invoke calculateRunningTotal Lambda function
+        const updateTotalsCommand = new InvokeCommand({
+            FunctionName: 'calculateRunningTotal',
+            Payload: JSON.stringify({ householdId: deleteResult.householdId, paymentSourceId: deleteResult.paymentSourceId }),
+        });
+
+        await lambdaClient.send(updateTotalsCommand);
+
+        return {
+            statusCode: 200,
+            headers: corsHeaders,
+            body: JSON.stringify({ message: 'Ledger entry deleted successfully', deleteResult }),
+        };
+    } catch (error) {
+        console.error('Error deleting ledger entry:', error);
+        return {
+            statusCode: 500,
+            headers: corsHeaders,
+            body: JSON.stringify({ message: "Error deleting ledger entry", error: error.message }),
+        };
+    } finally {
+        await prisma.$disconnect();
+    }
 };
