@@ -1,118 +1,52 @@
-require('dotenv').config();
 const { PrismaClient } = require('@prisma/client');
-const axios = require('axios');
-
 const prisma = new PrismaClient();
 
-const corsHeaders = {
-  'Content-Type': 'application/json',
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'Content-Type',
-  'Access-Control-Allow-Methods': 'OPTIONS,POST,GET',
-};
-
-const validateAppleSubscription = async (receiptData, useSandbox) => {
-  const url = useSandbox
-    ? 'https://sandbox.itunes.apple.com/verifyReceipt'
-    : 'https://buy.itunes.apple.com/verifyReceipt';
-
-  const response = await axios.post(url, {
-    'receipt-data': receiptData,
-    'password': process.env.APPLE_SHARED_SECRET, // Use your app's shared secret here
-  });
-
-  return response.data;
-};
-
-exports.handler = async (event) => {
-  let body;
-
+const reconcileSubscriptions = async () => {
   try {
-    body = typeof event.body === 'string' ? JSON.parse(event.body) : event.body;
-  } catch (error) {
-    return {
-      statusCode: 400,
-      headers: corsHeaders,
-      body: JSON.stringify({ message: 'Invalid JSON input' }),
-    };
-  }
-
-  const { email, useSandbox = false } = body;
-
-  try {
-    // Find the user by email
-    const user = await prisma.user.findUnique({
-      where: { email },
+    // Fetch unverified subscriptions that are not linked to any user
+    const unverifiedSubscriptions = await prisma.unverifiedSubscription.findMany({
+      where: { userUuid: null },
     });
 
-    if (!user) {
-      return {
-        statusCode: 404,
-        headers: corsHeaders,
-        body: JSON.stringify({ message: 'User not found' }),
-      };
-    }
+    for (const subscription of unverifiedSubscriptions) {
+      const { platformIdentifier } = subscription;
 
-    // Find matching unverified subscriptions
-    const subscriptions = await prisma.unverifiedSubscription.findMany({
-      where: {
-        platform: 'apple',
-        platformIdentifier: email,
-      },
-    });
+      // Find the user by platformIdentifier
+      const user = await prisma.user.findUnique({
+        where: { uuid: platformIdentifier },
+      });
 
-    if (subscriptions.length === 0) {
-      return {
-        statusCode: 404,
-        headers: corsHeaders,
-        body: JSON.stringify({ message: 'No matching subscriptions found' }),
-      };
-    }
+      if (user) {
+        // Update the user's subscription details
+        await prisma.user.update({
+          where: { uuid: user.uuid },
+          data: {
+            subscriptionEndDate: subscription.subscriptionEndDate,
+            subscriptionId: subscription.platformIdentifier,
+            subscriptionStatus: subscription.notificationType === 'CANCEL' ? 'canceled' : 'active',
+            purchaseToken: subscription.transactionId,
+            receiptData: subscription.receiptData,
+            updatedAt: new Date(),
+          },
+        });
 
-    // Validate and link each subscription
-    for (const subscription of subscriptions) {
-      let validationResponse = await validateAppleSubscription(subscription.receiptData, useSandbox);
+        // Link the unverified subscription to the user
+        await prisma.unverifiedSubscription.update({
+          where: { id: subscription.id },
+          data: { userUuid: user.uuid },
+        });
 
-      if (validationResponse.status !== 0) {
-        return {
-          statusCode: 400,
-          headers: corsHeaders,
-          body: JSON.stringify({ message: 'Invalid subscription receipt' }),
-        };
+        console.log(`Subscription for user ${user.uuid} updated successfully.`);
+      } else {
+        console.log(`User not found for platformIdentifier: ${platformIdentifier}`);
       }
-
-      // If validation passes, link the subscription to the user
-      await prisma.user.update({
-        where: { email },
-        data: {
-          subscriptionEndDate: subscription.subscriptionEndDate,
-          subscriptionStatus: 'active',
-          purchaseToken: subscription.transactionId,
-          receiptData: subscription.receiptData,
-          updatedAt: new Date(),
-        },
-      });
-
-      await prisma.unverifiedSubscription.update({
-        where: { id: subscription.id },
-        data: { userId: user.uuid },
-      });
     }
-
-    return {
-      statusCode: 200,
-      headers: corsHeaders,
-      body: JSON.stringify({ message: 'Subscription linked successfully' }),
-    };
   } catch (error) {
-    console.error('Error verifying and linking subscription:', error);
-
-    return {
-      statusCode: 500,
-      headers: corsHeaders,
-      body: JSON.stringify({ message: 'Failed to verify and link subscription', errorDetails: error.message }),
-    };
+    console.error('Error reconciling subscriptions:', error);
   } finally {
     await prisma.$disconnect();
   }
 };
+
+// Run the reconciliation
+reconcileSubscriptions().catch((e) => console.error(e));

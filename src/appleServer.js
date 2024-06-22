@@ -1,5 +1,4 @@
 const { PrismaClient } = require('@prisma/client');
-
 const prisma = new PrismaClient();
 
 const corsHeaders = {
@@ -9,29 +8,14 @@ const corsHeaders = {
   'Access-Control-Allow-Methods': 'OPTIONS,POST,GET',
 };
 
-const handleAppleSubscription = (notification) => {
-  const latestReceiptInfo = notification.unified_receipt.latest_receipt_info[0];
-  const { original_transaction_id, transaction_id, expires_date, cancellation_date } = latestReceiptInfo;
-  const purchaseDate = cancellation_date ? new Date(parseInt(cancellation_date)) : new Date();
-  const subscriptionEndDate = expires_date ? new Date(parseInt(expires_date)) : null;
-
-  return {
-    platform: 'apple',
-    platformIdentifier: original_transaction_id,
-    transactionId: transaction_id,
-    purchaseDate,
-    subscriptionEndDate,
-    receiptData: JSON.stringify(notification),
-    notificationType: notification.notification_type,
-  };
-};
-
 exports.handler = async (event) => {
   let body;
-
+  console.log("Incoming event:", JSON.stringify(event));
   try {
     body = typeof event.body === 'string' ? JSON.parse(event.body) : event.body;
+    console.log("Parsed body:", JSON.stringify(body));
   } catch (error) {
+    console.error("Error parsing JSON:", error);
     return {
       statusCode: 400,
       headers: corsHeaders,
@@ -39,19 +23,35 @@ exports.handler = async (event) => {
     };
   }
 
-  let subscriptionData;
-
   try {
-    if (body.unified_receipt && body.notification_type) {
-      // Handle Apple subscription
-      subscriptionData = handleAppleSubscription(body);
-    } else {
-      return {
-        statusCode: 400,
-        headers: corsHeaders,
-        body: JSON.stringify({ message: 'Unsupported notification format' }),
-      };
+    const notification = body.event;
+
+    if (!notification) {
+      console.error("Notification event data is missing in parsed body:", JSON.stringify(body));
+      throw new Error('Notification event data is missing');
     }
+
+    const platformIdentifier = notification.original_transaction_id || notification.app_user_id;
+    let transactionId = notification.transaction_id ? String(notification.transaction_id) : `unknown-${Date.now()}`;
+    const purchaseDate = notification.purchased_at_ms ? new Date(notification.purchased_at_ms) : null;
+    const subscriptionEndDate = notification.expiration_at_ms ? new Date(notification.expiration_at_ms) : null;
+
+    if (!platformIdentifier || !purchaseDate) {
+      console.error('Required subscription data is missing', { platformIdentifier, transactionId, purchaseDate });
+      throw new Error('Required subscription data is missing');
+    }
+
+    const subscriptionData = {
+      platform: 'apple',
+      platformIdentifier,
+      transactionId,
+      purchaseDate,
+      subscriptionEndDate,
+      receiptData: notification.id, // Assuming 'id' here is used for receipt data
+      notificationType: notification.type,
+    };
+
+    console.log('Subscription Data:', subscriptionData);
 
     // Store the subscription data
     const subscription = await prisma.unverifiedSubscription.create({
@@ -68,11 +68,27 @@ exports.handler = async (event) => {
       },
     });
 
+    // Store a temporary mapping (assuming we have a way to temporarily map the platformIdentifier to the user)
+    if (body.userUuid) {
+      await prisma.tempIdentifierMapping.create({
+        data: {
+          platformIdentifier: subscriptionData.platformIdentifier,
+          userUuid: body.userUuid,
+          createdAt: new Date(),
+          updatedAt: new Date(),
+        },
+      });
+    }
+
     // Perform specific actions based on the notification type
     switch (subscriptionData.notificationType) {
       case 'INITIAL_BUY':
+      case 'RENEWAL':
+      case 'UNCANCELLATION':
+      case 'DID_RECOVER':
+        // Active subscription events
         await prisma.user.updateMany({
-          where: { email: subscriptionData.platformIdentifier },
+          where: { subscriptionId: subscriptionData.platformIdentifier },
           data: {
             subscriptionEndDate: subscriptionData.subscriptionEndDate,
             subscriptionStatus: 'active',
@@ -82,20 +98,9 @@ exports.handler = async (event) => {
           },
         });
         break;
-      case 'RENEWAL':
-        await prisma.user.updateMany({
-          where: { email: subscriptionData.platformIdentifier },
-          data: {
-            subscriptionEndDate: subscriptionData.subscriptionEndDate,
-            subscriptionStatus: 'active',
-            receiptData: subscriptionData.receiptData,
-            updatedAt: new Date(),
-          },
-        });
-        break;
       case 'CANCEL':
         await prisma.user.updateMany({
-          where: { email: subscriptionData.platformIdentifier },
+          where: { subscriptionId: subscriptionData.platformIdentifier },
           data: {
             subscriptionStatus: 'canceled',
             updatedAt: new Date(),
@@ -104,23 +109,15 @@ exports.handler = async (event) => {
         break;
       case 'DID_FAIL_TO_RENEW':
         await prisma.user.updateMany({
-          where: { email: subscriptionData.platformIdentifier },
+          where: { subscriptionId: subscriptionData.platformIdentifier },
           data: {
             subscriptionStatus: 'failed_to_renew',
             updatedAt: new Date(),
           },
         });
         break;
-      case 'DID_RECOVER':
-        await prisma.user.updateMany({
-          where: { email: subscriptionData.platformIdentifier },
-          data: {
-            subscriptionEndDate: subscriptionData.subscriptionEndDate,
-            subscriptionStatus: 'active',
-            receiptData: subscriptionData.receiptData,
-            updatedAt: new Date(),
-          },
-        });
+      case 'TEST':
+        console.log("TEST");
         break;
       default:
         console.log('Unhandled notification type:', subscriptionData.notificationType);
@@ -129,7 +126,7 @@ exports.handler = async (event) => {
     return {
       statusCode: 200,
       headers: corsHeaders,
-      body: JSON.stringify(subscription),
+      body: JSON.stringify(subscription) || "",
     };
   } catch (error) {
     console.error('Error storing subscription:', error);
@@ -137,7 +134,7 @@ exports.handler = async (event) => {
     return {
       statusCode: 500,
       headers: corsHeaders,
-      body: JSON.stringify({ message: 'Failed to store subscription', errorDetails: error.message }),
+      body: JSON.stringify({ message: 'Failed to store subscription', errorDetails: error.message }) || "",
     };
   } finally {
     await prisma.$disconnect();

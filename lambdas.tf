@@ -31,6 +31,7 @@ module "lambdas" {
         USER_POOL_CLIENT_ID     = aws_cognito_user_pool_client.cognito_user_pool_client.id
         USER_POOL_CLIENT_SECRET = aws_cognito_user_pool_client.cognito_user_pool_client.client_secret
         DATABASE_URL            = "postgresql://root:${aws_secretsmanager_secret_version.db_master_password_version.secret_string}@${aws_rds_cluster.aurora_cluster.endpoint}:5432/tppb${var.environment}?schema=public"
+        revenueCatApiKey        = data.aws_secretsmanager_secret_version.revenue_cat_api_key_version.secret_string
       }
     },
     "confirmSignup" = {
@@ -665,7 +666,7 @@ module "lambdas" {
       authorization = "NONE" # "NONE" OR "COGNITO_USER_POOLS"
       policy_arns   = [aws_iam_policy.lambda_invoke_policy.arn, ]
       environment = {
-        DATABASE_URL = "postgresql://root:${aws_secretsmanager_secret_version.db_master_password_version.secret_string}@${aws_rds_cluster.aurora_cluster.endpoint}:5432/tppb${var.environment}?schema=public"
+        DATABASE_URL        = "postgresql://root:${aws_secretsmanager_secret_version.db_master_password_version.secret_string}@${aws_rds_cluster.aurora_cluster.endpoint}:5432/tppb${var.environment}?schema=public"
         APPLE_SHARED_SECRET = "ec08e8514bb54fb1a8ce834c4ba8e6c2"
       }
     },
@@ -675,7 +676,8 @@ module "lambdas" {
       authorization = "NONE" # "NONE" OR "COGNITO_USER_POOLS"
       policy_arns   = [aws_iam_policy.lambda_invoke_policy.arn, ]
       environment = {
-        DATABASE_URL = "postgresql://root:${aws_secretsmanager_secret_version.db_master_password_version.secret_string}@${aws_rds_cluster.aurora_cluster.endpoint}:5432/tppb${var.environment}?schema=public"
+        DATABASE_URL        = "postgresql://root:${aws_secretsmanager_secret_version.db_master_password_version.secret_string}@${aws_rds_cluster.aurora_cluster.endpoint}:5432/tppb${var.environment}?schema=public"
+        revenueCatApiKey        = data.aws_secretsmanager_secret_version.revenue_cat_api_key_version.secret_string
       }
     },
   }

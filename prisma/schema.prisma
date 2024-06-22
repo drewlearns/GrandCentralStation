@@ -9,11 +9,9 @@ generator client {
 
 model User {
   uuid                String    @id @default(uuid())
-  username            String
   firstName           String
   lastName            String
-  email               String
-  phoneNumber         String
+  email               String    @unique
   signupDate          DateTime
   mailOptIn           Boolean
   defaultHouseholdId  String?
@@ -38,7 +36,7 @@ model UnverifiedSubscription {
   id                   String   @id @default(cuid())
   platform             String
   platformIdentifier   String
-  transactionId        String
+  transactionId        String?
   purchaseDate         DateTime
   subscriptionEndDate  DateTime?
   receiptData          String
