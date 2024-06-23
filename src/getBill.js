@@ -1,134 +1,96 @@
-const { PrismaClient } = require("@prisma/client");
-const { LambdaClient, InvokeCommand } = require("@aws-sdk/client-lambda");
-const { verifyToken } = require('./tokenUtils'); // Ensure this is correctly pointing to the file
-const { refreshAndVerifyToken } = require('./refreshAndVerifyToken'); // Ensure this is correctly pointing to the file
+const { PrismaClient } = require('@prisma/client');
+const { LambdaClient, InvokeCommand } = require('@aws-sdk/client-lambda');
 
 const prisma = new PrismaClient();
-const lambdaClient = new LambdaClient({ region: process.env.AWS_REGION });
-const corsHeaders = {
-  'Content-Type': 'application/json',
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'Content-Type',
-  'Access-Control-Allow-Methods': 'OPTIONS,POST,GET'
+const lambda = new LambdaClient({ region: process.env.AWS_REGION });
+
+const CORS_HEADERS = {
+    'Access-Control-Allow-Origin': '*', // Adjust this to your specific origin if needed
+    'Access-Control-Allow-Methods': 'OPTIONS,GET',
+    'Access-Control-Allow-Headers': 'Content-Type,Authorization',
 };
 
-exports.handler = async (event) => {
-  const { authorizationToken, refreshToken, billId } = JSON.parse(event.body);
-
-  if (!authorizationToken || !refreshToken) {
-    return {
-      statusCode: 401,
-      headers: corsHeaders,
-      body: JSON.stringify({
-        message: 'Access denied. No token or refresh token provided.'
-      })
+async function verifyToken(token) {
+    const params = {
+        FunctionName: 'verifyToken', // Replace with your actual Lambda function name
+        Payload: new TextEncoder().encode(JSON.stringify({ token })),
     };
-  }
 
-  let username;
-  let tokenValid = false;
+    const command = new InvokeCommand(params);
+    const response = await lambda.send(command);
 
-  // First attempt to verify the token
-  try {
-    username = await verifyToken(authorizationToken);
-    tokenValid = true;
-  } catch (error) {
-    console.error('Token verification failed, attempting refresh:', error.message);
+    const payload = JSON.parse(new TextDecoder().decode(response.Payload));
 
-    // Attempt to refresh the token and verify again
-    try {
-      const result = await refreshAndVerifyToken(authorizationToken, refreshToken);
-      username = result.userId;
-      tokenValid = true;
-    } catch (refreshError) {
-      console.error('Token refresh and verification failed:', refreshError);
-      return {
-        statusCode: 401,
-        headers: corsHeaders,
-        body: JSON.stringify({ message: 'Invalid token.', error: refreshError.message }),
-      };
-    }
-  }
-
-  if (!tokenValid) {
-    return {
-      statusCode: 401,
-      headers: corsHeaders,
-      body: JSON.stringify({ message: 'Invalid token.' }),
-    };
-  }
-
-  try {
-    if (!billId) {
-      return {
-        statusCode: 400,
-        headers: corsHeaders,
-        body: JSON.stringify({ message: "Missing billId parameter" }),
-      };
+    if (payload.errorMessage) {
+        throw new Error(payload.errorMessage);
     }
 
+    return payload.isValid;
+}
+
+async function getBill(authToken, billId) {
+    // Verify the token
+    const isValid = await verifyToken(authToken);
+    if (!isValid) {
+        throw new Error('Invalid authorization token');
+    }
+
+    // Fetch the bill details
     const bill = await prisma.bill.findUnique({
-      where: { billId: billId },
-      select: {
-        billId: true,
-        billName: true,
-        amount: true,
-        frequency: true,
-        status: true,
-        category: true,
-        description: true,
-        dayOfMonth: true,
-        isDebt: true,
-        interestRate: true,
-        cashBack: true,
-        url: true,
-        username: true,
-        password: true,
-        createdAt: true,
-        updatedAt: true,
-      },
+        where: { billId: billId },
+        include: {
+            household: true,
+            notifications: true,
+            ledgers: true,
+        },
     });
 
     if (!bill) {
-      return {
-        statusCode: 404,
-        headers: corsHeaders,
-        body: JSON.stringify({ message: "Bill not found" }),
-      };
+        throw new Error('Bill not found');
     }
 
-    return {
-      statusCode: 200,
-      headers: corsHeaders,
-      body: JSON.stringify({
-        bill: {
-          billId: bill.billId,
-          billName: bill.billName,
-          amount: bill.amount,
-          frequency: bill.frequency,
-          status: bill.status,
-          category: bill.category,
-          description: bill.description,
-          dayOfMonth: bill.dayOfMonth,
-          isDebt: bill.isDebt,
-          interestRate: bill.interestRate,
-          cashBack: bill.cashBack,
-          url: bill.url,
-          username: bill.username,
-          password: bill.password,
-          createdAt: bill.createdAt,
-          updatedAt: bill.updatedAt,
-        }
-      }),
-    };
-  } catch (error) {
-    console.error(`Error retrieving bill with id ${billId}:`, error);
-    return {
-      statusCode: 500,
-      headers: corsHeaders,
-      body: JSON.stringify({ message: "Error retrieving bill", error: error.message }),
-    };
-  } finally {
-    await prisma.$disconnect();
-  }
+    return bill;
+}
+
+exports.handler = async (event) => {
+    if (event.httpMethod === 'OPTIONS') {
+        return {
+            statusCode: 200,
+            headers: CORS_HEADERS,
+        };
+    }
+
+    const authToken = event.headers.Authorization;
+    const billId = event.pathParameters.billId;
+
+    if (!authToken) {
+        return {
+            statusCode: 401,
+            headers: CORS_HEADERS,
+            body: JSON.stringify({ error: 'Authorization token is missing' }),
+        };
+    }
+
+    if (!billId) {
+        return {
+            statusCode: 400,
+            headers: CORS_HEADERS,
+            body: JSON.stringify({ error: 'billId is missing' }),
+        };
+    }
+
+    try {
+        const bill = await getBill(authToken, billId);
+        return {
+            statusCode: 200,
+            headers: CORS_HEADERS,
+            body: JSON.stringify(bill),
+        };
+    } catch (error) {
+        return {
+            statusCode: 500,
+            headers: CORS_HEADERS,
+            body: JSON.stringify({ error: error.message }),
+        };
+    }
 };

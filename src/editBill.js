@@ -1,229 +1,197 @@
 const { PrismaClient } = require("@prisma/client");
-const { LambdaClient, InvokeCommand } = require("@aws-sdk/client-lambda");
-const { add, eachMonthOfInterval, eachWeekOfInterval, eachDayOfInterval } = require("date-fns");
 const { v4: uuidv4 } = require("uuid");
-const { verifyToken } = require('./tokenUtils');
-const { refreshAndVerifyToken } = require('./refreshAndVerifyToken'); // Ensure this is correctly pointing to the file
+const { S3Client, PutObjectCommand, HeadBucketCommand, DeleteObjectCommand } = require("@aws-sdk/client-s3");
+const { LambdaClient, InvokeCommand } = require("@aws-sdk/client-lambda");
+const Decimal = require("decimal.js");
+const { Buffer } = require("buffer");
 
 const prisma = new PrismaClient();
 const lambdaClient = new LambdaClient({ region: process.env.AWS_REGION });
+const s3Client = new S3Client({ region: process.env.AWS_REGION });
 const corsHeaders = {
   'Content-Type': 'application/json',
   'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'Content-Type',
-  'Access-Control-Allow-Methods': 'OPTIONS,POST,GET'
+  'Access-Control-Allow-Headers': 'Content-Type,Authorization',
+  'Access-Control-Allow-Methods': 'OPTIONS,PUT'
 };
 
-const calculateOccurrences = (startDate, frequency) => {
-  let occurrences = [];
-  const endDate = add(startDate, { months: 12 });
+const BUCKET = process.env.BUCKET;
 
-  switch (frequency) {
-    case "once":
-      occurrences.push(startDate);
-      break;
-    case "weekly":
-      occurrences = eachWeekOfInterval({ start: startDate, end: endDate });
-      break;
-    case "biweekly":
-      occurrences = eachDayOfInterval({ start: startDate, end: endDate }).filter(
-        (date, index) => index % 14 === 0
-      );
-      break;
-    case "monthly":
-      occurrences = eachMonthOfInterval({ start: startDate, end: endDate });
-      break;
-    case "bi-monthly":
-      occurrences = eachDayOfInterval({ start: startDate, end: endDate }).filter(
-        (date, index) => index % 60 === 0
-      );
-      break;
-    case "quarterly":
-      occurrences = eachMonthOfInterval({ start: startDate, end: endDate }).filter(
-        (date, index) => index % 3 === 0
-      );
-      break;
-    case "annually":
-      occurrences.push(add(startDate, { years: 1 }));
-      break;
-    default:
-      throw new Error(`Unsupported frequency: ${frequency}`);
+const uploadToS3 = async (bucket, key, base64String) => {
+  try {
+    await s3Client.send(new HeadBucketCommand({ Bucket: bucket }));
+  } catch (err) {
+    throw new Error(`Bucket ${bucket} does not exist or you have no access.`);
   }
 
-  return occurrences;
+  const buffer = Buffer.from(base64String, 'base64');
+
+  const params = {
+    Bucket: bucket,
+    Key: key,
+    Body: buffer,
+    ContentEncoding: 'base64',
+    ContentType: 'image/jpeg',
+  };
+
+  try {
+    await s3Client.send(new PutObjectCommand(params));
+  } catch (err) {
+    throw new Error(`Error uploading to S3: ${err.message}`);
+  }
 };
 
-exports.handler = async (event) => {
-  const { authorizationToken, refreshToken, billId, updates } = JSON.parse(event.body);
+const deleteFromS3 = async (bucket, key) => {
+  const params = {
+    Bucket: bucket,
+    Key: key
+  };
 
-  if (!authorizationToken || !refreshToken) {
+  try {
+    await s3Client.send(new DeleteObjectCommand(params));
+  } catch (err) {
+    throw new Error(`Error deleting from S3: ${err.message}`);
+  }
+};
+
+async function verifyToken(token) {
+    const params = {
+        FunctionName: 'verifyToken', // Replace with your actual Lambda function name
+        Payload: new TextEncoder().encode(JSON.stringify({ token })),
+    };
+
+    const command = new InvokeCommand(params);
+    const response = await lambdaClient.send(command);
+
+    const payload = JSON.parse(new TextDecoder().decode(response.Payload));
+
+    if (payload.errorMessage) {
+        throw new Error(payload.errorMessage);
+    }
+
+    return payload.isValid;
+}
+
+exports.handler = async (event) => {
+  if (event.httpMethod === 'OPTIONS') {
     return {
-      statusCode: 401,
+      statusCode: 200,
       headers: corsHeaders,
-      body: JSON.stringify({
-        message: "Access denied. No token provided.",
-      }),
     };
   }
 
-  let username;
-  let tokenValid = false;
-
-  // First attempt to verify the token
   try {
-    username = await verifyToken(authorizationToken);
-    tokenValid = true;
-  } catch (error) {
-    console.error('Token verification failed, attempting refresh:', error.message);
+    const body = JSON.parse(event.body);
+    const { authorizationToken, transactionId, householdId, amount, transactionType, transactionDate, category, description, status, sourceId, tags, image } = body;
 
-    // Attempt to refresh the token and verify again
-    try {
-      const result = await refreshAndVerifyToken(authorizationToken, refreshToken);
-      username = result.userId;
-      tokenValid = true;
-    } catch (refreshError) {
-      console.error('Token refresh and verification failed:', refreshError);
+    if (!authorizationToken) {
       return {
         statusCode: 401,
         headers: corsHeaders,
-        body: JSON.stringify({ message: 'Invalid token.', error: refreshError.message }),
-      };
-    }
-  }
-
-  if (!tokenValid) {
-    return {
-      statusCode: 401,
-      headers: corsHeaders,
-      body: JSON.stringify({ message: 'Invalid token.' }),
-    };
-  }
-
-  try {
-    if (!billId) {
-      return {
-        statusCode: 400,
-        body: JSON.stringify({ message: "Missing billId parameter" }),
+        body: JSON.stringify({ message: 'Access denied. No token provided.' })
       };
     }
 
-    if (!updates || typeof updates !== "object") {
+    // Verify the token
+    const isValid = await verifyToken(authorizationToken);
+    if (!isValid) {
       return {
-        statusCode: 400,
+        statusCode: 401,
         headers: corsHeaders,
-        body: JSON.stringify({
-          message: "Missing or invalid updates parameter",
-        }),
+        body: JSON.stringify({ message: 'Invalid authorization token' }),
       };
     }
 
-    const bill = await prisma.bill.findUnique({
-      where: { billId: billId },
+    const transactionExists = await prisma.transaction.findUnique({ where: { transactionId } });
+    if (!transactionExists) return { statusCode: 404, headers: corsHeaders, body: JSON.stringify({ message: "Transaction not found" }) };
+
+    const householdExists = await prisma.household.findUnique({ where: { householdId } });
+    if (!householdExists) return { statusCode: 404, headers: corsHeaders, body: JSON.stringify({ message: "Household not found" }) };
+
+    const paymentSourceExists = await prisma.paymentSource.findUnique({ where: { sourceId } });
+    if (!paymentSourceExists) return { statusCode: 404, headers: corsHeaders, body: JSON.stringify({ message: "Payment source not found" }) };
+
+    let filePath = null;
+    if (image) {
+      const imageKey = `transaction-images/${uuidv4()}.jpg`;
+      await uploadToS3(BUCKET, imageKey, image);
+
+      const existingAttachment = await prisma.attachments.findFirst({ where: { ledgerId: transactionExists.ledgerId, fileType: "receipt" } });
+      if (existingAttachment) {
+        await deleteFromS3(BUCKET, existingAttachment.filePath);
+        await prisma.attachments.update({
+          where: { attachmentId: existingAttachment.attachmentId },
+          data: { filePath: imageKey, updatedAt: new Date() }
+        });
+      } else {
+        await prisma.attachments.create({
+          data: {
+            attachmentId: uuidv4(),
+            ledgerId: transactionExists.ledgerId,
+            fileType: "receipt",
+            filePath: imageKey,
+            uploadDate: new Date(),
+            createdAt: new Date(),
+            updatedAt: new Date()
+          }
+        });
+      }
+      filePath = imageKey;
+    }
+
+    const runningTotal = await getRunningTotal(householdId, sourceId);
+
+    const updatedLedger = await prisma.ledger.update({
+      where: { ledgerId: transactionExists.ledgerId },
+      data: {
+        householdId,
+        paymentSourceId: sourceId,
+        amount: parseFloat(new Decimal(amount).toFixed(2)),
+        transactionType,
+        transactionDate: new Date(transactionDate),
+        category,
+        description,
+        updatedAt: new Date(),
+        runningTotal: parseFloat(transactionType.toLowerCase() === 'debit' ? new Decimal(runningTotal).minus(new Decimal(amount)).toFixed(2) : new Decimal(runningTotal).plus(new Decimal(amount)).toFixed(2)),
+        status: status === "true",
+        tags: tags || null,
+      },
     });
 
-    if (!bill) {
-      return {
-        statusCode: 404,
-        headers: corsHeaders,
-        body: JSON.stringify({ message: "Bill not found" }),
-      };
-    }
-
-    // Update bill information
-    const updatedBill = await prisma.bill.update({
-      where: { billId: billId },
+    const updatedTransaction = await prisma.transaction.update({
+      where: { transactionId },
       data: {
-        category: updates.category || bill.category,
-        billName: updates.billName || bill.billName,
-        amount: updates.amount !== undefined ? parseFloat(updates.amount) : bill.amount,
-        dayOfMonth: updates.dayOfMonth !== undefined ? parseInt(updates.dayOfMonth) : bill.dayOfMonth,
-        frequency: updates.frequency || bill.frequency,
-        isDebt: updates.isDebt !== undefined ? updates.isDebt === "true" : bill.isDebt,
-        interestRate: updates.interestRate !== undefined ? parseFloat(updates.interestRate) : bill.interestRate,
-        cashBack: updates.cashBack !== undefined ? parseFloat(updates.cashBack) : bill.cashBack,
-        description: updates.description || bill.description,
-        status: updates.status || bill.status,
-        url: updates.url || bill.url,
-        username: updates.username || bill.username,
-        password: updates.password || bill.password,
-        tags: updates.tags || bill.tags,
+        ledgerId: updatedLedger.ledgerId,
+        sourceId,
+        amount: parseFloat(new Decimal(amount).toFixed(2)),
+        transactionDate: new Date(transactionDate),
+        description,
         updatedAt: new Date(),
       },
     });
 
-    // Delete existing ledger entries for this bill
-    await prisma.ledger.deleteMany({
-      where: { billId: billId },
-    });
-
-    // Calculate new occurrences
-    const firstPayDay = new Date(updatedBill.updatedAt);
-    const occurrences = calculateOccurrences(firstPayDay, updatedBill.frequency);
-
-    for (const occurrence of occurrences) {
-      await prisma.ledger.create({
-        data: {
-          ledgerId: uuidv4(),
-          householdId: updatedBill.householdId,
-          amount: updatedBill.amount,
-          transactionType: "debit",
-          transactionDate: occurrence,
-          category: updatedBill.category,
-          description: `${updatedBill.billName} - ${updatedBill.description}`,
-          status: true,
-          createdAt: new Date(),
-          updatedAt: new Date(),
-          updatedBy: username,
-          billId: updatedBill.billId,
-          paymentSourceId: null, // Set this appropriately if you have a specific payment source
-          runningTotal: 0, // Initial placeholder
-          tags: updatedBill.tags || null, // Add the tags field here
+    if (filePath) {
+      await prisma.attachments.upsert({
+        where: { attachmentId: uuidv4() },
+        update: {
+          filePath: filePath,
+          updatedAt: new Date()
         },
+        create: {
+          attachmentId: uuidv4(),
+          ledgerId: updatedLedger.ledgerId,
+          fileType: "receipt",
+          filePath: filePath,
+          uploadDate: new Date(),
+          createdAt: new Date(),
+          updatedAt: new Date()
+        }
       });
     }
 
-    // Get household members' emails if the householdId has changed
-    let recipientEmails;
-    if (updates.householdId && updates.householdId !== bill.householdId) {
-      const householdMembers = await prisma.householdMembers.findMany({
-        where: { householdId: updates.householdId },
-        select: { member: { select: { email: true } } },
-      });
-
-      recipientEmails = householdMembers
-        .map((member) => member.member.email)
-        .join(";");
-    } else {
-      const householdMembers = await prisma.householdMembers.findMany({
-        where: { householdId: bill.householdId },
-        select: { member: { select: { email: true } } },
-      });
-
-      recipientEmails = householdMembers
-        .map((member) => member.member.email)
-        .join(";");
-    }
-
-    // Invoke the editNotification Lambda function
-    const editNotificationCommand = new InvokeCommand({
-      FunctionName: 'editNotification',
-      Payload: JSON.stringify({
-        authorizationToken: authorizationToken,
-        notificationId: updates.notificationId, // Ensure this is provided in the updates
-        billId: billId,
-        title: `Updated Bill: ${updates.billName || bill.billName}`,
-        message: `Your bill for ${updates.billName || bill.billName} has been updated.`,
-        recipientEmail: recipientEmails,
-        dayOfMonth: updates.dayOfMonth !== undefined ? parseInt(updates.dayOfMonth) : bill.dayOfMonth,
-      }),
-    });
-
-    await lambdaClient.send(editNotificationCommand);
-
-    // Calculate running totals
     const calculateTotalsCommand = new InvokeCommand({
       FunctionName: 'calculateRunningTotal',
-      Payload: JSON.stringify({ householdId: updatedBill.householdId, paymentSourceId: updatedBill.paymentSourceId }),
+      Payload: JSON.stringify({ householdId: householdId, paymentSourceId: sourceId }),
     });
 
     await lambdaClient.send(calculateTotalsCommand);
@@ -231,22 +199,30 @@ exports.handler = async (event) => {
     return {
       statusCode: 200,
       headers: corsHeaders,
-      body: JSON.stringify({
-        message: "Bill updated successfully",
-        updatedBill,
-      }),
+      body: JSON.stringify({ message: "Transaction updated successfully", transaction: updatedTransaction })
     };
   } catch (error) {
-    console.error(`Error updating bill ${billId}:`, error);
-    return {
-      statusCode: 500,
+    return { 
+      statusCode: 500, 
       headers: corsHeaders,
-      body: JSON.stringify({
-        message: "Error updating bill",
-        error: error.message,
-      }),
+      body: JSON.stringify({ message: "Error processing request", error: error.message }) 
     };
   } finally {
     await prisma.$disconnect();
   }
 };
+
+async function getRunningTotal(householdId, paymentSourceId) {
+  const transactions = await prisma.ledger.findMany({
+    where: { householdId, paymentSourceId },
+  });
+
+  return transactions.reduce((total, transaction) => {
+    if (transaction.amount === null) {
+      return total;
+    }
+    return transaction.transactionType.toLowerCase() === 'debit' ? 
+      new Decimal(total).minus(new Decimal(transaction.amount)).toFixed(2) : 
+      new Decimal(total).plus(new Decimal(transaction.amount)).toFixed(2);
+  }, new Decimal(0));
+}

@@ -1,24 +1,40 @@
 const { PrismaClient } = require("@prisma/client");
 const { LambdaClient, InvokeCommand } = require("@aws-sdk/client-lambda");
-const { verifyToken } = require('./tokenUtils'); // Ensure this is correctly pointing to the file
-const { refreshAndVerifyToken } = require('./refreshAndVerifyToken'); // Ensure this is correctly pointing to the file
+const { TextEncoder, TextDecoder } = require('util');
 
 const prisma = new PrismaClient();
-const lambdaClient = new LambdaClient({ region: process.env.AWS_REGION });
+const lambda = new LambdaClient({ region: process.env.AWS_REGION });
 const corsHeaders = {
   'Content-Type': 'application/json',
   'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'Content-Type',
+  'Access-Control-Allow-Headers': 'Content-Type,Authorization',
   'Access-Control-Allow-Methods': 'OPTIONS,POST,GET'
 };
 
+async function verifyToken(token) {
+  const params = {
+    FunctionName: 'verifyToken', // Replace with your actual Lambda function name
+    Payload: new TextEncoder().encode(JSON.stringify({ token })),
+  };
+
+  const command = new InvokeCommand(params);
+  const response = await lambda.send(command);
+
+  const payload = JSON.parse(new TextDecoder().decode(response.Payload));
+
+  if (payload.errorMessage) {
+    throw new Error(payload.errorMessage);
+  }
+
+  return payload;
+}
+
 exports.handler = async (event) => {
-  let authorizationToken, refreshToken, paymentSourceId;
+  let authorizationToken, paymentSourceId;
 
   try {
     const parsedBody = JSON.parse(event.body);
     authorizationToken = parsedBody.authorizationToken;
-    refreshToken = parsedBody.refreshToken;
     paymentSourceId = parsedBody.paymentSourceId;
   } catch (error) {
     console.error('Error parsing event body:', error);
@@ -32,12 +48,12 @@ exports.handler = async (event) => {
     };
   }
 
-  if (!authorizationToken || !refreshToken) {
+  if (!authorizationToken) {
     return {
       statusCode: 401,
       headers: corsHeaders,
       body: JSON.stringify({
-        message: 'Access denied. No token or refresh token provided.',
+        message: 'Access denied. No token provided.',
       }),
     };
   }
@@ -55,29 +71,21 @@ exports.handler = async (event) => {
   let updatedBy;
   let tokenValid = false;
 
-  // First attempt to verify the token
+  // Attempt to verify the token
   try {
-    updatedBy = await verifyToken(authorizationToken);
+    const tokenPayload = await verifyToken(authorizationToken);
+    updatedBy = tokenPayload.uid;
     tokenValid = true;
   } catch (error) {
-    console.error('Token verification failed, attempting refresh:', error.message);
-
-    // Attempt to refresh the token and verify again
-    try {
-      const result = await refreshAndVerifyToken(authorizationToken, refreshToken);
-      updatedBy = result.userId;
-      tokenValid = true;
-    } catch (refreshError) {
-      console.error('Token refresh and verification failed:', refreshError);
-      return {
-        statusCode: 401,
-        headers: corsHeaders,
-        body: JSON.stringify({
-          message: 'Invalid token.',
-          error: refreshError.message,
-        }),
-      };
-    }
+    console.error('Token verification failed:', error.message);
+    return {
+      statusCode: 401,
+      headers: corsHeaders,
+      body: JSON.stringify({
+        message: 'Invalid token.',
+        error: error.message,
+      }),
+    };
   }
 
   if (!tokenValid) {

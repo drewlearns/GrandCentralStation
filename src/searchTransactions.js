@@ -1,17 +1,34 @@
 const { PrismaClient } = require('@prisma/client');
 const { LambdaClient, InvokeCommand } = require('@aws-sdk/client-lambda');
 const Decimal = require('decimal.js');
-const { verifyToken } = require('./tokenUtils'); // Ensure this is correctly pointing to the file
-const { refreshAndVerifyToken } = require('./refreshAndVerifyToken'); // Ensure this is correctly pointing to the file
 
 const prisma = new PrismaClient();
-const lambdaClient = new LambdaClient({ region: process.env.AWS_REGION });
-const corsHeaders = {
+const lambda = new LambdaClient({ region: 'us-east-1' }); // Adjust the region as necessary
+
+const CORS_HEADERS = {
   'Content-Type': 'application/json',
   'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'Content-Type',
+  'Access-Control-Allow-Headers': 'Content-Type,Authorization',
   'Access-Control-Allow-Methods': 'OPTIONS,POST,GET'
 };
+
+async function verifyToken(token) {
+    const params = {
+        FunctionName: 'verifyToken', // Replace with your actual Lambda function name
+        Payload: new TextEncoder().encode(JSON.stringify({ token })),
+    };
+
+    const command = new InvokeCommand(params);
+    const response = await lambda.send(command);
+
+    const payload = JSON.parse(new TextDecoder().decode(response.Payload));
+
+    if (payload.errorMessage) {
+        throw new Error(payload.errorMessage);
+    }
+
+    return payload;
+}
 
 exports.handler = async (event) => {
   console.log('Event received:', JSON.stringify(event, null, 2));
@@ -22,57 +39,47 @@ exports.handler = async (event) => {
     console.log('No authorization token provided.');
     return {
       statusCode: 401,
-      headers: corsHeaders,
+      headers: CORS_HEADERS,
       body: JSON.stringify({
         message: 'Access denied. No token provided.'
       })
     };
   }
 
-  let username;
-  let tokenValid = false;
+  let uid;
 
-  // First attempt to verify the token
+  // Verify the token
   try {
-    username = await verifyToken(authorizationToken);
-    tokenValid = true;
+    const payload = await verifyToken(authorizationToken);
+    uid = payload.uid;
   } catch (error) {
-    console.error('Token verification failed, attempting refresh:', error.message);
-
-    // Attempt to refresh the token and verify again
-    try {
-      const result = await refreshAndVerifyToken(authorizationToken, refreshToken);
-      username = result.userId;
-      tokenValid = true;
-    } catch (refreshError) {
-      console.error('Token refresh and verification failed:', refreshError);
-      return {
-        statusCode: 401,
-        headers: corsHeaders,
-        body: JSON.stringify({
-          message: 'Invalid token.',
-          error: refreshError.message,
-        }),
-      };
-    }
-  }
-
-  if (!tokenValid) {
+    console.error('Token verification failed:', error.message);
     return {
       statusCode: 401,
-      headers: corsHeaders,
-      body: JSON.stringify({ message: 'Invalid token.' }),
+      headers: CORS_HEADERS,
+      body: JSON.stringify({
+        message: 'Invalid token.',
+        error: error.message,
+      }),
+    };
+  }
+
+  if (!uid) {
+    return {
+      statusCode: 401,
+      headers: CORS_HEADERS,
+      body: JSON.stringify({ message: 'Invalid token payload: missing uid' }),
     };
   }
 
   try {
     console.log('Fetching user from database...');
-    const user = await prisma.user.findFirst({
-      where: { username: username },
+    const user = await prisma.user.findUnique({
+      where: { uuid: uid },
     });
 
     if (!user) {
-      console.error('User not found for username:', username);
+      console.error('User not found for uid:', uid);
       throw new Error('User not found.');
     }
 
@@ -98,10 +105,10 @@ exports.handler = async (event) => {
     console.log('Household IDs:', householdIds);
 
     if (householdIds.length === 0) {
-      console.log('No associated households found for user:', username);
+      console.log('No associated households found for user:', uid);
       return {
         statusCode: 404,
-        headers: corsHeaders,
+        headers: CORS_HEADERS,
         body: JSON.stringify({ message: "No associated households found" }),
       };
     }
@@ -138,10 +145,10 @@ exports.handler = async (event) => {
     });
 
     if (ledgers.length === 0) {
-      console.log('No transactions found matching the query for user:', username);
+      console.log('No transactions found matching the query for user:', uid);
       return {
         statusCode: 404,
-        headers: corsHeaders,
+        headers: CORS_HEADERS,
         body: JSON.stringify({ message: "No transactions found matching the query" }),
       };
     }
@@ -193,14 +200,14 @@ exports.handler = async (event) => {
 
     return {
       statusCode: 200,
-      headers: corsHeaders,
+      headers: CORS_HEADERS,
       body: formattedJsonString,
     };
   } catch (error) {
     console.error(`Error retrieving transactions: ${error.message}`);
     return {
       statusCode: 500,
-      headers: corsHeaders,
+      headers: CORS_HEADERS,
       body: JSON.stringify({
         message: "Error retrieving transactions",
         error: error.message,

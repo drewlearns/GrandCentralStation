@@ -1,125 +1,103 @@
-const { PrismaClient } = require("@prisma/client");
-const { LambdaClient, InvokeCommand } = require("@aws-sdk/client-lambda");
-const { verifyToken } = require('./tokenUtils');
-const { refreshAndVerifyToken } = require('./refreshAndVerifyToken'); // Ensure this is correctly pointing to the file
+const { PrismaClient } = require('@prisma/client');
+const { LambdaClient, InvokeCommand } = require('@aws-sdk/client-lambda');
 
 const prisma = new PrismaClient();
-const lambdaClient = new LambdaClient({ region: process.env.AWS_REGION });
-const corsHeaders = {
-  'Content-Type': 'application/json',
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'Content-Type',
-  'Access-Control-Allow-Methods': 'OPTIONS,POST,GET'
+const lambda = new LambdaClient({ region: process.env.AWS_REGION });
+
+const CORS_HEADERS = {
+    'Access-Control-Allow-Origin': '*', // Adjust this to your specific origin if needed
+    'Access-Control-Allow-Methods': 'OPTIONS,PUT',
+    'Access-Control-Allow-Headers': 'Content-Type,Authorization',
 };
+
+async function verifyToken(token) {
+    const params = {
+        FunctionName: 'verifyToken', // Replace with your actual Lambda function name
+        Payload: new TextEncoder().encode(JSON.stringify({ token })),
+    };
+
+    const command = new InvokeCommand(params);
+    const response = await lambda.send(command);
+
+    const payload = JSON.parse(new TextDecoder().decode(response.Payload));
+
+    if (payload.errorMessage) {
+        throw new Error(payload.errorMessage);
+    }
+
+    return payload.isValid;
+}
+
+async function editPaymentSource(authToken, sourceId, name, type, description) {
+    // Verify the token
+    const isValid = await verifyToken(authToken);
+    if (!isValid) {
+        throw new Error('Invalid authorization token');
+    }
+
+    // Update the payment source
+    const updatedPaymentSource = await prisma.paymentSource.update({
+        where: {
+            sourceId: sourceId,
+        },
+        data: {
+            sourceName: name,
+            sourceType: type,
+            description: description,
+            updatedAt: new Date(),
+        },
+    });
+
+    return updatedPaymentSource;
+}
 
 exports.handler = async (event) => {
-  const { authorizationToken, refreshToken, sourceId, householdId, sourceName, sourceType, details } = JSON.parse(event.body);
+    if (event.httpMethod === 'OPTIONS') {
+        return {
+            statusCode: 200,
+            headers: CORS_HEADERS,
+        };
+    }
 
-  if (!authorizationToken || !refreshToken) {
-    return {
-      statusCode: 401,
-      headers: corsHeaders,
-      body: JSON.stringify({
-        message: 'Access denied. No token provided.'
-      })
-    };
-  }
+    const authToken = event.headers.Authorization || event.headers.authorization;
+    const { sourceId, name, type, description } = JSON.parse(event.body);
 
-  if (!sourceId) {
-    return {
-      statusCode: 400,
-      headers: corsHeaders,
-      body: JSON.stringify({
-        message: 'sourceId is required.'
-      })
-    };
-  }
+    if (!authToken) {
+        return {
+            statusCode: 401,
+            headers: CORS_HEADERS,
+            body: JSON.stringify({ error: 'Unauthorized: No token provided' }),
+        };
+    }
 
-  let username;
-  let tokenValid = false;
-
-  // First attempt to verify the token
-  try {
-    username = await verifyToken(authorizationToken);
-    tokenValid = true;
-  } catch (error) {
-    console.error('Token verification failed, attempting refresh:', error.message);
-
-    // Attempt to refresh the token and verify again
     try {
-      const result = await refreshAndVerifyToken(authorizationToken, refreshToken);
-      username = result.userId;
-      tokenValid = true;
-    } catch (refreshError) {
-      console.error('Token refresh and verification failed:', refreshError);
-      return {
-        statusCode: 401,
-        headers: corsHeaders,
-        body: JSON.stringify({ message: 'Invalid token.', error: refreshError.message }),
-      };
+        const updatedPaymentSource = await editPaymentSource(authToken, sourceId, name, type, description);
+        return {
+            statusCode: 200,
+            headers: CORS_HEADERS,
+            body: JSON.stringify({
+                message: 'Payment source updated successfully',
+                paymentSource: updatedPaymentSource,
+            }),
+        };
+    } catch (error) {
+        console.error('Error updating payment source:', error);
+
+        return {
+            statusCode: 500,
+            headers: CORS_HEADERS,
+            body: JSON.stringify({ error: 'Internal server error' }),
+        };
     }
-  }
-
-  if (!tokenValid) {
-    return {
-      statusCode: 401,
-      headers: corsHeaders,
-      body: JSON.stringify({ message: 'Invalid token.' }),
-    };
-  }
-
-  try {
-    const paymentSource = await prisma.paymentSource.findUnique({
-      where: { sourceId: sourceId },
-    });
-
-    if (!paymentSource) {
-      return {
-        statusCode: 404,
-        headers: corsHeaders,
-        body: JSON.stringify({ message: "Payment source not found" }),
-      };
-    }
-
-    if (paymentSource.householdId !== householdId) {
-      return {
-        statusCode: 403,
-        headers: corsHeaders,
-        body: JSON.stringify({
-          message: 'You do not have permission to edit this payment source',
-        }),
-      };
-    }
-
-    const updatedPaymentSource = await prisma.paymentSource.update({
-      where: { sourceId: sourceId },
-      data: {
-        sourceName: sourceName,
-        sourceType: sourceType,
-        details: details,
-        updatedAt: new Date(),
-      },
-    });
-
-    return {
-      statusCode: 200,
-      headers: corsHeaders,
-      body: JSON.stringify({
-        message: "Payment source updated successfully",
-        paymentSource: updatedPaymentSource,
-      }),
-    };
-  } catch (error) {
-    console.error(`Error updating payment source: ${error.message}`);
-    return {
-      statusCode: 500,
-      headers: corsHeaders,
-      body: JSON.stringify({
-        message: "Error updating payment source",
-        error: error.message,
-      }),
-    };
-  } finally {
-    await prisma.$disconnect();
-  }
 };
+
+// Example usage:
+// const authToken = 'your-auth-token';
+// const sourceId = 'your-source-id';
+// const name = 'Updated Bank Account';
+// const type = 'Checking';
+// const description = 'Updated description';
+//
+// editPaymentSource(authToken, sourceId, name, type, description)
+//     .then(updatedPaymentSource => console.log('Payment source updated:', updatedPaymentSource))
+//     .catch(error => console.error('Error updating payment source:', error));

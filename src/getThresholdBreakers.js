@@ -1,82 +1,90 @@
 const { PrismaClient } = require("@prisma/client");
 const { LambdaClient, InvokeCommand } = require("@aws-sdk/client-lambda");
-const { verifyToken } = require('./tokenUtils');
-const { refreshAndVerifyToken } = require('./refreshAndVerifyToken');
+const { verifyToken } = require('./tokenUtils'); // Assuming this utility exists and works similarly to the model
 
 const prisma = new PrismaClient();
-const lambdaClient = new LambdaClient({ region: process.env.AWS_REGION });
-const corsHeaders = {
+const lambda = new LambdaClient({ region: 'us-east-1' }); // Adjust the region as necessary
+
+const CORS_HEADERS = {
   'Content-Type': 'application/json',
   'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'Content-Type',
+  'Access-Control-Allow-Headers': 'Content-Type,Authorization',
   'Access-Control-Allow-Methods': 'OPTIONS,POST,GET'
 };
 
+async function verifyToken(token) {
+    const params = {
+        FunctionName: 'verifyToken', // Replace with your actual Lambda function name
+        Payload: new TextEncoder().encode(JSON.stringify({ token })),
+    };
+
+    const command = new InvokeCommand(params);
+    const response = await lambda.send(command);
+
+    const payload = JSON.parse(new TextDecoder().decode(response.Payload));
+
+    if (payload.errorMessage) {
+        throw new Error(payload.errorMessage);
+    }
+
+    return payload;
+}
+
 exports.handler = async (event) => {
-  const {
-    authorizationToken,
-    refreshToken,
-    householdId,
-    threshold,
-    paymentSourceId,
-  } = JSON.parse(event.body);
-
-
-  if (!authorizationToken || !refreshToken) {
+  if (event.httpMethod === 'OPTIONS') {
     return {
-      statusCode: 401,
-      headers: corsHeaders,
-      body: JSON.stringify({ message: "Access denied. No token or refresh token provided." }),
+      statusCode: 200,
+      headers: CORS_HEADERS,
     };
   }
 
-  let username;
-  let tokenValid = false;
+  const { authorizationToken, householdId, threshold, paymentSourceId } = JSON.parse(event.body);
 
-  // First attempt to verify the token
+  if (!authorizationToken) {
+    return {
+      statusCode: 401,
+      headers: CORS_HEADERS,
+      body: JSON.stringify({ message: "Access denied. No authorization token provided." }),
+    };
+  }
+
+  let uid;
+
+  // Verify the token
   try {
-    username = await verifyToken(authorizationToken);
-    tokenValid = true;
+    const payload = await verifyToken(authorizationToken);
+    uid = payload.uid;
   } catch (error) {
-    console.error('Token verification failed, attempting refresh:', error.message);
-
-    // Attempt to refresh the token and verify again
-    try {
-      const result = await refreshAndVerifyToken(authorizationToken, refreshToken);
-      username = result.userId;
-      tokenValid = true;
-    } catch (refreshError) {
-      console.error('Token refresh and verification failed:', refreshError);
-      return {
-        statusCode: 401,
-        headers: corsHeaders,
-        body: JSON.stringify({
-          message: 'Invalid token.',
-          error: refreshError.message,
-        }),
-      };
-    }
-  }
-
-  if (!tokenValid) {
+    console.error('Token verification failed:', error.message);
     return {
       statusCode: 401,
-      headers: corsHeaders,
-      body: JSON.stringify({ message: 'Invalid token.' }),
+      headers: CORS_HEADERS,
+      body: JSON.stringify({
+        message: 'Invalid token.',
+        error: error.message,
+      }),
+    };
+  }
+
+  if (!uid) {
+    return {
+      statusCode: 401,
+      headers: CORS_HEADERS,
+      body: JSON.stringify({ message: 'Invalid token payload: missing uid' }),
+    };
+  }
+
+  if (!householdId || !threshold || !paymentSourceId) {
+    return {
+      statusCode: 400,
+      headers: CORS_HEADERS,
+      body: JSON.stringify({
+        message: "Missing householdId, threshold, or paymentSourceId parameter",
+      }),
     };
   }
 
   try {
-    if (!householdId || !threshold || !paymentSourceId) {
-      return {
-        statusCode: 400,
-        headers: corsHeaders,
-        body: JSON.stringify({
-          message: "Missing householdId, threshold, or paymentSourceId parameter",
-        }),
-      };
-    }
-
     const currentDate = new Date();
 
     // Fetch ledger entries with running total for the specified paymentSourceId and future transactions only
@@ -109,14 +117,14 @@ exports.handler = async (event) => {
 
     return {
       statusCode: 200,
-      headers: corsHeaders,
+      headers: CORS_HEADERS,
       body: JSON.stringify({ entries: entriesBelowThreshold }),
     };
   } catch (error) {
     console.error("Error processing request:", error);
     return {
       statusCode: 500,
-      headers: corsHeaders,
+      headers: CORS_HEADERS,
       body: JSON.stringify({
         message: "Error processing request",
         error: error.message,

@@ -1,102 +1,122 @@
 const { PrismaClient } = require("@prisma/client");
 const { LambdaClient, InvokeCommand } = require("@aws-sdk/client-lambda");
-const { verifyToken } = require('./tokenUtils'); // Ensure this is correctly pointing to the file
-const { refreshAndVerifyToken } = require('./refreshAndVerifyToken'); // Ensure this is correctly pointing to the file
 
 const prisma = new PrismaClient();
-const lambdaClient = new LambdaClient({ region: process.env.AWS_REGION });
-const corsHeaders = {
+const lambda = new LambdaClient({ region: 'us-east-1' }); // Adjust the region as necessary
+
+const CORS_HEADERS = {
   'Content-Type': 'application/json',
   'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'Content-Type',
+  'Access-Control-Allow-Headers': 'Content-Type,Authorization',
   'Access-Control-Allow-Methods': 'OPTIONS,POST,GET'
 };
 
+async function verifyToken(token) {
+    const params = {
+        FunctionName: 'verifyToken', // Replace with your actual Lambda function name
+        Payload: new TextEncoder().encode(JSON.stringify({ token })),
+    };
+
+    const command = new InvokeCommand(params);
+    const response = await lambda.send(command);
+
+    const payload = JSON.parse(new TextDecoder().decode(response.Payload));
+
+    if (payload.errorMessage) {
+        throw new Error(payload.errorMessage);
+    }
+
+    return payload;
+}
+
 exports.handler = async (event) => {
-  const { authorizationToken, refreshToken, transactionId } = JSON.parse(event.body);
-
-  if (!authorizationToken || !refreshToken) {
+  if (event.httpMethod === 'OPTIONS') {
     return {
-      statusCode: 401,
-      headers: corsHeaders,
-      body: JSON.stringify({
-        message: 'Access denied. No token or refresh token provided.'
-      })
+      statusCode: 200,
+      headers: CORS_HEADERS,
     };
   }
 
-  let username;
-  let tokenValid = false;
+  const authToken = event.headers.Authorization;
 
-  // First attempt to verify the token
+  if (!authToken) {
+    return {
+      statusCode: 401,
+      headers: CORS_HEADERS,
+      body: JSON.stringify({ message: "Access denied. No authorization token provided." }),
+    };
+  }
+
+  let uid;
+
+  // Verify the token
   try {
-    username = await verifyToken(authorizationToken);
-    tokenValid = true;
+    const payload = await verifyToken(authToken);
+    uid = payload.uid;
   } catch (error) {
-    console.error('Token verification failed, attempting refresh:', error.message);
-
-    // Attempt to refresh the token and verify again
-    try {
-      const result = await refreshAndVerifyToken(authorizationToken, refreshToken);
-      username = result.userId;
-      tokenValid = true;
-    } catch (refreshError) {
-      console.error('Token refresh and verification failed:', refreshError);
-      return {
-        statusCode: 401,
-        headers: corsHeaders,
-        body: JSON.stringify({
-          message: 'Invalid token.',
-          error: refreshError.message,
-        }),
-      };
-    }
-  }
-
-  if (!tokenValid) {
+    console.error('Token verification failed:', error.message);
     return {
       statusCode: 401,
-      headers: corsHeaders,
-      body: JSON.stringify({ message: 'Invalid token.' }),
+      headers: CORS_HEADERS,
+      body: JSON.stringify({
+        message: 'Invalid token.',
+        error: error.message,
+      }),
+    };
+  }
+
+  if (!uid) {
+    return {
+      statusCode: 401,
+      headers: CORS_HEADERS,
+      body: JSON.stringify({ message: 'Invalid token payload: missing uid' }),
+    };
+  }
+
+  const { transactionId } = JSON.parse(event.body);
+
+  if (!transactionId) {
+    return {
+      statusCode: 400,
+      headers: CORS_HEADERS,
+      body: JSON.stringify({
+        message: "Missing transactionId parameter",
+      }),
     };
   }
 
   try {
-    if (!transactionId) {
-      return {
-        statusCode: 400,
-        headers: corsHeaders,
-        body: JSON.stringify({ message: "Missing transactionId parameter" }),
-      };
-    }
-
-    const transaction = await prisma.transaction.findUnique({
-      where: { transactionId: transactionId },
-      include: {
-        ledger: true,
-        paymentSource: true
-      }
+    // Fetch the transaction by transactionId
+    const transaction = await prisma.ledger.findUnique({
+      where: {
+        id: transactionId,
+      },
     });
 
     if (!transaction) {
       return {
         statusCode: 404,
-        headers: corsHeaders,
-        body: JSON.stringify({ message: "Transaction not found" }),
+        headers: CORS_HEADERS,
+        body: JSON.stringify({
+          message: "Transaction not found",
+        }),
       };
     }
 
     return {
       statusCode: 200,
-      headers: corsHeaders,
-      body: JSON.stringify({ transaction: transaction }),
+      headers: CORS_HEADERS,
+      body: JSON.stringify({ transaction }),
     };
   } catch (error) {
-    console.error(`Error retrieving transaction ${transactionId}:`, error);
+    console.error("Error processing request:", error);
     return {
       statusCode: 500,
-      headers: corsHeaders,
-      body: JSON.stringify({ message: "Error retrieving transaction", error: error.message }),
+      headers: CORS_HEADERS,
+      body: JSON.stringify({
+        message: "Error processing request",
+        error: error.message,
+      }),
     };
   } finally {
     await prisma.$disconnect();

@@ -1,11 +1,9 @@
-const { PrismaClient } = require("@prisma/client");
-const { v4: uuidv4 } = require("uuid");
-const { S3Client, PutObjectCommand, HeadBucketCommand, DeleteObjectCommand } = require("@aws-sdk/client-s3");
-const { LambdaClient, InvokeCommand } = require("@aws-sdk/client-lambda");
-const { Buffer } = require("buffer");
-const Decimal = require("decimal.js");
-const { verifyToken } = require('./tokenUtils');
-const { refreshAndVerifyToken } = require('./refreshAndVerifyToken'); // Ensure this is correctly pointing to the file
+const { PrismaClient } = require('@prisma/client');
+const { v4: uuidv4 } = require('uuid');
+const { S3Client, PutObjectCommand, HeadBucketCommand, HeadObjectCommand, DeleteObjectCommand } = require('@aws-sdk/client-s3');
+const { LambdaClient, InvokeCommand } = require('@aws-sdk/client-lambda');
+const Decimal = require('decimal.js');
+const { Buffer } = require('buffer');
 
 const prisma = new PrismaClient();
 const lambdaClient = new LambdaClient({ region: process.env.AWS_REGION });
@@ -19,8 +17,7 @@ const corsHeaders = {
 
 const BUCKET = process.env.BUCKET;
 
-const uploadToS3 = async (bucket, key, base64String) => {
-  console.log(`Attempting to upload to bucket ${bucket} with key ${key}`);
+const uploadToS3 = async (bucket, key, buffer, mimeType) => {
   try {
     await s3Client.send(new HeadBucketCommand({ Bucket: bucket }));
   } catch (err) {
@@ -28,19 +25,16 @@ const uploadToS3 = async (bucket, key, base64String) => {
     throw new Error(`Bucket ${bucket} does not exist or you have no access.`);
   }
 
-  const buffer = Buffer.from(base64String, 'base64');
-
   const params = {
     Bucket: bucket,
     Key: key,
     Body: buffer,
-    ContentEncoding: 'base64',
-    ContentType: 'image/jpeg',
+    ContentType: mimeType,
   };
 
   try {
     await s3Client.send(new PutObjectCommand(params));
-    console.log(`Successfully uploaded to S3 with key ${key}`);
+    await s3Client.send(new HeadObjectCommand({ Bucket: bucket, Key: key }));
   } catch (err) {
     console.error(`Error uploading to S3: ${err.message}`, err);
     throw new Error(`Error uploading to S3: ${err.message}`);
@@ -48,7 +42,6 @@ const uploadToS3 = async (bucket, key, base64String) => {
 };
 
 const deleteFromS3 = async (bucket, key) => {
-  console.log(`Attempting to delete from bucket ${bucket} with key ${key}`);
   const params = {
     Bucket: bucket,
     Key: key
@@ -56,21 +49,45 @@ const deleteFromS3 = async (bucket, key) => {
 
   try {
     await s3Client.send(new DeleteObjectCommand(params));
-    console.log(`Successfully deleted from S3 with key ${key}`);
   } catch (err) {
     console.error(`Error deleting from S3: ${err.message}`, err);
     throw new Error(`Error deleting from S3: ${err.message}`);
   }
 };
 
+async function verifyToken(token) {
+  const params = {
+    FunctionName: 'verifyToken', // Replace with your actual Lambda function name
+    Payload: new TextEncoder().encode(JSON.stringify({ token })),
+  };
+
+  const command = new InvokeCommand(params);
+  const response = await lambdaClient.send(command);
+
+  const payload = JSON.parse(new TextDecoder().decode(response.Payload));
+
+  if (payload.errorMessage) {
+    throw new Error(payload.errorMessage);
+  }
+
+  return payload.isValid;
+}
+
 exports.handler = async (event) => {
-  console.log('Event received:', event);
   try {
     const body = JSON.parse(event.body);
-    const { authorizationToken, refreshToken, transactionId, householdId, amount, transactionType, transactionDate, category, description, status, sourceId, tags, image } = body;
+    const { authorizationToken, householdId, amount, transactionType, transactionDate, category, description, status, sourceId, tags, image, transactionId } = body;
 
-    if (!authorizationToken || !refreshToken) {
-      console.warn('No authorization token or refresh token provided');
+    // Validate required fields
+    if (!transactionId || !sourceId || !transactionDate || !transactionType || !amount || !description) {
+      return {
+        statusCode: 400,
+        headers: corsHeaders,
+        body: JSON.stringify({ message: 'Missing required fields: transactionId, sourceId, transactionDate, transactionType, amount, and description are required.' })
+      };
+    }
+
+    if (!authorizationToken) {
       return {
         statusCode: 401,
         headers: corsHeaders,
@@ -78,73 +95,40 @@ exports.handler = async (event) => {
       };
     }
 
-    let username;
-    let tokenValid = false;
-
-    // First attempt to verify the token
-    try {
-      username = await verifyToken(authorizationToken);
-      tokenValid = true;
-    } catch (error) {
-      console.error('Token verification failed, attempting refresh:', error.message);
-
-      // Attempt to refresh the token and verify again
-      try {
-        const result = await refreshAndVerifyToken(authorizationToken, refreshToken);
-        username = result.userId;
-        tokenValid = true;
-      } catch (refreshError) {
-        console.error('Token refresh and verification failed:', refreshError);
-        return {
-          statusCode: 401,
-          headers: corsHeaders,
-          body: JSON.stringify({ message: 'Invalid token.', error: refreshError.message }),
-        };
-      }
-    }
-
-    if (!tokenValid) {
+    // Verify the token
+    const isValid = await verifyToken(authorizationToken);
+    if (!isValid) {
       return {
         statusCode: 401,
         headers: corsHeaders,
-        body: JSON.stringify({ message: 'Invalid token.' }),
+        body: JSON.stringify({ message: 'Invalid authorization token' }),
       };
     }
 
-    console.log('Checking if transaction exists');
     const transactionExists = await prisma.transaction.findUnique({ where: { transactionId } });
     if (!transactionExists) return { statusCode: 404, body: JSON.stringify({ message: "Transaction not found" }) };
 
-    console.log('Checking if household exists');
     const householdExists = await prisma.household.findUnique({ where: { householdId } });
     if (!householdExists) return { statusCode: 404, body: JSON.stringify({ message: "Household not found" }) };
 
-    console.log('Checking if payment source exists');
     const paymentSourceExists = await prisma.paymentSource.findUnique({ where: { sourceId } });
     if (!paymentSourceExists) return { statusCode: 404, body: JSON.stringify({ message: "Payment source not found" }) };
-
-    if (!prisma.attachments) {
-      console.error('Prisma attachments model is undefined. Please check your Prisma schema and ensure the model is defined correctly.');
-      throw new Error('Internal server error');
-    }
 
     let filePath = null;
     let existingAttachment = null;
     if (image) {
-      console.log('Uploading image to S3');
+      const buffer = Buffer.from(image, 'base64');
       const imageKey = `transaction-images/${uuidv4()}.jpg`;
-      await uploadToS3(BUCKET, imageKey, image);
+      await uploadToS3(BUCKET, imageKey, buffer, 'image/jpeg');
 
       existingAttachment = await prisma.attachments.findFirst({ where: { ledgerId: transactionExists.ledgerId, fileType: "receipt" } });
       if (existingAttachment) {
-        console.log('Deleting existing attachment from S3');
         await deleteFromS3(BUCKET, existingAttachment.filePath);
         await prisma.attachments.update({
           where: { attachmentId: existingAttachment.attachmentId },
           data: { filePath: imageKey, updatedAt: new Date() }
         });
       } else {
-        console.log('Creating new attachment in database');
         await prisma.attachments.create({
           data: {
             attachmentId: uuidv4(),
@@ -160,10 +144,8 @@ exports.handler = async (event) => {
       filePath = imageKey;
     }
 
-    console.log('Calculating running total');
     const runningTotal = await getRunningTotal(householdId, sourceId);
 
-    console.log('Updating ledger');
     const updatedLedger = await prisma.ledger.update({
       where: { ledgerId: transactionExists.ledgerId },
       data: {
@@ -175,14 +157,12 @@ exports.handler = async (event) => {
         category,
         description,
         updatedAt: new Date(),
-        updatedBy: username,
         runningTotal: parseFloat(transactionType.toLowerCase() === 'debit' ? new Decimal(runningTotal).minus(new Decimal(amount)).toFixed(2) : new Decimal(runningTotal).plus(new Decimal(amount)).toFixed(2)),
         status: status === "true",
         tags: tags || null,
       },
     });
 
-    console.log('Updating transaction');
     const updatedTransaction = await prisma.transaction.update({
       where: { transactionId },
       data: {
@@ -196,7 +176,6 @@ exports.handler = async (event) => {
     });
 
     if (filePath) {
-      console.log('Upserting attachment');
       await prisma.attachments.upsert({
         where: { attachmentId: existingAttachment ? existingAttachment.attachmentId : uuidv4() },
         update: {
@@ -215,7 +194,6 @@ exports.handler = async (event) => {
       });
     }
 
-    console.log('Invoking calculateRunningTotal function');
     const calculateTotalsCommand = new InvokeCommand({
       FunctionName: 'calculateRunningTotal',
       Payload: JSON.stringify({ householdId: householdId, paymentSourceId: sourceId }),
@@ -241,18 +219,11 @@ exports.handler = async (event) => {
 };
 
 async function getRunningTotal(householdId, paymentSourceId) {
-  console.log(`Calculating running total for householdId ${householdId} and paymentSourceId ${paymentSourceId}`);
   const transactions = await prisma.ledger.findMany({
     where: { householdId, paymentSourceId },
   });
 
   return transactions.reduce((total, transaction) => {
-    if (transaction.amount === null) {
-      console.warn(`Transaction with id ${transaction.ledgerId} has a null amount. Skipping.`);
-      return total;
-    }
-    return transaction.transactionType.toLowerCase() === 'debit' ? 
-      new Decimal(total).minus(new Decimal(transaction.amount)).toFixed(2) : 
-      new Decimal(total).plus(new Decimal(transaction.amount)).toFixed(2);
+    return transaction.transactionType.toLowerCase() === 'debit' ? new Decimal(total).minus(new Decimal(transaction.amount)).toFixed(2) : new Decimal(total).plus(new Decimal(transaction.amount)).toFixed(2);
   }, new Decimal(0));
 }

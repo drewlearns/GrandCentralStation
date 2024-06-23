@@ -1,11 +1,8 @@
-const { PrismaClient } = require("@prisma/client");
-const { v4: uuidv4 } = require("uuid");
-const { S3Client, PutObjectCommand, HeadBucketCommand, HeadObjectCommand } = require("@aws-sdk/client-s3");
-const { LambdaClient, InvokeCommand } = require("@aws-sdk/client-lambda");
-const fs = require("fs");
-const Decimal = require("decimal.js");
-const { verifyToken } = require('./tokenUtils');
-const { refreshAndVerifyToken } = require('./refreshAndVerifyToken'); // Ensure this is correctly pointing to the file
+const { PrismaClient } = require('@prisma/client');
+const { v4: uuidv4 } = require('uuid');
+const { S3Client, PutObjectCommand, HeadBucketCommand, HeadObjectCommand } = require('@aws-sdk/client-s3');
+const { LambdaClient, InvokeCommand } = require('@aws-sdk/client-lambda');
+const Decimal = require('decimal.js');
 
 const prisma = new PrismaClient();
 const lambdaClient = new LambdaClient({ region: process.env.AWS_REGION });
@@ -43,10 +40,28 @@ const uploadToS3 = async (bucket, key, buffer, mimeType) => {
   }
 };
 
+async function verifyToken(token) {
+    const params = {
+        FunctionName: 'verifyToken', // Replace with your actual Lambda function name
+        Payload: new TextEncoder().encode(JSON.stringify({ token })),
+    };
+
+    const command = new InvokeCommand(params);
+    const response = await lambdaClient.send(command);
+
+    const payload = JSON.parse(new TextDecoder().decode(response.Payload));
+
+    if (payload.errorMessage) {
+        throw new Error(payload.errorMessage);
+    }
+
+    return payload.isValid;
+}
+
 exports.handler = async (event) => {
   try {
     const body = JSON.parse(event.body);
-    const { authorizationToken, refreshToken, householdId, amount, transactionType, transactionDate, category, description, status, sourceId, tags, image } = body;
+    const { authorizationToken, householdId, amount, transactionType, transactionDate, category, description, status, sourceId, tags, image } = body;
 
     // Validate required fields
     if (!sourceId || !transactionDate || !transactionType || !amount || !description) {
@@ -57,7 +72,7 @@ exports.handler = async (event) => {
       };
     }
 
-    if (!authorizationToken || !refreshToken) {
+    if (!authorizationToken) {
       return {
         statusCode: 401,
         headers: corsHeaders,
@@ -65,28 +80,13 @@ exports.handler = async (event) => {
       };
     }
 
-    let updatedBy;
-    let tokenValid = false;
-
-    // First attempt to verify the token
-    try {
-      updatedBy = await verifyToken(authorizationToken);
-      tokenValid = true;
-    } catch (error) {
-      console.error('Token verification failed, attempting refresh:', error.message);
-
-      // Attempt to refresh the token and verify again
-      const result = await refreshAndVerifyToken(authorizationToken, refreshToken);
-      updatedBy = result.userId;
-      authorizationToken = result.newToken; // Update authorizationToken with new token
-      tokenValid = true;
-    }
-
-    if (!tokenValid) {
+    // Verify the token
+    const isValid = await verifyToken(authorizationToken);
+    if (!isValid) {
       return {
         statusCode: 401,
         headers: corsHeaders,
-        body: JSON.stringify({ message: 'Invalid token.' }),
+        body: JSON.stringify({ message: 'Invalid authorization token' }),
       };
     }
 
@@ -118,7 +118,6 @@ exports.handler = async (event) => {
         description,
         createdAt: new Date(),
         updatedAt: new Date(),
-        updatedBy,
         runningTotal: parseFloat(transactionType.toLowerCase() === 'debit' ? new Decimal(runningTotal).minus(new Decimal(amount)).toFixed(2) : new Decimal(runningTotal).plus(new Decimal(amount)).toFixed(2)),
         attachments: image ? { create: { attachmentId: uuidv4(), fileType: "receipt", filePath, uploadDate: new Date(), createdAt: new Date(), updatedAt: new Date() } } : undefined,
         status: status === "true",

@@ -1,98 +1,88 @@
-const { PrismaClient } = require("@prisma/client");
-const { LambdaClient, InvokeCommand } = require("@aws-sdk/client-lambda");
-const { verifyToken } = require('./tokenUtils'); // Ensure this is correctly pointing to the file
-const { refreshAndVerifyToken } = require('./refreshAndVerifyToken'); // Ensure this is correctly pointing to the file
+const { PrismaClient } = require('@prisma/client');
+const { LambdaClient, InvokeCommand } = require('@aws-sdk/client-lambda');
 
 const prisma = new PrismaClient();
-const lambdaClient = new LambdaClient({ region: process.env.AWS_REGION });
-const corsHeaders = {
-  'Content-Type': 'application/json',
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'Content-Type',
-  'Access-Control-Allow-Methods': 'OPTIONS,POST,GET'
+const lambda = new LambdaClient({ region: 'us-east-1' }); // Adjust the region as necessary
+
+const CORS_HEADERS = {
+    'Access-Control-Allow-Origin': '*', // Adjust this to your specific origin if needed
+    'Access-Control-Allow-Methods': 'OPTIONS,GET',
+    'Access-Control-Allow-Headers': 'Content-Type,Authorization',
 };
 
-exports.handler = async (event) => {
-  const { authorizationToken, refreshToken, householdId } = JSON.parse(event.body);
-
-  if (!authorizationToken || !refreshToken) {
-    return {
-      statusCode: 401,
-      headers: corsHeaders,
-      body: JSON.stringify({
-        message: 'Access denied. No token or refresh token provided.'
-      })
+async function verifyToken(token) {
+    const params = {
+        FunctionName: 'verifyToken', // Replace with your actual Lambda function name
+        Payload: new TextEncoder().encode(JSON.stringify({ token })),
     };
-  }
 
-  let username;
-  let tokenValid = false;
+    const command = new InvokeCommand(params);
+    const response = await lambda.send(command);
 
-  // First attempt to verify the token
-  try {
-    username = await verifyToken(authorizationToken);
-    tokenValid = true;
-  } catch (error) {
-    console.error('Token verification failed, attempting refresh:', error.message);
+    const payload = JSON.parse(new TextDecoder().decode(response.Payload));
 
-    // Attempt to refresh the token and verify again
-    try {
-      const result = await refreshAndVerifyToken(authorizationToken, refreshToken);
-      username = result.userId;
-      tokenValid = true;
-    } catch (refreshError) {
-      console.error('Token refresh and verification failed:', refreshError);
-      return {
-        statusCode: 401,
-        headers: corsHeaders,
-        body: JSON.stringify({
-          message: 'Invalid token.',
-          error: refreshError.message,
-        }),
-      };
+    if (payload.errorMessage) {
+        throw new Error(payload.errorMessage);
     }
-  }
 
-  if (!tokenValid) {
-    return {
-      statusCode: 401,
-      headers: corsHeaders,
-      body: JSON.stringify({ message: 'Invalid token.' }),
-    };
-  }
+    return payload;
+}
 
-  try {
-    const paymentSources = await prisma.paymentSource.findMany({
-      where: { householdId: householdId },
+async function getNotifications(authToken) {
+    // Verify the token
+    const payload = await verifyToken(authToken);
+    const uid = payload.uid;
+
+    if (!uid) {
+        throw new Error('Invalid token payload: missing uid');
+    }
+
+    // Fetch notifications that are due in the future, sorted by due date
+    const notifications = await prisma.notification.findMany({
+        where: {
+            userUuid: uid,
+            dueDate: {
+                gte: new Date(),
+            },
+        },
+        orderBy: {
+            dueDate: 'asc',
+        },
     });
 
-    if (paymentSources.length === 0) {
-      return {
-        statusCode: 404,
-        headers: corsHeaders,
-        body: JSON.stringify({ message: "No payment sources found" }),
-      };
+    return notifications;
+}
+
+exports.handler = async (event) => {
+    if (event.httpMethod === 'OPTIONS') {
+        return {
+            statusCode: 200,
+            headers: CORS_HEADERS,
+        };
     }
 
-    return {
-      statusCode: 200,
-      headers: corsHeaders,
-      body: JSON.stringify({
-        message: "Payment sources retrieved successfully",
-        paymentSources: paymentSources,
-      }),
-    };
-  } catch (error) {
-    console.error(`Error retrieving payment sources: ${error.message}`);
-    return {
-      statusCode: 500,
-      headers: corsHeaders,
-      body: JSON.stringify({
-        message: "Error retrieving payment sources",
-        error: error.message,
-      }),
-    };
-  } finally {
-    await prisma.$disconnect();
-  }
+    const authToken = event.headers.Authorization;
+
+    if (!authToken) {
+        return {
+            statusCode: 401,
+            headers: CORS_HEADERS,
+            body: JSON.stringify({ error: 'Authorization token is missing' }),
+        };
+    }
+
+    try {
+        const notifications = await getNotifications(authToken);
+        return {
+            statusCode: 200,
+            headers: CORS_HEADERS,
+            body: JSON.stringify(notifications),
+        };
+    } catch (error) {
+        return {
+            statusCode: 500,
+            headers: CORS_HEADERS,
+            body: JSON.stringify({ error: error.message }),
+        };
+    }
 };

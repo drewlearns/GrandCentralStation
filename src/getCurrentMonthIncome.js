@@ -1,175 +1,113 @@
-const { PrismaClient } = require("@prisma/client");
-const { LambdaClient, InvokeCommand } = require("@aws-sdk/client-lambda");
-const { startOfMonth, endOfMonth } = require('date-fns');
-const Decimal = require('decimal.js');
-const { verifyToken } = require('./tokenUtils'); // Ensure this is correctly pointing to the file
-const { refreshAndVerifyToken } = require('./refreshAndVerifyToken'); // Ensure this is correctly pointing to the file
+const { Decimal } = require('decimal.js');
+const { PrismaClient } = require('@prisma/client');
+const { LambdaClient, InvokeCommand } = require('@aws-sdk/client-lambda');
 
 const prisma = new PrismaClient();
-const lambdaClient = new LambdaClient({ region: process.env.AWS_REGION });
-const corsHeaders = {
-  'Content-Type': 'application/json',
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'Content-Type',
-  'Access-Control-Allow-Methods': 'OPTIONS,POST,GET'
+const lambda = new LambdaClient({ region: 'us-east-1' }); // Adjust the region as necessary
+
+const CORS_HEADERS = {
+    'Access-Control-Allow-Origin': '*', // Adjust this to your specific origin if needed
+    'Access-Control-Allow-Methods': 'OPTIONS,GET',
+    'Access-Control-Allow-Headers': 'Content-Type,Authorization',
 };
 
+async function verifyToken(token) {
+    const params = {
+        FunctionName: 'verifyToken', // Replace with your actual Lambda function name
+        Payload: new TextEncoder().encode(JSON.stringify({ token })),
+    };
+
+    const command = new InvokeCommand(params);
+    const response = await lambda.send(command);
+
+    const payload = JSON.parse(new TextDecoder().decode(response.Payload));
+
+    if (payload.errorMessage) {
+        throw new Error(payload.errorMessage);
+    }
+
+    return payload.isValid;
+}
+
+async function getCurrentMonthIncome(authToken, householdId) {
+    // Verify the token
+    const isValid = await verifyToken(authToken);
+    if (!isValid) {
+        throw new Error('Invalid authorization token');
+    }
+
+    // Get the current date
+    const currentDate = new Date();
+    const startOfMonth = new Date(currentDate.getFullYear(), currentDate.getMonth(), 1);
+    const endOfMonth = new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 0);
+
+    // Fetch income for the current month
+    const incomeEntries = await prisma.ledger.findMany({
+        where: {
+            householdId,
+            incomeId: {
+                not: null,
+            },
+            transactionDate: {
+                gte: startOfMonth,
+                lte: endOfMonth,
+            },
+        },
+        select: {
+            amount: true,
+        },
+    });
+
+    // Calculate the total income
+    const totalIncome = incomeEntries.reduce((sum, entry) => {
+        return sum.plus(new Decimal(entry.amount));
+    }, new Decimal(0));
+
+    // Format the result
+    return {
+        totalIncome: totalIncome.toFixed(2),
+    };
+}
+
 exports.handler = async (event) => {
-  try {
-    const body = JSON.parse(event.body);
-    const { authorizationToken, refreshToken, householdId } = body;
-
-    if (!authorizationToken || !refreshToken) {
-      return {
-        statusCode: 401,
-        headers: corsHeaders,
-        body: JSON.stringify({
-          message: 'Access denied. No token or refresh token provided.'
-        })
-      };
-    }
-
-    let username;
-    let tokenValid = false;
-
-    // First attempt to verify the token
-    try {
-      username = await verifyToken(authorizationToken);
-      tokenValid = true;
-    } catch (error) {
-      console.error('Token verification failed, attempting refresh:', error.message);
-
-      // Attempt to refresh the token and verify again
-      try {
-        const result = await refreshAndVerifyToken(authorizationToken, refreshToken);
-        username = result.userId;
-        tokenValid = true;
-      } catch (refreshError) {
-        console.error('Token refresh and verification failed:', refreshError);
+    if (event.httpMethod === 'OPTIONS') {
         return {
-          statusCode: 401,
-          headers: corsHeaders,
-          body: JSON.stringify({
-            message: 'Invalid token.',
-            error: refreshError.message,
-          })
+            statusCode: 200,
+            headers: CORS_HEADERS,
         };
-      }
     }
 
-    if (!tokenValid) {
-      return {
-        statusCode: 401,
-        headers: corsHeaders,
-        body: JSON.stringify({ message: 'Invalid token.' }),
-      };
+    const authToken = event.headers.Authorization;
+    const householdId = event.pathParameters.householdId;
+
+    if (!authToken) {
+        return {
+            statusCode: 401,
+            headers: CORS_HEADERS,
+            body: JSON.stringify({ error: 'Authorization token is missing' }),
+        };
     }
 
     if (!householdId) {
-      return {
-        statusCode: 400,
-        headers: corsHeaders,
-        body: JSON.stringify({ message: "Missing householdId parameter" })
-      };
+        return {
+            statusCode: 400,
+            headers: CORS_HEADERS,
+            body: JSON.stringify({ error: 'householdId is missing' }),
+        };
     }
 
-    const startDate = startOfMonth(new Date());
-    const endDate = endOfMonth(new Date());
-
-    // Verify the householdId
-    const householdExists = await prisma.household.findUnique({
-      where: { householdId },
-    });
-
-    if (!householdExists) {
-      return {
-        statusCode: 404,
-        headers: corsHeaders,
-        body: JSON.stringify({ message: "Household not found" })
-      };
+    try {
+        const income = await getCurrentMonthIncome(authToken, householdId);
+        return {
+            statusCode: 200,
+            headers: CORS_HEADERS,
+            body: JSON.stringify(income),
+        };
+    } catch (error) {
+        return {
+            statusCode: 500,
+            headers: CORS_HEADERS,
+            body: JSON.stringify({ error: error.message }),
+        };
     }
-
-    const ledgerEntries = await prisma.ledger.findMany({
-      where: {
-        householdId: householdId,
-        incomeId: { not: null },
-        transactionDate: {
-          gte: startDate,
-          lte: endDate,
-        },
-      },
-    });
-
-    if (ledgerEntries.length === 0) {
-      return {
-        statusCode: 404,
-        body: JSON.stringify({ message: "No income entries found for the current month" }),
-        headers: corsHeaders,
-      };
-    }
-
-    const totalIncome = ledgerEntries.reduce((total, entry) => total + entry.amount, 0);
-
-    // Determine next payday
-    const today = new Date();
-    const nextLedgerEntryWithIncome = await prisma.ledger.findFirst({
-      where: {
-        householdId: householdId,
-        incomeId: { not: null },
-        transactionDate: { gt: today },
-      },
-      orderBy: { transactionDate: 'asc' },
-    });
-
-    let nextPayday = nextLedgerEntryWithIncome ? nextLedgerEntryWithIncome.transactionDate : null;
-
-    if (!nextPayday) {
-      return {
-        statusCode: 500,
-        body: JSON.stringify({ message: "Could not determine the next payday." }),
-        headers: corsHeaders,
-      };
-    }
-
-    // Fetch ledger entries up to the next payday
-    const upcomingLedgerEntries = await prisma.ledger.findMany({
-      where: {
-        householdId: householdId,
-        transactionDate: {
-          gte: today,
-          lte: nextPayday,
-        },
-      },
-      orderBy: [
-        { transactionDate: 'asc' },
-        { createdAt: 'asc' } // Ensure the entries are ordered by both date and creation time
-      ],
-    });
-
-    const lowestRunningTotal = upcomingLedgerEntries.reduce((lowest, entry) => {
-      const runningTotal = new Decimal(entry.runningTotal);
-      return runningTotal.lessThan(lowest) ? runningTotal : lowest;
-    }, new Decimal(upcomingLedgerEntries[0].runningTotal));
-
-    const safeToSpend = lowestRunningTotal.toNumber();
-
-    return {
-      statusCode: 200,
-      body: JSON.stringify({
-        totalIncome: totalIncome,
-        safeToSpend: safeToSpend.toFixed(2),
-        nextPayday: nextPayday.toISOString()
-      }),
-      headers: corsHeaders,
-    };
-  } catch (error) {
-    console.error('Error calculating current month income:', error);
-    return {
-      statusCode: 500,
-      body: JSON.stringify({ message: "Error calculating current month income", error: error.message }),
-      headers: corsHeaders,
-    };
-  } finally {
-    await prisma.$disconnect();
-  }
 };

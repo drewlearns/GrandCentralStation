@@ -1,27 +1,44 @@
 const { PrismaClient } = require("@prisma/client");
 const { LambdaClient, InvokeCommand } = require("@aws-sdk/client-lambda");
 const Decimal = require('decimal.js');
-const { verifyToken } = require('./tokenUtils'); // Ensure this is correctly pointing to the file
-const { refreshAndVerifyToken } = require('./refreshAndVerifyToken'); // Ensure this is correctly pointing to the file
+const { TextEncoder, TextDecoder } = require('util');
 
 const prisma = new PrismaClient();
 const lambdaClient = new LambdaClient({ region: process.env.AWS_REGION });
 const corsHeaders = {
   'Content-Type': 'application/json',
   'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'Content-Type',
+  'Access-Control-Allow-Headers': 'Content-Type,Authorization',
   'Access-Control-Allow-Methods': 'OPTIONS,POST,GET'
 };
 
-exports.handler = async (event) => {
-  const { authorizationToken, refreshToken, householdId } = JSON.parse(event.body);
+async function verifyToken(token) {
+  const params = {
+    FunctionName: 'verifyToken', // Replace with your actual Lambda function name
+    Payload: new TextEncoder().encode(JSON.stringify({ token })),
+  };
 
-  if (!authorizationToken || !refreshToken) {
+  const command = new InvokeCommand(params);
+  const response = await lambdaClient.send(command);
+
+  const payload = JSON.parse(new TextDecoder().decode(response.Payload));
+
+  if (payload.errorMessage) {
+    throw new Error(payload.errorMessage);
+  }
+
+  return payload;
+}
+
+exports.handler = async (event) => {
+  const { authorizationToken, householdId } = JSON.parse(event.body);
+
+  if (!authorizationToken) {
     return {
       statusCode: 401,
       headers: corsHeaders,
       body: JSON.stringify({
-        message: 'Access denied. No token or refresh token provided.'
+        message: 'Access denied. No token provided.'
       })
     };
   }
@@ -39,29 +56,21 @@ exports.handler = async (event) => {
   let username;
   let tokenValid = false;
 
-  // First attempt to verify the token
+  // Attempt to verify the token
   try {
-    username = await verifyToken(authorizationToken);
+    const tokenPayload = await verifyToken(authorizationToken);
+    username = tokenPayload.uid;
     tokenValid = true;
   } catch (error) {
-    console.error('Token verification failed, attempting refresh:', error.message);
-
-    // Attempt to refresh the token and verify again
-    try {
-      const result = await refreshAndVerifyToken(authorizationToken, refreshToken);
-      username = result.userId;
-      tokenValid = true;
-    } catch (refreshError) {
-      console.error('Token refresh and verification failed:', refreshError);
-      return {
-        statusCode: 401,
-        headers: corsHeaders,
-        body: JSON.stringify({
-          message: 'Invalid token.',
-          error: refreshError.message,
-        }),
-      };
-    }
+    console.error('Token verification failed:', error.message);
+    return {
+      statusCode: 401,
+      headers: corsHeaders,
+      body: JSON.stringify({
+        message: 'Invalid token.',
+        error: error.message,
+      }),
+    };
   }
 
   if (!tokenValid) {
@@ -110,6 +119,8 @@ exports.handler = async (event) => {
           payday.setMonth(payday.getMonth() + 2);
         } else if (frequency === 'quarterly') {
           payday.setMonth(payday.getMonth() + 3);
+        } else if (frequency === 'semiannually') {
+          payday.setMonth(payday.getMonth() + 6);
         } else if (frequency === 'annually') {
           payday.setFullYear(payday.getFullYear() + 1);
         } else {
@@ -125,6 +136,7 @@ exports.handler = async (event) => {
     if (!nextPayday || nextPayday <= today) {
       return {
         statusCode: 500,
+        headers: corsHeaders,
         body: JSON.stringify({ message: "Could not determine the next payday in the future." }),
       };
     }

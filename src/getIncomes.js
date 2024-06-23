@@ -1,127 +1,84 @@
-const { PrismaClient } = require("@prisma/client");
-const { LambdaClient, InvokeCommand } = require("@aws-sdk/client-lambda");
-const { verifyToken } = require('./tokenUtils'); // Ensure this is correctly pointing to the file
-const { refreshAndVerifyToken } = require('./refreshAndVerifyToken'); // Ensure this is correctly pointing to the file
+const { Decimal } = require('decimal.js');
+const { PrismaClient } = require('@prisma/client');
+const { LambdaClient, InvokeCommand } = require('@aws-sdk/client-lambda');
 
 const prisma = new PrismaClient();
-const lambdaClient = new LambdaClient({ region: process.env.AWS_REGION });
-const corsHeaders = {
-  'Content-Type': 'application/json',
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'Content-Type',
-  'Access-Control-Allow-Methods': 'OPTIONS,POST,GET'
-};
+const lambda = new LambdaClient({ region: 'us-east-1' }); // Adjust the region as necessary
 
-exports.handler = async (event) => {
-  try {
-    const body = JSON.parse(event.body);
-    const { authorizationToken, refreshToken, householdId } = body;
+async function verifyToken(token) {
+    const params = {
+        FunctionName: 'verifyToken', // Replace with your actual Lambda function name
+        Payload: new TextEncoder().encode(JSON.stringify({ token })),
+    };
 
-    if (!authorizationToken || !refreshToken) {
-      return {
-        statusCode: 401,
-        headers: corsHeaders,
-        body: JSON.stringify({
-          message: 'Access denied. No token or refresh token provided.'
-        })
-      };
+    const command = new InvokeCommand(params);
+    const response = await lambda.send(command);
+
+    const payload = JSON.parse(new TextDecoder().decode(response.Payload));
+
+    if (payload.errorMessage) {
+        throw new Error(payload.errorMessage);
     }
 
-    let username;
-    let tokenValid = false;
+    return payload.isValid;
+}
 
-    // First attempt to verify the token
-    try {
-      username = await verifyToken(authorizationToken);
-      tokenValid = true;
-    } catch (error) {
-      console.error('Token verification failed, attempting refresh:', error.message);
-
-      // Attempt to refresh the token and verify again
-      try {
-        const result = await refreshAndVerifyToken(authorizationToken, refreshToken);
-        username = result.userId;
-        tokenValid = true;
-      } catch (refreshError) {
-        console.error('Token refresh and verification failed:', refreshError);
-        return {
-          statusCode: 401,
-          headers: corsHeaders,
-          body: JSON.stringify({
-            message: 'Invalid token.',
-            error: refreshError.message,
-          }),
-        };
-      }
+async function getIncomes(authToken, householdId) {
+    // Verify the token
+    const isValid = await verifyToken(authToken);
+    if (!isValid) {
+        throw new Error('Invalid authorization token');
     }
 
-    if (!tokenValid) {
-      return {
-        statusCode: 401,
-        headers: corsHeaders,
-        body: JSON.stringify({ message: 'Invalid token.' }),
-      };
-    }
+    const currentDate = new Date();
+    const startOfMonth = new Date(currentDate.getFullYear(), currentDate.getMonth(), 1);
+    const endOfMonth = new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 0);
 
-    if (!householdId) {
-      return {
-        statusCode: 400,
-        headers: corsHeaders,
-        body: JSON.stringify({ message: "Missing householdId parameter" }),
-      };
-    }
-
-    await prisma.$connect();
-
-    // Get the current month's start and end dates
-    const now = new Date();
-    const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
-    const endOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0);
-
-    const incomes = await prisma.incomes.findMany({
-      where: { householdId: householdId },
-      include: {
-        ledgers: {
-          where: {
+    const incomes = await prisma.ledger.findMany({
+        where: {
+            householdId,
             transactionDate: {
-              gte: startOfMonth,
-              lte: endOfMonth,
+                gte: startOfMonth,
+                lte: endOfMonth,
             },
-          },
+            type: 'income', // Assuming you have a 'type' field to differentiate between incomes and expenses
         },
-      },
+        orderBy: {
+            transactionDate: 'desc',
+        },
+        select: {
+            incomeId: true,
+            amount: true,
+            transactionDate: true,
+        },
     });
 
-    if (incomes.length === 0) {
-      return {
-        statusCode: 404,
-        body: JSON.stringify({ message: "No incomes found for the given householdId" }),
-      };
-    }
-
-    // Flatten the structure to top-level array and filter by current month
-    const ledgerEntries = incomes.flatMap(income =>
-      income.ledgers.map(ledger => ({
+    // Format the results
+    const result = incomes.map(income => ({
         incomeId: income.incomeId,
-        name: income.name,
-        amount: ledger.amount,
-        payday: ledger.transactionDate,
-      }))
-    );
+        amount: new Decimal(income.amount).toFixed(2),
+        transactionDate: {
+            day: income.transactionDate.getDate(),
+            month: income.transactionDate.getMonth() + 1,
+            year: income.transactionDate.getFullYear(),
+        },
+    }));
 
-    return {
-      statusCode: 200,
-      headers: corsHeaders,
-      body: JSON.stringify({ incomes: ledgerEntries }),
-    };
-  } catch (error) {
-    console.error('Error retrieving incomes:', error);
-    return {
-      statusCode: 500,
-      headers: corsHeaders,
-      body: JSON.stringify({ message: "Error retrieving incomes", error: error.message }),
-    };
-  } finally {
-    await prisma.$disconnect();
-  }
+    return result;
+}
+
+exports.handler = async (event) => {
+    const { authToken, householdId } = event;
+    try {
+        const incomes = await getIncomes(authToken, householdId);
+        return {
+            statusCode: 200,
+            body: JSON.stringify(incomes),
+        };
+    } catch (error) {
+        return {
+            statusCode: 500,
+            body: JSON.stringify({ error: error.message }),
+        };
+    }
 };

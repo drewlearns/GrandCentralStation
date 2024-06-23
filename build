@@ -8,17 +8,12 @@ TMP_DIR="$DEPLOY_DIR/tmp"
 npm i
 
 # Clean and prepare the deploy directory
-# rm -rf $DEPLOY_DIR
-# mkdir -p $DEPLOY_DIR
+rm -rf $DEPLOY_DIR
+mkdir -p $DEPLOY_DIR
 
 # Copy the schema.prisma and the .so.node file to the deploy directory if not already copied
 cp "prisma/schema.prisma" "$DEPLOY_DIR"
 cp "node_modules/.prisma/client/libquery_engine-rhel-openssl-3.0.x.so.node" "$DEPLOY_DIR"
-
-# Copy tokenUtils.js if it exists
-if [ -f "$SRC_DIR/tokenUtils.js" ]; then
-  cp "$SRC_DIR/tokenUtils.js" "$DEPLOY_DIR"
-fi
 
 # Function to process a single file
 process_file() {

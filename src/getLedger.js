@@ -1,311 +1,151 @@
-const { PrismaClient } = require("@prisma/client");
-const { LambdaClient, InvokeCommand } = require("@aws-sdk/client-lambda");
-const Decimal = require('decimal.js');
-const { verifyToken } = require('./tokenUtils'); // Ensure this is correctly pointing to the file
-const { refreshAndVerifyToken } = require('./refreshAndVerifyToken'); // Ensure this is correctly pointing to the file
+const { Decimal } = require('decimal.js');
+const { PrismaClient } = require('@prisma/client');
+const { LambdaClient, InvokeCommand } = require('@aws-sdk/client-lambda');
 
 const prisma = new PrismaClient();
-const lambdaClient = new LambdaClient({ region: process.env.AWS_REGION });
-const corsHeaders = {
-  'Content-Type': 'application/json',
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'Content-Type',
-  'Access-Control-Allow-Methods': 'OPTIONS,POST,GET'
-};
+const lambda = new LambdaClient({ region: 'us-east-1' }); // Adjust the region as necessary
+
+async function verifyToken(token) {
+  const params = {
+    FunctionName: 'verifyToken', // Replace with your actual Lambda function name
+    Payload: new TextEncoder().encode(JSON.stringify({ token })),
+  };
+  
+  const command = new InvokeCommand(params);
+  const response = await lambda.send(command);
+  
+  const payload = JSON.parse(new TextDecoder().decode(response.Payload));
+
+  if (payload.errorMessage) {
+    throw new Error(payload.errorMessage);
+  }
+
+  return payload.isValid;
+}
+
+async function getLedgerEntries(authToken, householdId, pageNumber = 1, filters = {}) {
+  // Verify the token
+  const isValid = await verifyToken(authToken);
+  if (!isValid) {
+    throw new Error('Invalid authorization token');
+  }
+
+  // Determine the filter criteria
+  const { month, year, showCurrentMonthOnly = false, showClearedOnly = false, showCurrentMonthUpToToday = true } = filters;
+
+  let where = {
+    householdId,
+  };
+
+  const currentDate = new Date();
+  const currentMonth = currentDate.getMonth() + 1;
+  const currentYear = currentDate.getFullYear();
+
+  if (showCurrentMonthOnly) {
+    where.transactionDate = {
+      gte: new Date(currentYear, currentMonth - 1, 1),
+      lt: new Date(currentYear, currentMonth, 1),
+    };
+  } else if (month && year) {
+    where.transactionDate = {
+      gte: new Date(year, month - 1, 1),
+      lt: new Date(year, month, 1),
+    };
+  } else if (showCurrentMonthUpToToday) {
+    where.transactionDate = {
+      gte: new Date(currentYear, currentMonth - 1, 1),
+      lt: new Date(currentYear, currentMonth - 1, currentDate.getDate() + 1),
+    };
+  }
+
+  if (showClearedOnly) {
+    where.status = true;
+  }
+
+  // Pagination logic
+  const pageSize = 20;
+  const skip = (pageNumber - 1) * pageSize;
+
+  // Fetch the total count for pagination
+  const totalCount = await prisma.ledger.count({ where });
+
+  // Fetch the ledger entries with ordering by transactionDate in descending order
+  const ledgerEntries = await prisma.ledger.findMany({
+    where,
+    skip,
+    take: pageSize,
+    orderBy: {
+      transactionDate: 'desc',
+    },
+    include: {
+      bill: true,
+      income: true,
+      transactions: true,
+    },
+  });
+
+  // Format the results
+  const result = ledgerEntries.map(entry => ({
+    ...entry,
+    amount: new Decimal(entry.amount).toFixed(2),
+    runningTotal: new Decimal(entry.runningTotal).toFixed(2),
+    month: entry.transactionDate.getMonth() + 1,
+    year: entry.transactionDate.getFullYear(),
+    dayOfMonth: entry.transactionDate.getDate(),
+    type: entry.billId ? 'bill' : entry.incomeId ? 'income' : 'transaction',
+    bill: entry.bill || null,
+    income: entry.income || null,
+    transaction: entry.transactions.length > 0 ? entry.transactions[0] : null,
+  }));
+
+  return {
+    entries: result,
+    pagination: {
+      totalItems: totalCount,
+      currentPage: pageNumber,
+      pageSize,
+      totalPages: Math.ceil(totalCount / pageSize),
+    },
+  };
+}
 
 exports.handler = async (event) => {
-  let parsedBody;
-  try {
-    parsedBody = JSON.parse(event.body);
-  } catch (error) {
+  const headers = {
+    'Access-Control-Allow-Origin': '*',
+    'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
+    'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+  };
+
+  if (event.httpMethod === 'OPTIONS') {
+    // Handle preflight request
     return {
-      statusCode: 400,
-      headers: corsHeaders,
-      body: JSON.stringify({
-        message: 'Invalid JSON body.'
-      })
-    };
-  }
-
-  const { authorizationToken, refreshToken, householdId, filters = {}, pagination = {} } = parsedBody;
-
-  if (!authorizationToken || !refreshToken) {
-    return {
-      statusCode: 401,
-      headers: corsHeaders,
-      body: JSON.stringify({
-        message: 'Access denied. No token or refresh token provided.'
-      })
-    };
-  }
-
-  if (!householdId) {
-    return {
-      statusCode: 400,
-      headers: corsHeaders,
-      body: JSON.stringify({
-        message: 'No householdId provided.'
-      })
-    };
-  }
-
-  let username;
-  let tokenValid = false;
-
-  // First attempt to verify the token
-  try {
-    username = await verifyToken(authorizationToken);
-    tokenValid = true;
-  } catch (error) {
-    console.error('Token verification failed, attempting refresh:', error.message);
-
-    // Attempt to refresh the token and verify again
-    try {
-      const result = await refreshAndVerifyToken(authorizationToken, refreshToken);
-      username = result.userId;
-      tokenValid = true;
-    } catch (refreshError) {
-      console.error('Token refresh and verification failed:', refreshError);
-      return {
-        statusCode: 401,
-        headers: corsHeaders,
-        body: JSON.stringify({
-          message: 'Invalid token.',
-          error: refreshError.message,
-        }),
-      };
-    }
-  }
-
-  if (!tokenValid) {
-    return {
-      statusCode: 401,
-      headers: corsHeaders,
-      body: JSON.stringify({ message: 'Invalid token.' }),
+      statusCode: 200,
+      headers,
     };
   }
 
   try {
-    const whereClause = {
-      householdId: householdId,
-      isInitial: false // Exclude initial ledger entries
-    };
+    const { authToken, householdId, pageNumber, filters } = JSON.parse(event.body);
 
-    // Default to showing current month only if currentMonthOnly is not explicitly set to true
-    if (filters.currentMonthOnly !== true) {
-      const today = new Date();
-      const firstDayOfMonth = new Date(today.getFullYear(), today.getMonth(), 1);
-      const lastDayOfMonth = new Date(today.getFullYear(), today.getMonth() + 1, 0);
-
-      whereClause.transactionDate = {
-        gte: firstDayOfMonth,
-        lte: lastDayOfMonth
-      };
-    }
-
-    if (filters.clearedOnly) {
-      whereClause.status = true;
-    }
-
-    if (filters.transactionName) {
-      whereClause.description = { contains: filters.transactionName };
-    }
-
-    if (filters.minAmount || filters.maxAmount) {
-      whereClause.amount = {};
-      if (filters.minAmount) {
-        whereClause.amount.gte = new Decimal(filters.minAmount);
-      }
-      if (filters.maxAmount) {
-        whereClause.amount.lte = new Decimal(filters.maxAmount);
-      }
-    }
-
-    if (filters.year) {
-      const year = parseInt(filters.year, 10);
-      if (!isNaN(year)) {
-        const firstDayOfYear = new Date(year, 0, 1);
-        const lastDayOfYear = new Date(year, 11, 31);
-        whereClause.transactionDate = {
-          ...whereClause.transactionDate,
-          gte: firstDayOfYear,
-          lte: lastDayOfYear,
-        };
-      }
-    }
-
-    if (filters.month) {
-      const monthIndex = new Date(Date.parse(filters.month + " 1, 2022")).getMonth();
-      if (!isNaN(monthIndex)) {
-        const year = filters.year ? parseInt(filters.year, 10) : new Date().getFullYear();
-        const firstDayOfMonth = new Date(year, monthIndex, 1);
-        const lastDayOfMonth = new Date(year, monthIndex + 1, 0);
-        whereClause.transactionDate = {
-          ...whereClause.transactionDate,
-          gte: firstDayOfMonth,
-          lte: lastDayOfMonth,
-        };
-      }
-    }
-
-    const page = pagination.page || 1;
-    const itemsPerPage = pagination.itemsPerPage || 10;
-    const skip = (page - 1) * itemsPerPage;
-
-    const ledgerEntries = await prisma.ledger.findMany({
-      where: whereClause,
-      select: {
-        ledgerId: true,
-        householdId: true,
-        paymentSourceId: true,
-        amount: true,
-        transactionType: true,
-        transactionDate: true,
-        category: true,
-        description: true,
-        status: true,
-        createdAt: true,
-        updatedAt: true,
-        updatedBy: true,
-        billId: true,
-        incomeId: true,
-        runningTotal: true,
-        interestRate: true,
-        cashBack: true,
-        tags: true,
-        isInitial: true,
-        bill: {
-          select: {
-            billId: true,
-            billName: true,
-            amount: true,
-            category: true
-          }
-        },
-        income: {
-          select: {
-            incomeId: true,
-            name: true,
-            amount: true,
-            frequency: true
-          }
-        },
-        transactions: {
-          select: {
-            transactionId: true,
-            amount: true,
-            transactionDate: true,
-            description: true
-          }
-        },
-        paymentSource: {
-          select: {
-            sourceId: true,
-            sourceName: true
-          }
-        }
-      },
-      orderBy: [
-        { transactionDate: 'desc' },
-      ],
-      skip: skip,
-      take: itemsPerPage,
-    });
-
-    const totalItems = await prisma.ledger.count({ where: whereClause });
-    const totalPages = Math.ceil(totalItems / itemsPerPage);
-
-    if (ledgerEntries.length === 0) {
-      return {
-        statusCode: 404,
-        headers: corsHeaders,
-        body: JSON.stringify({ message: "No ledger entries found" }),
-      };
-    }
-
-    const formatNumber = (num) => Number(new Decimal(num).toFixed(2));
-
-    const setDefaultValues = (entry) => {
-      if (entry.billId === null) entry.billId = '';
-      if (entry.incomeId === null) entry.incomeId = '';
-      if (entry.transactionId === null) entry.transactionId = '';
-      if (entry.interestRate === null) entry.interestRate = 0.0;
-      if (entry.cashBack === null) entry.cashBack = 0.0;
-    };
-
-    const flattenedLedgerEntries = ledgerEntries.map((entry, index) => {
-      const flattenedEntry = { ...entry, ledgerId: entry.ledgerId };
-
-      // Assign the first transaction's ID if available
-      if (entry.transactions && entry.transactions.length > 0) {
-        flattenedEntry.transactionId = entry.transactions[0].transactionId;
-      } else {
-        flattenedEntry.transactionId = null; // Handle cases with no transactions
-      }
-
-      if (flattenedEntry.bill && flattenedEntry.bill.billId) {
-        flattenedEntry.type = 'bill';
-      } else if (flattenedEntry.income && flattenedEntry.income.incomeId) {
-        flattenedEntry.type = 'income';
-      } else {
-        flattenedEntry.type = 'transaction';
-      }
-
-      setDefaultValues(flattenedEntry);
-      if (flattenedEntry.bill) setDefaultValues(flattenedEntry.bill);
-      if (flattenedEntry.income) setDefaultValues(flattenedEntry.income);
-      if (flattenedEntry.transactions && flattenedEntry.transactions.length > 0) {
-        flattenedEntry.transactions = flattenedEntry.transactions.map(transaction => {
-          setDefaultValues(transaction);
-          return {
-            ...transaction,
-            amount: formatNumber(transaction.amount),
-          };
-        });
-      }
-
-      if (flattenedEntry.amount !== null) {
-        flattenedEntry.amount = formatNumber(flattenedEntry.amount);
-      }
-      if (flattenedEntry.runningTotal !== null) {
-        flattenedEntry.runningTotal = formatNumber(flattenedEntry.runningTotal);
-      }
-      if (flattenedEntry.bill) {
-        flattenedEntry.bill.amount = formatNumber(flattenedEntry.bill.amount);
-      }
-      if (flattenedEntry.income) {
-        flattenedEntry.income.amount = formatNumber(flattenedEntry.income.amount);
-      }
-
-      delete flattenedEntry.transactions;
-
-      const date = new Date(flattenedEntry.transactionDate);
-      flattenedEntry.year = date.getFullYear();
-      flattenedEntry.month = date.toLocaleString('default', { month: 'long' }).toLowerCase();
-
-      return flattenedEntry;
-    });
-
-    const response = {
-      nextPageNumber: page < totalPages ? page + 1 : null,
-      numberOfItemsLoaded: flattenedLedgerEntries.length,
-      hasMore: page < totalPages,
-      lastResponse: flattenedLedgerEntries
-    };
+    const ledgerEntries = await getLedgerEntries(authToken, householdId, pageNumber, filters);
 
     return {
       statusCode: 200,
-      headers: corsHeaders,
-      body: JSON.stringify(response),
+      headers,
+      body: JSON.stringify({
+        success: true,
+        data: ledgerEntries.entries,
+        pagination: ledgerEntries.pagination,
+      }),
     };
   } catch (error) {
-    console.error('Error retrieving ledger entries:', error);
     return {
       statusCode: 500,
-      headers: corsHeaders,
-      body: JSON.stringify({ message: "Error retrieving ledger entries", error: error.message }),
+      headers,
+      body: JSON.stringify({
+        success: false,
+        message: error.message,
+      }),
     };
-  } finally {
-    await prisma.$disconnect();
   }
 };

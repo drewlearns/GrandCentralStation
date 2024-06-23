@@ -1,7 +1,6 @@
-const { PrismaClient } = require("@prisma/client");
-const { LambdaClient, InvokeCommand, ResourceNotFoundException } = require("@aws-sdk/client-lambda");
-const { verifyToken } = require('./tokenUtils');
-const { refreshAndVerifyToken } = require('./refreshAndVerifyToken'); // Ensure this is correctly pointing to the file
+const { PrismaClient } = require('@prisma/client');
+const { LambdaClient, InvokeCommand } = require('@aws-sdk/client-lambda');
+const Decimal = require('decimal.js');
 
 const prisma = new PrismaClient();
 const lambdaClient = new LambdaClient({ region: process.env.AWS_REGION });
@@ -12,140 +11,89 @@ const corsHeaders = {
   'Access-Control-Allow-Methods': 'OPTIONS,POST,GET'
 };
 
+async function verifyToken(token) {
+    const params = {
+        FunctionName: 'verifyToken', // Replace with your actual Lambda function name
+        Payload: new TextEncoder().encode(JSON.stringify({ token })),
+    };
+
+    const command = new InvokeCommand(params);
+    const response = await lambdaClient.send(command);
+
+    const payload = JSON.parse(new TextDecoder().decode(response.Payload));
+
+    if (payload.errorMessage) {
+        throw new Error(payload.errorMessage);
+    }
+
+    return payload.isValid;
+}
+
 exports.handler = async (event) => {
   try {
     const body = JSON.parse(event.body);
-    const { authorizationToken, refreshToken, transactionId } = body;
+    const { authorizationToken, transactionId } = body;
 
-    if (!authorizationToken || !refreshToken) {
+    // Validate required fields
+    if (!transactionId) {
+      return {
+        statusCode: 400,
+        headers: corsHeaders,
+        body: JSON.stringify({ message: 'Missing required field: transactionId is required.' })
+      };
+    }
+
+    if (!authorizationToken) {
       return {
         statusCode: 401,
         headers: corsHeaders,
-        body: JSON.stringify({
-          message: 'Access denied. No token provided.'
-        })
+        body: JSON.stringify({ message: 'Access denied. No token provided.' })
       };
     }
 
-    let updatedBy;
-    let tokenValid = false;
-
-    // First attempt to verify the token
-    try {
-      updatedBy = await verifyToken(authorizationToken);
-      tokenValid = true;
-    } catch (error) {
-      console.error('Token verification failed, attempting refresh:', error.message);
-
-      // Attempt to refresh the token and verify again
-      try {
-        const result = await refreshAndVerifyToken(authorizationToken, refreshToken);
-        updatedBy = result.userId;
-        tokenValid = true;
-      } catch (refreshError) {
-        console.error('Token refresh and verification failed:', refreshError);
-        return {
-          statusCode: 401,
-          headers: corsHeaders,
-          body: JSON.stringify({ message: 'Invalid token.', error: refreshError.message }),
-        };
-      }
-    }
-
-    if (!tokenValid) {
+    // Verify the token
+    const isValid = await verifyToken(authorizationToken);
+    if (!isValid) {
       return {
         statusCode: 401,
         headers: corsHeaders,
-        body: JSON.stringify({ message: 'Invalid token.' }),
+        body: JSON.stringify({ message: 'Invalid authorization token' }),
       };
     }
 
-    const transactionExists = await prisma.transaction.findUnique({
-      where: { transactionId: transactionId },
+    // Find the transaction
+    const transaction = await prisma.transaction.findUnique({ where: { transactionId } });
+    if (!transaction) return { statusCode: 404, body: JSON.stringify({ message: "Transaction not found" }) };
+
+    // Find the associated ledger entry
+    const ledgerEntry = await prisma.ledger.findUnique({ where: { ledgerId: transaction.ledgerId } });
+    if (!ledgerEntry) return { statusCode: 404, body: JSON.stringify({ message: "Ledger entry not found" }) };
+
+    // Delete the transaction
+    await prisma.transaction.delete({ where: { transactionId } });
+
+    // Delete the ledger entry
+    await prisma.ledger.delete({ where: { ledgerId: ledgerEntry.ledgerId } });
+
+    // Update running totals
+    const updateTotalsCommand = new InvokeCommand({
+      FunctionName: 'calculateRunningTotal',
+      Payload: JSON.stringify({ householdId: ledgerEntry.householdId, paymentSourceId: ledgerEntry.paymentSourceId }),
     });
 
-    if (!transactionExists) {
-      console.log(`Error: Transaction ${transactionId} does not exist`);
-      return {
-        statusCode: 404,
-        headers: corsHeaders,
-        body: JSON.stringify({ message: "Transaction not found" }),
-      };
-    }
-
-    const ledgerEntry = await prisma.ledger.findUnique({
-      where: { ledgerId: transactionExists.ledgerId },
-    });
-
-    if (!ledgerEntry) {
-      return {
-        statusCode: 404,
-        headers: corsHeaders,
-        body: JSON.stringify({ message: "Ledger entry not found" }),
-      };
-    }
-
-    // Perform the operations in a transaction
-    await prisma.$transaction(async (prisma) => {
-      // Delete the transaction first
-      await prisma.transaction.delete({
-        where: { transactionId: transactionId },
-      });
-
-      // Delete attachments linked to the ledger entry
-      await prisma.attachments.deleteMany({
-        where: { ledgerId: ledgerEntry.ledgerId },
-      });
-
-      // Delete the ledger entry
-      await prisma.ledger.delete({
-        where: { ledgerId: ledgerEntry.ledgerId },
-      });
-    });
-
-    // Invoke the secondary Lambda function to update running totals
-    try {
-      const updateTotalsCommand = new InvokeCommand({
-        FunctionName: 'calculateRunningTotal',
-        Payload: JSON.stringify({ householdId: ledgerEntry.householdId, paymentSourceId: ledgerEntry.paymentSourceId }),
-      });
-
-      await lambdaClient.send(updateTotalsCommand);
-    } catch (error) {
-      if (error instanceof ResourceNotFoundException) {
-        console.error('Error: Lambda function calculateRunningTotal not found:', error);
-        return {
-          statusCode: 404,
-          headers: corsHeaders,
-          body: JSON.stringify({
-            message: 'Lambda function calculateRunningTotal not found.',
-            error: error.message,
-          }),
-        };
-      } else {
-        throw error;
-      }
-    }
+    await lambdaClient.send(updateTotalsCommand);
 
     return {
       statusCode: 200,
       headers: corsHeaders,
-      body: JSON.stringify({
-        message: "Transaction and ledger entry deleted successfully",
-      }),
+      body: JSON.stringify({ message: "Transaction deleted successfully" })
     };
   } catch (error) {
-    console.error(`Error handling request: ${error.message}`, {
-      errorDetails: error,
-    });
-
+    console.error('Error processing request:', error);
     return {
       statusCode: 500,
       headers: corsHeaders,
-      body: JSON.stringify({
-        message: "Error processing request",
-        error: error.message,
-      }),
+      body: JSON.stringify({ message: "Error processing request", error: error.message })
     };
   } finally {
     await prisma.$disconnect();

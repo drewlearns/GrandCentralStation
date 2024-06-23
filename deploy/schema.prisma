@@ -52,11 +52,8 @@ model UnverifiedSubscription {
 model Household {
   householdId        String   @id @default(uuid())
   householdName      String
-  creationDate       DateTime
   createdAt          DateTime
   updatedAt          DateTime
-  setupComplete      Boolean
-  activeSubscription Boolean
 
   // Relations
   members        HouseholdMembers[]
@@ -113,8 +110,6 @@ model Ledger {
   billId          String?
   incomeId        String?
   runningTotal    Float
-  interestRate    Float?
-  cashBack        Float?
   tags            String?
   isInitial       Boolean  @default(false)
 
@@ -135,9 +130,6 @@ model Bill {
   amount       Float
   dayOfMonth   Int
   frequency    String
-  isDebt       Boolean
-  interestRate Float
-  cashBack     Float
   description  String
   status       Boolean
   url          String?

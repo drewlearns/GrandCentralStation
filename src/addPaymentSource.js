@@ -1,100 +1,90 @@
-const { PrismaClient } = require("@prisma/client");
-const { v4: uuidv4 } = require("uuid");
-const { LambdaClient, InvokeCommand } = require("@aws-sdk/client-lambda");
-const { verifyToken } = require('./tokenUtils');
-const { refreshAndVerifyToken } = require('./refreshAndVerifyToken'); // Ensure this is correctly pointing to the file
+const { PrismaClient } = require('@prisma/client');
+const { LambdaClient, InvokeCommand } = require('@aws-sdk/client-lambda');
 
 const prisma = new PrismaClient();
-const lambdaClient = new LambdaClient({ region: process.env.AWS_REGION });
+const lambda = new LambdaClient({ region: process.env.AWS_REGION });
+
 const corsHeaders = {
-  'Content-Type': 'application/json',
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'Content-Type',
-  'Access-Control-Allow-Methods': 'OPTIONS,POST,GET'
+    'Content-Type': 'application/json',
+    'Access-Control-Allow-Origin': '*',
+    'Access-Control-Allow-Headers': 'Content-Type,Authorization',
+    'Access-Control-Allow-Methods': 'OPTIONS,POST'
 };
 
-exports.handler = async (event) => {
-  const { authorizationToken, refreshToken, householdId, sourceName, sourceType, details } = JSON.parse(event.body);
-
-  if (!authorizationToken || !refreshToken) {
-    return {
-      statusCode: 401,
-      headers: corsHeaders,
-      body: JSON.stringify({
-        message: 'Access denied. No token provided.'
-      })
+async function verifyToken(token) {
+    const params = {
+        FunctionName: 'verifyToken', // Replace with your actual Lambda function name
+        Payload: new TextEncoder().encode(JSON.stringify({ token })),
     };
-  }
 
-  let createdBy;
-  let tokenValid = false;
+    const command = new InvokeCommand(params);
+    const response = await lambda.send(command);
 
-  // First attempt to verify the token
-  try {
-    createdBy = await verifyToken(authorizationToken);
-    tokenValid = true;
-  } catch (error) {
-    console.error('Token verification failed, attempting refresh:', error.message);
+    const payload = JSON.parse(new TextDecoder().decode(response.Payload));
 
-    // Attempt to refresh the token and verify again
-    const result = await refreshAndVerifyToken(authorizationToken, refreshToken);
-    createdBy = result.userId;
-    authorizationToken = result.newToken; // Update authorizationToken with new token
-    tokenValid = true;
-  }
-
-  if (!tokenValid) {
-    return {
-      statusCode: 401,
-      headers: corsHeaders,
-      body: JSON.stringify({ message: 'Invalid token.' }),
-    };
-  }
-
-  try {
-    const householdExists = await prisma.household.findUnique({
-      where: { householdId: householdId },
-    });
-
-    if (!householdExists) {
-      return {
-        statusCode: 404,
-        headers: corsHeaders,
-        body: JSON.stringify({ message: "Household not found" }),
-      };
+    if (payload.errorMessage) {
+        throw new Error(payload.errorMessage);
     }
 
-    const newPaymentSource = await prisma.paymentSource.create({
-      data: {
-        sourceId: uuidv4(),
-        householdId: householdId,
-        sourceName: sourceName,
-        sourceType: sourceType,
-        details: details,
-        createdAt: new Date(),
-        updatedAt: new Date(),
-      },
-    });
+    return payload.isValid;
+}
 
-    return {
-      statusCode: 201,
-      headers: corsHeaders,
-      body: JSON.stringify({
-        message: "Payment source added successfully",
-        paymentSource: newPaymentSource,
-      }),
-    };
-  } catch (error) {
-    console.error(`Error creating payment source: ${error.message}`);
-    return {
-      statusCode: 500,
-      headers: corsHeaders,
-      body: JSON.stringify({
-        message: "Error creating payment source",
-        error: error.message,
-      }),
-    };
-  } finally {
-    await prisma.$disconnect();
-  }
-};
+exports.handler = async (event) => {
+    if (event.httpMethod === 'OPTIONS') {
+        return {
+            statusCode: 200,
+            headers: corsHeaders,
+        };
+    }
+
+    const { authToken, householdId, name, type } = JSON.parse(event.body);
+
+    try {
+        // Verify the token
+        const isValid = await verifyToken(authToken);
+        if (!isValid) {
+            return {
+                statusCode: 401,
+                headers: corsHeaders,
+                body: JSON.stringify({ message: 'Invalid authorization token' }),
+            };
+        }
+
+        // Create the new payment source
+        const newPaymentSource = await prisma.paymentSource.create({
+            data: {
+                householdId: householdId,
+                sourceName: name,
+                sourceType: type,
+                description: '',
+                createdAt: new Date(),
+                updatedAt: new Date(),
+            },
+        });
+
+        return {
+            statusCode: 201,
+            headers: corsHeaders,
+            body: JSON.stringify(newPaymentSource),
+        };
+    } catch (error) {
+        console.error('Error adding payment source:', error);
+        return {
+            statusCode: 500,
+            headers: corsHeaders,
+            body: JSON.stringify({ message: 'Internal server error' }),
+        };
+    } finally {
+        await prisma.$disconnect();
+    }
+}
+
+// Example usage:
+// const authToken = 'your-auth-token';
+// const householdId = 'your-household-id';
+// const name = 'Bank Account';
+// const type = 'Checking';
+
+// addPaymentSource(authToken, householdId, name, type)
+//     .then(newPaymentSource => console.log('New payment source added:', newPaymentSource))
+//     .catch(error => console.error('Error adding payment source:', error));

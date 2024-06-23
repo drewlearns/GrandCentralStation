@@ -1,136 +1,120 @@
-const { PrismaClient } = require('@prisma/client');
-const { LambdaClient, InvokeCommand } = require('@aws-sdk/client-lambda');
-const { startOfMonth, endOfToday } = require('date-fns');
-const Decimal = require('decimal.js');
-const { verifyToken } = require('./tokenUtils'); // Ensure this is correctly pointing to the file
-const { refreshAndVerifyToken } = require('./refreshAndVerifyToken'); // Ensure this is correctly pointing to the file
+const { PrismaClient } = require("@prisma/client");
+const { LambdaClient, InvokeCommand } = require("@aws-sdk/client-lambda");
 
 const prisma = new PrismaClient();
-const lambdaClient = new LambdaClient({ region: process.env.AWS_REGION });
-const corsHeaders = {
+const lambda = new LambdaClient({ region: 'us-east-1' }); // Adjust the region as necessary
+
+const CORS_HEADERS = {
   'Content-Type': 'application/json',
   'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'Content-Type',
+  'Access-Control-Allow-Headers': 'Content-Type,Authorization',
   'Access-Control-Allow-Methods': 'OPTIONS,POST,GET'
 };
 
-async function getTotalSpent(event) {
-  const { authorizationToken, refreshToken, householdId } = JSON.parse(event.body);
-
-  if (!authorizationToken || !refreshToken) {
-    return {
-      statusCode: 401,
-      headers: corsHeaders,
-      body: JSON.stringify({
-        message: 'Access denied. No token or refresh token provided.'
-      }),
+async function verifyToken(token) {
+    const params = {
+        FunctionName: 'verifyToken', // Replace with your actual Lambda function name
+        Payload: new TextEncoder().encode(JSON.stringify({ token })),
     };
-  }
 
-  let username;
-  let tokenValid = false;
+    const command = new InvokeCommand(params);
+    const response = await lambda.send(command);
 
-  // First attempt to verify the token
-  try {
-    username = await verifyToken(authorizationToken);
-    tokenValid = true;
-  } catch (error) {
-    console.error('Token verification failed, attempting refresh:', error.message);
+    const payload = JSON.parse(new TextDecoder().decode(response.Payload));
 
-    // Attempt to refresh the token and verify again
-    try {
-      const result = await refreshAndVerifyToken(authorizationToken, refreshToken);
-      username = result.userId;
-      tokenValid = true;
-    } catch (refreshError) {
-      console.error('Token refresh and verification failed:', refreshError);
-      return {
-        statusCode: 401,
-        headers: corsHeaders,
-        body: JSON.stringify({
-          message: 'Invalid token.',
-          error: refreshError.message,
-        }),
-      };
+    if (payload.errorMessage) {
+        throw new Error(payload.errorMessage);
     }
-  }
 
-  if (!tokenValid) {
+    return payload;
+}
+
+exports.handler = async (event) => {
+  if (event.httpMethod === 'OPTIONS') {
     return {
-      statusCode: 401,
-      headers: corsHeaders,
-      body: JSON.stringify({ message: 'Invalid token.' }),
+      statusCode: 200,
+      headers: CORS_HEADERS,
     };
   }
 
-  if (!householdId) {
+  const authToken = event.headers.Authorization;
+
+  if (!authToken) {
     return {
-      statusCode: 400,
-      headers: corsHeaders,
+      statusCode: 401,
+      headers: CORS_HEADERS,
+      body: JSON.stringify({ message: "Access denied. No authorization token provided." }),
+    };
+  }
+
+  let uid;
+
+  // Verify the token
+  try {
+    const payload = await verifyToken(authToken);
+    uid = payload.uid;
+  } catch (error) {
+    console.error('Token verification failed:', error.message);
+    return {
+      statusCode: 401,
+      headers: CORS_HEADERS,
       body: JSON.stringify({
-        message: 'Household ID is required.',
+        message: 'Invalid token.',
+        error: error.message,
       }),
     };
   }
 
-  try {
-    // Get the start of the current month and the end of today
-    const startDate = startOfMonth(new Date());
-    const endDate = endOfToday(new Date());
+  if (!uid) {
+    return {
+      statusCode: 401,
+      headers: CORS_HEADERS,
+      body: JSON.stringify({ message: 'Invalid token payload: missing uid' }),
+    };
+  }
 
-    // Fetch transactions of type "Debit" or "debit" within the date range for the specified household
+  try {
+    const currentDate = new Date();
+    const startOfMonth = new Date(currentDate.getFullYear(), currentDate.getMonth(), 1);
+    const endOfMonth = new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 0);
+
+    // Fetch transactions for the current month with status true and transactionType 'debit' (case-insensitive)
     const transactions = await prisma.ledger.findMany({
       where: {
-        householdId: householdId,
-        transactionDate: {
-          gte: startDate,
-          lte: endDate
-        },
+        userUuid: uid,
+        status: true,
         transactionType: {
-          in: ['Debit', 'debit']
+          contains: 'debit',
+          mode: 'insensitive',
         },
-        incomeId: null // Exclude entries with an incomeId
-      }
+        transactionDate: {
+          gte: startOfMonth,
+          lte: endOfMonth,
+        },
+      },
+      select: {
+        amount: true,
+      },
     });
 
-    // Sum the amounts of the fetched transactions
-    const totalSpent = transactions.reduce((sum, transaction) => sum.plus(new Decimal(transaction.amount)), new Decimal(0));
-
-    // Format totalSpent as a string with two decimal places
-    const formattedTotalSpent = totalSpent.toFixed(2);
-
-    // Construct the response to ensure numbers maintain two decimal places
-    const response = {
-      message: 'Total spent retrieved successfully',
-      totalSpent: formattedTotalSpent
-    };
-
-    // Convert to JSON manually to ensure numbers maintain .00
-    const jsonString = JSON.stringify(response);
-
-    // Replace the .00 quotes to maintain them as numbers
-    const formattedJsonString = jsonString.replace(/"(-?\d+\.\d{2})"/g, '$1');
+    const totalSpent = transactions.reduce((sum, transaction) => sum + transaction.amount, 0);
 
     return {
       statusCode: 200,
-      body: formattedJsonString,
-      headers: corsHeaders,
+      headers: CORS_HEADERS,
+      body: JSON.stringify({ totalSpent }),
     };
   } catch (error) {
-    console.error('Error fetching transactions:', error);
+    console.error("Error processing request:", error);
     return {
       statusCode: 500,
+      headers: CORS_HEADERS,
       body: JSON.stringify({
-        message: 'Failed to retrieve total spent',
-        errorDetails: error.message,
+        message: "Error processing request",
+        error: error.message,
       }),
-      headers: corsHeaders,
     };
   } finally {
     await prisma.$disconnect();
   }
-}
-
-exports.handler = async (event) => {
-  return await getTotalSpent(event);
 };

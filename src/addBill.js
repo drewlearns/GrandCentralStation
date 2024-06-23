@@ -1,321 +1,215 @@
+const { Decimal } = require('decimal.js');
 const { PrismaClient } = require('@prisma/client');
-const { v4: uuidv4 } = require('uuid');
 const { LambdaClient, InvokeCommand } = require('@aws-sdk/client-lambda');
-const { SecretsManagerClient, CreateSecretCommand } = require('@aws-sdk/client-secrets-manager');
-const { add, eachMonthOfInterval, eachWeekOfInterval, eachDayOfInterval, isValid, setDate } = require('date-fns');
-const { verifyToken } = require('./tokenUtils');
 
 const prisma = new PrismaClient();
-const lambdaClient = new LambdaClient({ region: process.env.AWS_REGION });
-const secretsManagerClient = new SecretsManagerClient({ region: process.env.AWS_REGION });
+const lambda = new LambdaClient({ region: process.env.AWS_REGION });
 
 const corsHeaders = {
-  'Content-Type': 'application/json',
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'Content-Type',
-  'Access-Control-Allow-Methods': 'OPTIONS,POST,GET'
+    'Content-Type': 'application/json',
+    'Access-Control-Allow-Origin': '*',
+    'Access-Control-Allow-Headers': 'Content-Type,Authorization',
+    'Access-Control-Allow-Methods': 'OPTIONS,POST'
 };
 
-const refreshAndVerifyToken = async (authorizationToken, refreshToken) => {
-  try {
-    // Try to refresh the token
-    const refreshTokenCommand = new InvokeCommand({
-      FunctionName: 'refreshToken',
-      Payload: JSON.stringify({ authorizationToken, refreshToken }),
-    });
+async function verifyToken(token) {
+    const params = {
+        FunctionName: 'verifyToken', // Replace with your actual Lambda function name
+        Payload: new TextEncoder().encode(JSON.stringify({ token })),
+    };
 
-    const refreshTokenResponse = await lambdaClient.send(refreshTokenCommand);
-    const refreshTokenPayload = JSON.parse(new TextDecoder('utf-8').decode(refreshTokenResponse.Payload));
+    const command = new InvokeCommand(params);
+    const response = await lambda.send(command);
 
-    if (refreshTokenResponse.FunctionError || refreshTokenPayload.statusCode !== 200) {
-      throw new Error(refreshTokenPayload.message || 'Token refresh failed.');
+    const payload = JSON.parse(new TextDecoder().decode(response.Payload));
+
+    if (payload.errorMessage) {
+        throw new Error(payload.errorMessage);
     }
 
-    const newToken = JSON.parse(refreshTokenPayload.body).newToken;
+    return payload.isValid;
+}
 
-    // Verify the new token
-    const userId = await verifyToken(newToken);
+function calculateFutureDates(startDate, frequency) {
+    const dates = [];
+    let currentDate = new Date(startDate);
 
-    return { userId, newToken };
-  } catch (error) {
-    console.error('Token refresh and verification failed:', error);
-    throw new Error('Invalid token.');
-  }
-};
+    while (currentDate <= new Date(new Date().setMonth(new Date().getMonth() + 12))) {
+        dates.push(new Date(currentDate));
 
-const calculateOccurrences = (startDate, frequency, dayOfMonth) => {
-  let occurrences = [];
-  const endDate = add(startDate, { months: 12 });
+        switch (frequency) {
+            case 'once':
+                return dates;
+            case 'weekly':
+                currentDate.setDate(currentDate.getDate() + 7);
+                break;
+            case 'biweekly':
+                currentDate.setDate(currentDate.getDate() + 14);
+                break;
+            case 'monthly':
+                currentDate.setMonth(currentDate.getMonth() + 1);
+                break;
+            case 'bimonthly':
+                currentDate.setMonth(currentDate.getMonth() + 2);
+                break;
+            case 'quarterly':
+                currentDate.setMonth(currentDate.getMonth() + 3);
+                break;
+            case 'semiAnnually':
+                currentDate.setMonth(currentDate.getMonth() + 6);
+                break;
+            case 'annually':
+                currentDate.setFullYear(currentDate.getFullYear() + 1);
+                break;
+            default:
+                throw new Error('Invalid frequency');
+        }
+    }
+    return dates;
+}
 
-  const adjustDayOfMonth = (date, dayOfMonth) => {
-    const lastDayOfMonth = new Date(date.getFullYear(), date.getMonth() + 1, 0).getDate();
-    return setDate(date, Math.min(dayOfMonth, lastDayOfMonth));
-  };
+async function createNotification(ledgerEntry) {
+    const params = {
+        FunctionName: 'addNotification', // Replace with your actual Lambda function name
+        Payload: new TextEncoder().encode(JSON.stringify({
+            userUuid: ledgerEntry.householdId, // Adjust as necessary
+            billId: ledgerEntry.billId,
+            title: `Upcoming bill: ${ledgerEntry.category}`,
+            message: `Your bill ${ledgerEntry.category} is due on ${ledgerEntry.transactionDate.toDateString()}`,
+            dueDate: ledgerEntry.transactionDate
+        })),
+    };
 
-  switch (frequency) {
-    case "once":
-      occurrences.push(adjustDayOfMonth(startDate, dayOfMonth));
-      break;
-    case "weekly":
-      occurrences = eachWeekOfInterval({ start: startDate, end: endDate }).map(date => adjustDayOfMonth(date, dayOfMonth));
-      break;
-    case "biweekly":
-      occurrences = eachDayOfInterval({ start: startDate, end: endDate }).filter(
-        (date, index) => index % 14 === 0
-      ).map(date => adjustDayOfMonth(date, dayOfMonth));
-      break;
-    case "monthly":
-      occurrences = eachMonthOfInterval({ start: startDate, end: endDate }).map(date => adjustDayOfMonth(date, dayOfMonth));
-      break;
-    case "bi-monthly":
-      occurrences = eachDayOfInterval({ start: startDate, end: endDate }).filter(
-        (date, index) => index % 60 === 0
-      ).map(date => adjustDayOfMonth(date, dayOfMonth));
-      break;
-    case "quarterly":
-      occurrences = eachMonthOfInterval({ start: startDate, end: endDate }).filter(
-        (date, index) => index % 3 === 0
-      ).map(date => adjustDayOfMonth(date, dayOfMonth));
-      break;
-    case "annually":
-      occurrences.push(adjustDayOfMonth(add(startDate, { years: 1 }), dayOfMonth));
-      break;
-    default:
-      throw new Error(`Unsupported frequency: ${frequency}`);
-  }
+    const command = new InvokeCommand(params);
+    await lambda.send(command);
+}
 
-  return occurrences;
-};
+async function invokeCalculateRunningTotal(householdId) {
+    const params = {
+        FunctionName: 'calculateRunningTotal', // Replace with your actual Lambda function name
+        Payload: new TextEncoder().encode(JSON.stringify({
+            householdId: householdId,
+            paymentSourceId: null // Adjust based on your actual payment source logic
+        })),
+    };
 
-const storeCredentialsInSecretsManager = async (username, password) => {
-  const secretName = `bill-credentials/${uuidv4()}`;
-  const secretValue = JSON.stringify({ username, password });
+    const command = new InvokeCommand(params);
+    const response = await lambda.send(command);
 
-  const command = new CreateSecretCommand({
-    Name: secretName,
-    SecretString: secretValue,
-  });
+    const payload = JSON.parse(new TextDecoder().decode(response.Payload));
 
-  const response = await secretsManagerClient.send(command);
-  return response.ARN;
-};
+    if (payload.statusCode !== 200) {
+        throw new Error(`Error invoking calculateRunningTotal: ${payload.message}`);
+    }
+
+    return payload.message;
+}
 
 exports.handler = async (event) => {
-  try {
-    const body = JSON.parse(event.body);
-    const requiredFields = [
-      'authorizationToken',
-      'refreshToken',
-      'householdId',
-      'paymentSourceId',
-      'billName',
-      'dayOfMonth',
-      'frequency',
-      'amount',
-      'category',
-    ];
-
-    for (const field of requiredFields) {
-      if (!body[field]) {
+    if (event.httpMethod === 'OPTIONS') {
         return {
-          statusCode: 400,
-          body: JSON.stringify({ message: `${field} is required` }),
-          headers: corsHeaders
+            statusCode: 200,
+            headers: corsHeaders,
         };
-      }
     }
 
-    const { authorizationToken, refreshToken, householdId, paymentSourceId, billName, dayOfMonth, frequency, username, password, tags, description, amount, category, interestRate, cashBack, isDebt, status, url } = body;
+    const { authToken, householdId, billData } = JSON.parse(event.body);
 
-    let updatedBy;
-    let tokenValid = false;
-
-    // First attempt to verify the token
-    try {
-      updatedBy = await verifyToken(authorizationToken);
-      tokenValid = true;
-    } catch (error) {
-      console.error('Token verification failed, attempting refresh:', error.message);
-
-      // Attempt to refresh the token and verify again
-      const result = await refreshAndVerifyToken(authorizationToken, refreshToken);
-      updatedBy = result.userId;
-      authorizationToken = result.newToken; // Update authorizationToken with new token
-      tokenValid = true;
-    }
-
-    if (!tokenValid) {
-      return {
-        statusCode: 401,
-        headers: corsHeaders,
-        body: JSON.stringify({ message: 'Invalid token.' }),
-      };
-    }
-
-    const householdExists = await prisma.household.findUnique({
-      where: { householdId: householdId },
-    });
-
-    if (!householdExists) {
-      return {
-        statusCode: 404,
-        body: JSON.stringify({ message: "Household not found" }),
-        headers: corsHeaders
-      };
-    }
-
-    const paymentSourceExists = await prisma.paymentSource.findUnique({
-      where: { sourceId: paymentSourceId },
-    });
-
-    if (!paymentSourceExists) {
-      return {
-        statusCode: 404,
-        body: JSON.stringify({ message: "Payment source not found" }),
-        headers: corsHeaders
-      };
-    }
-
-    let credentialsArn = null;
-    if (username && password) {
-      try {
-        credentialsArn = await storeCredentialsInSecretsManager(username, password);
-      } catch (error) {
-        console.error('Error storing credentials in Secrets Manager:', error);
+    // Verify the token
+    const isValid = await verifyToken(authToken);
+    if (!isValid) {
         return {
-          statusCode: 500,
-          body: JSON.stringify({ message: "Error storing credentials", error: error.message }),
-          headers: corsHeaders
+            statusCode: 401,
+            headers: corsHeaders,
+            body: JSON.stringify({ message: 'Invalid authorization token' }),
         };
-      }
     }
 
-    let newBill;
     try {
-      newBill = await prisma.bill.create({
-        data: {
-          billId: uuidv4(),
-          category: category,
-          billName: billName,
-          amount: parseFloat(amount),
-          dayOfMonth: parseInt(dayOfMonth),
-          frequency: frequency,
-          isDebt: isDebt === "true",
-          interestRate: interestRate ? parseFloat(interestRate) : 0.0,
-          cashBack: cashBack ? parseFloat(cashBack) : 0.0,
-          description: description,
-          status: false,
-          url: url,
-          username: credentialsArn,
-          password: credentialsArn,
-          createdAt: new Date(),
-          updatedAt: new Date(),
-          household: {
-            connect: { householdId: householdId }
-          }
-        },
-      });
+        // Create the new bill
+        const newBill = await prisma.bill.create({
+            data: {
+                householdId: householdId,
+                category: billData.category,
+                billName: billData.billName,
+                amount: new Decimal(billData.amount).toFixed(2),
+                dayOfMonth: billData.dayOfMonth,
+                frequency: billData.frequency,
+                isDebt: billData.isDebt,
+                description: billData.description,
+                status: billData.status,
+                url: billData.url,
+                username: billData.username,
+                password: billData.password,
+                createdAt: new Date(),
+                updatedAt: new Date(),
+            }
+        });
+
+        // Generate ledger entries based on the frequency
+        const startDate = new Date();
+        startDate.setDate(billData.dayOfMonth);
+        const futureDates = calculateFutureDates(startDate, billData.frequency);
+
+        const ledgerEntries = futureDates.map(date => ({
+            householdId: householdId,
+            paymentSourceId: null, // assuming no payment source initially
+            amount: new Decimal(billData.amount).toFixed(2),
+            transactionType: 'bill',
+            transactionDate: date,
+            category: billData.category,
+            description: billData.description,
+            status: false,
+            createdAt: new Date(),
+            updatedAt: new Date(),
+            billId: newBill.billId,
+            isInitial: false
+        }));
+
+        await prisma.ledger.createMany({ data: ledgerEntries });
+
+        // Create notifications for each ledger entry
+        for (const entry of ledgerEntries) {
+            await createNotification(entry);
+        }
+
+        // Invoke calculateRunningTotal Lambda function
+        await invokeCalculateRunningTotal(householdId);
+
+        return {
+            statusCode: 201,
+            headers: corsHeaders,
+            body: JSON.stringify(newBill),
+        };
     } catch (error) {
-      console.error('Error creating bill:', error);
-      return {
-        statusCode: 500,
-        body: JSON.stringify({ message: "Error creating bill", error: error.message }),
-        headers: corsHeaders
-      };
+        console.error('Error adding bill:', error);
+        return {
+            statusCode: 500,
+            headers: corsHeaders,
+            body: JSON.stringify({ message: 'Internal server error' }),
+        };
+    } finally {
+        await prisma.$disconnect();
     }
+}
 
-    let firstBillDate = setDate(new Date(), parseInt(dayOfMonth));
-    if (!isValid(firstBillDate)) {
-      console.error('Invalid date value:', firstBillDate);
-      return {
-        statusCode: 400,
-        body: JSON.stringify({ message: "Invalid date value" }),
-        headers: corsHeaders
-      };
-    }
+// Example usage:
+// const authToken = 'your-auth-token';
+// const householdId = 'your-household-id';
+// const billData = {
+//     category: 'Utilities',
+//     billName: 'Electricity Bill',
+//     amount: 100.50,
+//     dayOfMonth: 15,
+//     frequency: 'monthly',
+//     isDebt: false,
+//     description: 'Monthly electricity bill',
+//     status: false,
+//     url: 'http://example.com',
+//     username: 'user',
+//     password: 'pass',
+// };
 
-    const occurrences = calculateOccurrences(firstBillDate, frequency, parseInt(dayOfMonth));
-
-    for (const occurrence of occurrences) {
-      await prisma.ledger.create({
-        data: {
-          ledgerId: uuidv4(),
-          householdId: householdId,
-          amount: parseFloat(amount),
-          transactionType: "Debit",
-          transactionDate: occurrence,
-          category: category,
-          description: `${billName} - ${description}`,
-          status: false,
-          createdAt: new Date(),
-          updatedAt: new Date(),
-          updatedBy: updatedBy,
-          billId: newBill.billId,
-          paymentSourceId: paymentSourceId,
-          runningTotal: 0,
-          interestRate: interestRate ? parseFloat(interestRate) : null,
-          cashBack: cashBack ? parseFloat(cashBack) : null,
-          tags: tags || null,
-        },
-      });
-
-      await prisma.notification.create({
-        data: {
-          notificationId: uuidv4(),
-          userUuid: updatedBy,
-          billId: newBill.billId,
-          title: `Bill Due: ${billName}`,
-          message: `Your bill for ${billName} is due on ${occurrence.toISOString().split('T')[0]}.`,
-          read: false,
-          createdAt: new Date(),
-          updatedAt: new Date(),
-          dueDate: occurrence, // Set the dueDate
-        },
-      });
-    }
-
-    // Invoke calculateRunningTotal Lambda function
-    const updateTotalsCommand = new InvokeCommand({
-      FunctionName: 'calculateRunningTotal',
-      Payload: JSON.stringify({ householdId, paymentSourceId }),
-    });
-
-    await lambdaClient.send(updateTotalsCommand);
-
-    const householdMembers = await prisma.householdMembers.findMany({
-      where: { householdId: householdId },
-      include: { member: { select: { email: true } } },
-    });
-
-    const recipientEmails = householdMembers.map(member => member.member.email).join(';');
-
-    const addNotificationCommand = new InvokeCommand({
-      FunctionName: 'addNotification',
-      Payload: JSON.stringify({
-        authorizationToken: authorizationToken,
-        billId: newBill.billId,
-        title: `Bill Due: ${billName}`,
-        message: `Your bill for ${billName} is due on the ${firstBillDate.toISOString().split('T')[0]}.`,
-        recipientEmail: recipientEmails,
-      }),
-    });
-
-    await lambdaClient.send(addNotificationCommand);
-
-    return {
-      statusCode: 201,
-      headers: corsHeaders,
-      body: JSON.stringify({ message: "Bill and ledger entries added successfully", bill: newBill })
-    };
-  } catch (error) {
-    console.error(`Error handling request: ${error.message}`, { errorDetails: error });
-
-    return {
-      statusCode: 500,
-      headers: corsHeaders,
-      body: JSON.stringify({ message: "Error processing request", error: error.message })
-    };
-  } finally {
-    await prisma.$disconnect();
-  }
-};
+// addBill(authToken, householdId, billData)
+//     .then(newBill => console.log('New bill added:', newBill))
+//     .catch(error => console.error('Error adding bill:', error));

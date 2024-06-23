@@ -1,101 +1,127 @@
 const { PrismaClient } = require('@prisma/client');
 const { LambdaClient, InvokeCommand } = require('@aws-sdk/client-lambda');
-const { verifyToken } = require('./tokenUtils'); // Ensure this is correctly pointing to the file
-const { refreshAndVerifyToken } = require('./refreshAndVerifyToken'); // Ensure this is correctly pointing to the file
 
 const prisma = new PrismaClient();
-const lambdaClient = new LambdaClient({ region: process.env.AWS_REGION });
+const lambda = new LambdaClient({ region: process.env.AWS_REGION });
+
 const corsHeaders = {
     'Content-Type': 'application/json',
     'Access-Control-Allow-Origin': '*',
-    'Access-Control-Allow-Headers': 'Content-Type',
-    'Access-Control-Allow-Methods': 'OPTIONS,POST,DELETE'
+    'Access-Control-Allow-Headers': 'Content-Type,Authorization',
+    'Access-Control-Allow-Methods': 'OPTIONS,DELETE'
 };
 
+async function verifyToken(token) {
+    const params = {
+        FunctionName: 'verifyToken', // Replace with your actual Lambda function name
+        Payload: new TextEncoder().encode(JSON.stringify({ token })),
+    };
+
+    const command = new InvokeCommand(params);
+    const response = await lambda.send(command);
+
+    const payload = JSON.parse(new TextDecoder().decode(response.Payload));
+
+    if (payload.errorMessage) {
+        throw new Error(payload.errorMessage);
+    }
+
+    return payload.isValid;
+}
+
+async function invokeCalculateRunningTotal(householdId) {
+    const params = {
+        FunctionName: 'calculateRunningTotal', // Replace with your actual Lambda function name
+        Payload: new TextEncoder().encode(JSON.stringify({
+            householdId: householdId,
+            paymentSourceId: null // Adjust based on your actual payment source logic
+        })),
+    };
+
+    const command = new InvokeCommand(params);
+    const response = await lambda.send(command);
+
+    const payload = JSON.parse(new TextDecoder().decode(response.Payload));
+
+    if (payload.statusCode !== 200) {
+        throw new Error(`Error invoking calculateRunningTotal: ${payload.message}`);
+    }
+
+    return payload.message;
+}
+
 exports.handler = async (event) => {
-    const { authorizationToken, refreshToken, ledgerId } = JSON.parse(event.body);
-
-    if (!authorizationToken || !refreshToken) {
+    if (event.httpMethod === 'OPTIONS') {
         return {
-            statusCode: 401,
+            statusCode: 200,
             headers: corsHeaders,
-            body: JSON.stringify({
-                message: 'Access denied. No token or refresh token provided.'
-            })
         };
     }
 
-    let username;
-    let tokenValid = false;
+    const { authToken, ledgerId, householdId } = JSON.parse(event.body);
 
-    // First attempt to verify the token
-    try {
-        username = await verifyToken(authorizationToken);
-        tokenValid = true;
-    } catch (error) {
-        console.error('Token verification failed, attempting refresh:', error.message);
-
-        // Attempt to refresh the token and verify again
-        try {
-            const result = await refreshAndVerifyToken(authorizationToken, refreshToken);
-            username = result.userId;
-            tokenValid = true;
-        } catch (refreshError) {
-            console.error('Token refresh and verification failed:', refreshError);
-            return {
-                statusCode: 401,
-                headers: corsHeaders,
-                body: JSON.stringify({ message: 'Invalid token.', error: refreshError.message }),
-            };
-        }
-    }
-
-    if (!tokenValid) {
+    // Verify the token
+    const isValid = await verifyToken(authToken);
+    if (!isValid) {
         return {
             statusCode: 401,
             headers: corsHeaders,
-            body: JSON.stringify({ message: 'Invalid token.' }),
+            body: JSON.stringify({ message: 'Invalid authorization token' }),
         };
     }
 
     try {
-        if (!ledgerId) {
+        // Fetch the ledger entry to be deleted
+        const ledgerEntry = await prisma.ledger.findUnique({
+            where: { ledgerId: ledgerId },
+        });
+
+        if (!ledgerEntry || ledgerEntry.householdId !== householdId) {
             return {
-                statusCode: 400,
+                statusCode: 404,
                 headers: corsHeaders,
                 body: JSON.stringify({
-                    message: 'Missing ledgerId parameter'
-                })
+                    message: 'Ledger entry not found or does not belong to the specified household',
+                }),
             };
         }
 
-        const deleteResult = await prisma.ledger.delete({
-            where: {
-                ledgerId: ledgerId
-            }
+        // Delete the ledger entry
+        await prisma.ledger.delete({
+            where: { ledgerId: ledgerId },
         });
 
         // Invoke calculateRunningTotal Lambda function
-        const updateTotalsCommand = new InvokeCommand({
-            FunctionName: 'calculateRunningTotal',
-            Payload: JSON.stringify({ householdId: deleteResult.householdId, paymentSourceId: deleteResult.paymentSourceId }),
-        });
-
-        await lambdaClient.send(updateTotalsCommand);
+        await invokeCalculateRunningTotal(householdId);
 
         return {
             statusCode: 200,
             headers: corsHeaders,
-            body: JSON.stringify({ message: 'Ledger entry deleted successfully', deleteResult }),
+            body: JSON.stringify({
+                message: 'Ledger entry deleted successfully',
+                ledgerId: ledgerId,
+            }),
         };
     } catch (error) {
         console.error('Error deleting ledger entry:', error);
         return {
             statusCode: 500,
             headers: corsHeaders,
-            body: JSON.stringify({ message: "Error deleting ledger entry", error: error.message }),
+            body: JSON.stringify({
+                message: 'Error deleting ledger entry',
+                error: error.message,
+            }),
         };
     } finally {
         await prisma.$disconnect();
     }
 };
+
+// Example usage:
+// const authToken = 'your-auth-token';
+// const ledgerId = 'your-ledger-id';
+// const householdId = 'your-household-id';
+
+// deleteLedgerEntry(authToken, ledgerId, householdId)
+//     .then(response => console.log(response))
+//     .catch(error => console.error('Error deleting ledger entry:', error));

@@ -1,128 +1,108 @@
-const { PrismaClient } = require('@prisma/client');
-const { LambdaClient, InvokeCommand } = require('@aws-sdk/client-lambda');
-const { CognitoIdentityProviderClient, AdminUpdateUserAttributesCommand, AdminCreateUserCommand, AdminDeleteUserCommand } = require('@aws-sdk/client-cognito-identity-provider');
-const { verifyToken } = require('./tokenUtils');
-const { refreshAndVerifyToken } = require('./refreshAndVerifyToken'); // Ensure this is correctly pointing to the file
+import { PrismaClient } from '@prisma/client';
+import { LambdaClient, InvokeCommand } from '@aws-sdk/client-lambda';
 
 const prisma = new PrismaClient();
-const lambdaClient = new LambdaClient({ region: process.env.AWS_REGION });
-const cognitoClient = new CognitoIdentityProviderClient({ region: process.env.AWS_REGION });
-const corsHeaders = {
-  'Content-Type': 'application/json',
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'Content-Type',
-  'Access-Control-Allow-Methods': 'OPTIONS,POST,GET'
+const lambda = new LambdaClient({ region: process.env.AWS_REGION });
+
+const CORS_HEADERS = {
+    'Access-Control-Allow-Origin': '*', // Adjust this to your specific origin if needed
+    'Access-Control-Allow-Methods': 'OPTIONS,PUT',
+    'Access-Control-Allow-Headers': 'Content-Type,Authorization',
 };
 
+async function verifyToken(token) {
+    const params = {
+        FunctionName: 'verifyToken', // Replace with your actual Lambda function name
+        Payload: new TextEncoder().encode(JSON.stringify({ token })),
+    };
+
+    const command = new InvokeCommand(params);
+    const response = await lambda.send(command);
+
+    const payload = JSON.parse(new TextDecoder().decode(response.Payload));
+
+    if (payload.errorMessage) {
+        throw new Error(payload.errorMessage);
+    }
+
+    return payload.isValid;
+}
+
 exports.handler = async (event) => {
-  const { authorizationToken, refreshToken, email, phoneNumber, newUsername } = JSON.parse(event.body);
+    if (event.httpMethod === 'OPTIONS') {
+        return {
+            statusCode: 200,
+            headers: CORS_HEADERS,
+        };
+    }
 
-  if (!authorizationToken || !refreshToken) {
-    return {
-      statusCode: 401,
-      body: JSON.stringify({
-        message: 'Access denied. No token provided.'
-      }),
-      headers: corsHeaders,
-    };
-  }
+    const token = event.headers.Authorization || event.headers.authorization;
+    const { email, mailOptIn, firstName, lastName } = JSON.parse(event.body);
 
-  let username;
-  let tokenValid = false;
+    if (!token) {
+        return {
+            statusCode: 401,
+            headers: CORS_HEADERS,
+            body: JSON.stringify({ error: 'Unauthorized: No token provided' }),
+        };
+    }
 
-  // First attempt to verify the token
-  try {
-    username = await verifyToken(authorizationToken);
-    tokenValid = true;
-  } catch (error) {
-    console.error('Token verification failed, attempting refresh:', error.message);
-
-    // Attempt to refresh the token and verify again
     try {
-      const result = await refreshAndVerifyToken(authorizationToken, refreshToken);
-      username = result.userId;
-      tokenValid = true;
-    } catch (refreshError) {
-      console.error('Token refresh and verification failed:', refreshError);
-      return {
-        statusCode: 401,
-        body: JSON.stringify({ message: 'Invalid token.', error: refreshError.message }),
-        headers: corsHeaders,
-      };
+        // Verify the token
+        const isValid = await verifyToken(token);
+        if (!isValid) {
+            return {
+                statusCode: 401,
+                headers: CORS_HEADERS,
+                body: JSON.stringify({ error: 'Unauthorized: Invalid token' }),
+            };
+        }
+
+        // Decode the token to get the UUID
+        const decoded = JSON.parse(new TextDecoder().decode(Buffer.from(token.split('.')[1], 'base64')));
+        const uuid = decoded.uuid; // Assuming the token contains the user's UUID
+
+        // Check if the user exists
+        const existingUser = await prisma.user.findUnique({
+            where: { uuid }
+        });
+
+        if (!existingUser) {
+            return {
+                statusCode: 404,
+                headers: CORS_HEADERS,
+                body: JSON.stringify({ error: 'User not found' }),
+            };
+        }
+
+        // Update user details
+        const updatedUser = await prisma.user.update({
+            where: { uuid },
+            data: {
+                email,
+                firstName,
+                lastName,
+                mailOptIn,
+                updatedAt: new Date(),
+            },
+        });
+
+        return {
+            statusCode: 200,
+            headers: CORS_HEADERS,
+            body: JSON.stringify({
+                message: 'User updated successfully',
+                user: updatedUser,
+            }),
+        };
+
+    } catch (error) {
+        console.error('Error updating user:', error);
+
+        return {
+            statusCode: 500,
+            headers: CORS_HEADERS,
+            body: JSON.stringify({ error: 'Internal server error' }),
+        };
     }
-  }
-
-  if (!tokenValid) {
-    return {
-      statusCode: 401,
-      body: JSON.stringify({ message: 'Invalid token.' }),
-      headers: corsHeaders,
-    };
-  }
-
-  try {
-    const user = await prisma.user.findUnique({
-      where: { uuid: username },
-    });
-
-    if (!user) {
-      return {
-        statusCode: 404,
-        body: JSON.stringify({ message: 'User not found' }),
-        headers: corsHeaders,
-      };
-    }
-
-    // Create new user in Cognito with new username
-    const createUserCommand = new AdminCreateUserCommand({
-      UserPoolId: process.env.USER_POOL_ID,
-      Username: newUsername,
-      UserAttributes: [
-        { Name: 'email', Value: email },
-        { Name: 'email_verified', Value: 'true' },
-        { Name: 'phone_number', Value: phoneNumber },
-        // Add other attributes as needed
-      ],
-      DesiredDeliveryMediums: ['EMAIL'],
-    });
-
-    await cognitoClient.send(createUserCommand);
-
-    // Update the new user in your database
-    const updatedUser = await prisma.user.update({
-      where: { uuid: username },
-      data: {
-        uuid: newUsername,
-        email: email,
-        phoneNumber: phoneNumber,
-        updatedAt: new Date(),
-      },
-    });
-
-    // Delete old user in Cognito
-    const deleteUserCommand = new AdminDeleteUserCommand({
-      UserPoolId: process.env.USER_POOL_ID,
-      Username: username,
-    });
-
-    await cognitoClient.send(deleteUserCommand);
-
-    return {
-      statusCode: 200,
-      body: JSON.stringify({
-        message: 'User updated successfully',
-        user: updatedUser,
-      }),
-      headers: corsHeaders,
-    };
-  } catch (error) {
-    console.error('Error updating user:', error);
-    return {
-      statusCode: 500,
-      body: JSON.stringify({ message: 'Failed to update user', errorDetails: error.message }),
-      headers: corsHeaders,
-    };
-  } finally {
-    await prisma.$disconnect();
-  }
 };

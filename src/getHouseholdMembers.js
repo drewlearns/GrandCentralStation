@@ -1,140 +1,113 @@
 const { PrismaClient } = require('@prisma/client');
 const { LambdaClient, InvokeCommand } = require('@aws-sdk/client-lambda');
-const { verifyToken } = require('./tokenUtils'); // Ensure this is correctly pointing to the file
-const { refreshAndVerifyToken } = require('./refreshAndVerifyToken'); // Ensure this is correctly pointing to the file
 
 const prisma = new PrismaClient();
-const lambdaClient = new LambdaClient({ region: process.env.AWS_REGION });
-const corsHeaders = {
-    'Content-Type': 'application/json',
-    'Access-Control-Allow-Origin': '*',
-    'Access-Control-Allow-Headers': 'Content-Type',
-    'Access-Control-Allow-Methods': 'OPTIONS,POST,GET'
+const lambda = new LambdaClient({ region: 'us-east-1' }); // Adjust the region as necessary
+
+const CORS_HEADERS = {
+    'Access-Control-Allow-Origin': '*', // Adjust this to your specific origin if needed
+    'Access-Control-Allow-Methods': 'OPTIONS,GET',
+    'Access-Control-Allow-Headers': 'Content-Type,Authorization',
 };
 
-exports.handler = async (event) => {
-    const { authorizationToken, refreshToken, householdId } = JSON.parse(event.body);
+async function verifyToken(token) {
+    const params = {
+        FunctionName: 'verifyToken', // Replace with your actual Lambda function name
+        Payload: new TextEncoder().encode(JSON.stringify({ token })),
+    };
 
-    if (!authorizationToken || !refreshToken) {
-        return {
-            statusCode: 401,
-            headers: corsHeaders,
-            body: JSON.stringify({
-                message: 'Access denied. No token or refresh token provided.'
-            })
-        };
+    const command = new InvokeCommand(params);
+    const response = await lambda.send(command);
+
+    const payload = JSON.parse(new TextDecoder().decode(response.Payload));
+
+    if (payload.errorMessage) {
+        throw new Error(payload.errorMessage);
     }
 
-    let requestingUserUuid;
-    let tokenValid = false;
+    return payload;
+}
 
-    // First attempt to verify the token
-    try {
-        requestingUserUuid = await verifyToken(authorizationToken);
-        tokenValid = true;
-    } catch (error) {
-        console.error('Token verification failed, attempting refresh:', error.message);
+async function getHouseholdMembers(authToken, householdId) {
+    // Verify the token
+    const payload = await verifyToken(authToken);
+    const uid = payload.uid;
 
-        // Attempt to refresh the token and verify again
-        try {
-            const result = await refreshAndVerifyToken(authorizationToken, refreshToken);
-            requestingUserUuid = result.userId;
-            tokenValid = true;
-        } catch (refreshError) {
-            console.error('Token refresh and verification failed:', refreshError);
-            return {
-                statusCode: 401,
-                headers: corsHeaders,
-                body: JSON.stringify({
-                    message: 'Invalid token.',
-                    error: refreshError.message,
-                }),
-            };
-        }
+    if (!uid) {
+        throw new Error('Invalid token payload: missing uid');
     }
 
-    if (!tokenValid) {
-        return {
-            statusCode: 401,
-            headers: corsHeaders,
-            body: JSON.stringify({ message: 'Invalid token.' }),
-        };
-    }
-
-    try {
-        // Check if the household exists
-        const household = await prisma.household.findUnique({
-            where: { householdId: householdId },
-            include: {
-                members: true
-            }
-        });
-
-        if (!household) {
-            return {
-                statusCode: 404,
-                headers: corsHeaders,
-                body: JSON.stringify({
-                    message: 'Household not found',
-                }),
-            };
-        }
-
-        // Check if the requesting user is a member of the household
-        const isMember = household.members.some(member => member.memberUuid === requestingUserUuid);
-
-        if (!isMember) {
-            return {
-                statusCode: 403,
-                headers: corsHeaders,
-                body: JSON.stringify({
-                    message: 'You do not have permission to view members of this household',
-                }),
-            };
-        }
-
-        // List members in the household
-        const members = await prisma.householdMembers.findMany({
-            where: {
-                householdId: householdId,
+    // Fetch household members
+    const members = await prisma.householdMembers.findMany({
+        where: {
+            householdId: householdId,
+        },
+        select: {
+            member: {
+                select: {
+                    uuid: true,
+                    firstName: true,
+                    lastName: true,
+                    email: true,
+                },
             },
-            include: {
-                member: true // Corrected relationship field
-            }
-        });
+            role: true,
+            joinedDate: true,
+        },
+    });
 
-        const memberList = members.map(member => ({
-            memberUuid: member.memberUuid,
-            role: member.role,
-            joinedDate: member.joinedDate,
-            user: {
-                username: member.member.username,
-                firstName: member.member.firstName,
-                lastName: member.member.lastName,
-                email: member.member.email,
-                phoneNumber: member.member.phoneNumber,
-            }
-        }));
+    // Format the results
+    const result = members.map(member => ({
+        uuid: member.member.uuid,
+        firstName: member.member.firstName,
+        lastName: member.member.lastName,
+        email: member.member.email,
+        role: member.role,
+        joinedDate: member.joinedDate,
+    }));
 
+    return result;
+}
+
+exports.handler = async (event) => {
+    if (event.httpMethod === 'OPTIONS') {
         return {
             statusCode: 200,
-            headers: corsHeaders,
-            body: JSON.stringify({
-                message: 'Household members retrieved successfully',
-                members: memberList
-            }),
+            headers: CORS_HEADERS,
+        };
+    }
+
+    const authToken = event.headers.Authorization;
+    const householdId = event.pathParameters.householdId;
+
+    if (!authToken) {
+        return {
+            statusCode: 401,
+            headers: CORS_HEADERS,
+            body: JSON.stringify({ error: 'Authorization token is missing' }),
+        };
+    }
+
+    if (!householdId) {
+        return {
+            statusCode: 400,
+            headers: CORS_HEADERS,
+            body: JSON.stringify({ error: 'householdId is missing' }),
+        };
+    }
+
+    try {
+        const members = await getHouseholdMembers(authToken, householdId);
+        return {
+            statusCode: 200,
+            headers: CORS_HEADERS,
+            body: JSON.stringify(members),
         };
     } catch (error) {
-        console.error('Error retrieving household members:', error);
         return {
             statusCode: 500,
-            headers: corsHeaders,
-            body: JSON.stringify({
-                message: 'Error retrieving household members',
-                error: error.message,
-            }),
+            headers: CORS_HEADERS,
+            body: JSON.stringify({ error: error.message }),
         };
-    } finally {
-        await prisma.$disconnect();
     }
 };

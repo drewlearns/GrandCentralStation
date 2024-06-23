@@ -1,102 +1,96 @@
-const { PrismaClient } = require("@prisma/client");
-const { LambdaClient, InvokeCommand } = require("@aws-sdk/client-lambda");
-const { verifyToken } = require('./tokenUtils');
-const { refreshAndVerifyToken } = require('./refreshAndVerifyToken'); // Ensure this is correctly pointing to the file
-
+const { PrismaClient } = require('@prisma/client');
+const { LambdaClient, InvokeCommand } = require('@aws-sdk/client-lambda'); // AWS SDK for Lambda
 const prisma = new PrismaClient();
-const lambdaClient = new LambdaClient({ region: process.env.AWS_REGION });
+
+// Initialize the Lambda client
+const lambdaClient = new LambdaClient({ region: 'your-region' }); // Replace 'your-region' with the appropriate AWS region
+
 const corsHeaders = {
   'Content-Type': 'application/json',
   'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'Content-Type',
-  'Access-Control-Allow-Methods': 'OPTIONS,POST,GET'
+  'Access-Control-Allow-Headers': 'Content-Type,Authorization',
+  'Access-Control-Allow-Methods': 'OPTIONS,DELETE'
 };
 
+async function verifyToken(token) {
+    const params = {
+        FunctionName: 'verifyToken', // Replace with your actual Lambda function name
+        Payload: new TextEncoder().encode(JSON.stringify({ token })),
+    };
+
+    const command = new InvokeCommand(params);
+    const response = await lambdaClient.send(command);
+
+    const payload = JSON.parse(new TextDecoder().decode(response.Payload));
+
+    if (payload.errorMessage) {
+        throw new Error(payload.errorMessage);
+    }
+
+    return payload;
+}
+
 exports.handler = async (event) => {
-  try {
-    const body = typeof event.body === "string" ? JSON.parse(event.body) : event;
-    const { authorizationToken, refreshToken, notificationId } = body;
-
-    if (!authorizationToken || !refreshToken) {
-      return {
-        statusCode: 401,
-        headers: corsHeaders,
-        body: JSON.stringify({
-          message: 'Access denied. No token provided.'
-        })
-      };
-    }
-
-    let updatedBy;
-    let tokenValid = false;
-
-    // First attempt to verify the token
-    try {
-      updatedBy = await verifyToken(authorizationToken);
-      tokenValid = true;
-    } catch (error) {
-      console.error('Token verification failed, attempting refresh:', error.message);
-
-      // Attempt to refresh the token and verify again
-      try {
-        const result = await refreshAndVerifyToken(authorizationToken, refreshToken);
-        updatedBy = result.userId;
-        tokenValid = true;
-      } catch (refreshError) {
-        console.error('Token refresh and verification failed:', refreshError);
+    if (event.httpMethod === 'OPTIONS') {
         return {
-          statusCode: 401,
-          headers: corsHeaders,
-          body: JSON.stringify({ message: 'Invalid token.', error: refreshError.message }),
+            statusCode: 200,
+            headers: corsHeaders,
         };
-      }
     }
 
-    if (!tokenValid) {
-      return {
-        statusCode: 401,
-        headers: corsHeaders,
-        body: JSON.stringify({ message: 'Invalid token.' }),
-      };
+    const { token, notificationId } = JSON.parse(event.body);
+
+    try {
+        const decoded = await verifyToken(token);
+
+        if (!decoded.isValid) {
+            return {
+                statusCode: 401,
+                headers: corsHeaders,
+                body: JSON.stringify({ error: 'Invalid token' }),
+            };
+        }
+
+        const notification = await prisma.notification.findUnique({
+            where: {
+                notificationId: notificationId,
+            },
+        });
+
+        if (!notification) {
+            return {
+                statusCode: 404,
+                headers: corsHeaders,
+                body: JSON.stringify({ error: 'Notification not found' }),
+            };
+        }
+
+        if (notification.userUuid !== decoded.uuid) {
+            return {
+                statusCode: 403,
+                headers: corsHeaders,
+                body: JSON.stringify({ error: 'Unauthorized' }),
+            };
+        }
+
+        const deletedNotification = await prisma.notification.delete({
+            where: {
+                notificationId: notificationId,
+            },
+        });
+
+        return {
+            statusCode: 200,
+            headers: corsHeaders,
+            body: JSON.stringify(deletedNotification),
+        };
+    } catch (error) {
+        return {
+            statusCode: 500,
+            headers: corsHeaders,
+            body: JSON.stringify({ error: error.message }),
+        };
+    } finally {
+        await prisma.$disconnect();
     }
-
-    const notification = await prisma.notification.findUnique({
-      where: { notificationId: notificationId },
-    });
-
-    if (!notification) {
-      return {
-        statusCode: 404,
-        headers: corsHeaders,
-        body: JSON.stringify({ message: "Notification not found" }),
-      };
-    }
-
-    await prisma.notification.delete({
-      where: { notificationId: notificationId },
-    });
-
-    return {
-      statusCode: 200,
-      headers: corsHeaders,
-      body: JSON.stringify({
-        message: "Notification deleted successfully",
-      }),
-    };
-  } catch (error) {
-    console.error(`Error handling request: ${error.message}`, {
-      errorDetails: error,
-    });
-
-    return {
-      statusCode: 500,
-      headers: corsHeaders,
-      body: JSON.stringify({
-        message: "Error processing request",
-        error: error.message,
-      }),
-    };
-  } finally {
-    await prisma.$disconnect();
-  }
 };

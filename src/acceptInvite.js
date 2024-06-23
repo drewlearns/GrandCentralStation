@@ -1,3 +1,4 @@
+const { Decimal } = require('decimal.js');
 const { PrismaClient } = require('@prisma/client');
 const { v4: uuidv4 } = require('uuid');
 const { LambdaClient, InvokeCommand } = require('@aws-sdk/client-lambda');
@@ -5,24 +6,53 @@ const { LambdaClient, InvokeCommand } = require('@aws-sdk/client-lambda');
 const prisma = new PrismaClient();
 const lambdaClient = new LambdaClient({ region: process.env.AWS_REGION });
 
-exports.handler = async (event) => {
-    const corsHeaders = {
-        'Content-Type': 'application/json',
-        'Access-Control-Allow-Origin': '*',
-        'Access-Control-Allow-Headers': 'Content-Type',
-        'Access-Control-Allow-Methods': 'OPTIONS,POST,GET'
+const corsHeaders = {
+    'Content-Type': 'application/json',
+    'Access-Control-Allow-Origin': '*',
+    'Access-Control-Allow-Headers': 'Content-Type',
+    'Access-Control-Allow-Methods': 'OPTIONS,POST,GET'
+};
+
+async function invokeAddUserLambda(userData) {
+    const params = {
+        FunctionName: 'addUser',
+        Payload: new TextEncoder().encode(JSON.stringify({ body: JSON.stringify(userData) })),
     };
 
-    let parsedBody;
+    const command = new InvokeCommand(params);
+    const response = await lambdaClient.send(command);
 
+    const payload = JSON.parse(new TextDecoder().decode(response.Payload));
+
+    if (response.FunctionError || !payload || !payload.body) {
+        throw new Error('Invalid response from addUser Lambda function.');
+    }
+
+    const body = JSON.parse(payload.body);
+    if (!body.user || !body.user.uuid) {
+        throw new Error('Invalid user data in addUser response.');
+    }
+
+    return body.user.uuid;
+}
+
+exports.handler = async (event) => {
+    if (event.httpMethod === 'OPTIONS') {
+        return {
+            statusCode: 200,
+            headers: corsHeaders,
+        };
+    }
+
+    let parsedBody;
     try {
         parsedBody = JSON.parse(event.body);
     } catch (error) {
         console.error('Error parsing request body:', error);
         return {
             statusCode: 400,
-            body: JSON.stringify({ message: 'Invalid request body' }),
             headers: corsHeaders,
+            body: JSON.stringify({ message: 'Invalid request body' }),
         };
     }
 
@@ -33,28 +63,21 @@ exports.handler = async (event) => {
         console.error('Missing required fields');
         return {
             statusCode: 400,
-            body: JSON.stringify({
-                message: 'Missing required fields',
-            }),
             headers: corsHeaders,
+            body: JSON.stringify({ message: 'Missing required fields' }),
         };
     }
 
     try {
-        console.log('Checking invitation...');
         // Check if the invitation exists and is still pending
-        const invitation = await prisma.invitations.findUnique({
-            where: { invitationId: invitationId },
-        });
+        const invitation = await prisma.invitations.findUnique({ where: { invitationId } });
 
         if (!invitation) {
             console.error('Invitation not found');
             return {
                 statusCode: 404,
-                body: JSON.stringify({
-                    message: 'Invitation not found',
-                }),
                 headers: corsHeaders,
+                body: JSON.stringify({ message: 'Invitation not found' }),
             };
         }
 
@@ -62,98 +85,58 @@ exports.handler = async (event) => {
             console.error('Invitation is not pending');
             return {
                 statusCode: 409,
-                body: JSON.stringify({
-                    message: 'Invitation is not pending',
-                }),
                 headers: corsHeaders,
+                body: JSON.stringify({ message: 'Invitation is not pending' }),
             };
         }
 
         const { householdId, invitedUserEmail } = invitation;
 
-        console.log('Checking if user exists...');
-        // Check if the user with the same UUID already exists
-        const existingUser = await prisma.user.findUnique({
-            where: { uuid: invitedUserEmail }, // Using uuid (same as email) for unique lookup
-        });
+        // Check if the user already exists
+        const existingUser = await prisma.user.findUnique({ where: { uuid: invitedUserEmail } });
 
         let newUserUuid;
         if (existingUser) {
-            console.log('User already exists, using existing UUID');
             newUserUuid = existingUser.uuid;
         } else {
-            console.log('User does not exist, checking username...');
-            // Check if the username is unique using findFirst
-            const existingUserByUsername = await prisma.user.findFirst({
-                where: { username: username },
-            });
+            // Check if the username is unique
+            const existingUserByUsername = await prisma.user.findFirst({ where: { username } });
 
             if (existingUserByUsername) {
                 console.error('Username is already taken');
                 return {
                     statusCode: 409,
-                    body: JSON.stringify({
-                        message: 'Username is already taken',
-                    }),
                     headers: corsHeaders,
+                    body: JSON.stringify({ message: 'Username is already taken' }),
                 };
             }
 
-            console.log('Invoking addUser Lambda function...');
-            // Invoke the addUser.js Lambda to create the user in Cognito
-            const addUserCommand = new InvokeCommand({
-                FunctionName: 'addUser',
-                Payload: JSON.stringify({
-                    body: JSON.stringify({
-                        username: username,
-                        email: invitedUserEmail,
-                        password: password,
-                        mailOptIn: mailOptIn,
-                        phoneNumber: phoneNumber,
-                        firstName: firstName,
-                        lastName: lastName,
-                    })
-                }),
-            });
-
+            // Invoke addUser Lambda function
             try {
-                const addUserResponse = await lambdaClient.send(addUserCommand);
-                const addUserPayload = JSON.parse(new TextDecoder('utf-8').decode(addUserResponse.Payload));
-
-                console.log('addUserPayload:', addUserPayload); // Log the response payload for debugging
-
-                if (addUserResponse.FunctionError || !addUserPayload || !addUserPayload.body) {
-                    console.error('Invalid response from addUser Lambda function:', addUserPayload);
-                    throw new Error('Invalid response from addUser Lambda function.');
-                }
-
-                const addUserBody = JSON.parse(addUserPayload.body);
-                if (!addUserBody.user || !addUserBody.user.uuid) {
-                    console.error('Invalid user data in addUser response:', addUserBody);
-                    throw new Error('Invalid user data in addUser response.');
-                }
-
-                newUserUuid = addUserBody.user.uuid;
-                console.log('User created in Cognito, new UUID:', newUserUuid);
+                newUserUuid = await invokeAddUserLambda({
+                    username,
+                    email: invitedUserEmail,
+                    password,
+                    mailOptIn,
+                    phoneNumber,
+                    firstName,
+                    lastName,
+                });
             } catch (error) {
                 console.error('Error invoking addUser Lambda function:', error);
                 return {
                     statusCode: 500,
-                    body: JSON.stringify({
-                        message: 'Error creating user',
-                        error: error.message,
-                    }),
                     headers: corsHeaders,
+                    body: JSON.stringify({ message: 'Error creating user', error: error.message }),
                 };
             }
         }
 
-        console.log('Adding user to household...');
         // Add the user as a member of the household
         const householdMember = await prisma.householdMembers.create({
             data: {
                 id: uuidv4(),
-                householdId: householdId,
+                householdId,
                 memberUuid: newUserUuid,
                 role: 'Member', // Adjust the role as needed
                 joinedDate: new Date(),
@@ -162,10 +145,9 @@ exports.handler = async (event) => {
             },
         });
 
-        console.log('Updating invitation status to accepted...');
         // Update the invitation status to accepted and set the invitedUserUuid
         await prisma.invitations.update({
-            where: { invitationId: invitationId },
+            where: { invitationId },
             data: {
                 invitationStatus: 'Accepted',
                 updatedAt: new Date(),
@@ -173,24 +155,17 @@ exports.handler = async (event) => {
             },
         });
 
-        console.log('Invitation accepted successfully');
         return {
             statusCode: 200,
-            body: JSON.stringify({
-                message: 'Invitation accepted successfully',
-                householdMember: householdMember,
-            }),
             headers: corsHeaders,
+            body: JSON.stringify({ message: 'Invitation accepted successfully', householdMember }),
         };
     } catch (error) {
         console.error('Error accepting invitation:', error);
         return {
             statusCode: 500,
-            body: JSON.stringify({
-                message: 'Error accepting invitation',
-                error: error.message,
-            }),
             headers: corsHeaders,
+            body: JSON.stringify({ message: 'Error accepting invitation', error: error.message }),
         };
     } finally {
         await prisma.$disconnect();

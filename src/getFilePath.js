@@ -1,62 +1,35 @@
-const { PrismaClient } = require("@prisma/client");
-const { LambdaClient, InvokeCommand } = require("@aws-sdk/client-lambda");
+const { PrismaClient } = require('@prisma/client');
+const { LambdaClient, InvokeCommand } = require('@aws-sdk/client-lambda');
 const { verifyToken } = require('./tokenUtils'); // Ensure this is correctly pointing to the file
-const { refreshAndVerifyToken } = require('./refreshAndVerifyToken'); // Ensure this is correctly pointing to the file
 
 const prisma = new PrismaClient();
-const lambdaClient = new LambdaClient({ region: process.env.AWS_REGION });
+const lambdaClient = new LambdaClient({ region: 'us-east-1' }); // Adjust the region as necessary
 const corsHeaders = {
   'Content-Type': 'application/json',
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'Content-Type',
-  'Access-Control-Allow-Methods': 'OPTIONS,POST,GET'
+  'Access-Control-Allow-Methods': 'OPTIONS,POST,GET',
 };
 
 exports.handler = async (event) => {
   try {
     // Ensure event.body is parsed correctly
-    const body = typeof event.body === "string" ? JSON.parse(event.body) : event.body;
-    const { authorizationToken, refreshToken, transactionId } = body;
+    const body = typeof event.body === 'string' ? JSON.parse(event.body) : event.body;
+    const { authorizationToken, transactionId } = body;
 
-    if (!authorizationToken || !refreshToken) {
+    if (!authorizationToken) {
       return {
         statusCode: 401,
         headers: corsHeaders,
         body: JSON.stringify({
-          message: 'Access denied. No token or refresh token provided.'
-        })
+          message: 'Access denied. No authorization token provided.',
+        }),
       };
     }
 
-    let username;
-    let tokenValid = false;
-
-    // First attempt to verify the token
-    try {
-      username = await verifyToken(authorizationToken);
-      tokenValid = true;
-    } catch (error) {
-      console.error('Token verification failed, attempting refresh:', error.message);
-
-      // Attempt to refresh the token and verify again
-      try {
-        const result = await refreshAndVerifyToken(authorizationToken, refreshToken);
-        username = result.userId;
-        tokenValid = true;
-      } catch (refreshError) {
-        console.error('Token refresh and verification failed:', refreshError);
-        return {
-          statusCode: 401,
-          headers: corsHeaders,
-          body: JSON.stringify({
-            message: 'Invalid token.',
-            error: refreshError.message,
-          }),
-        };
-      }
-    }
-
-    if (!tokenValid) {
+    // Verify the token
+    const isValid = await verifyToken(authorizationToken);
+    if (!isValid) {
       return {
         statusCode: 401,
         headers: corsHeaders,
@@ -80,7 +53,7 @@ exports.handler = async (event) => {
       return {
         statusCode: 404,
         headers: corsHeaders,
-        body: JSON.stringify({ message: "Transaction not found" }),
+        body: JSON.stringify({ message: 'Transaction not found' }),
       };
     }
 
@@ -92,7 +65,7 @@ exports.handler = async (event) => {
       return {
         statusCode: 404,
         headers: corsHeaders,
-        body: JSON.stringify({ message: "Attachment not found" }),
+        body: JSON.stringify({ message: 'Attachment not found' }),
       };
     }
 
@@ -102,7 +75,7 @@ exports.handler = async (event) => {
     try {
       const getAttachmentCommand = new InvokeCommand({
         FunctionName: 'getAttachment',
-        Payload: JSON.stringify({ authorizationToken, filePath })
+        Payload: JSON.stringify({ authorizationToken, filePath }),
       });
 
       const getAttachmentResponse = await lambdaClient.send(getAttachmentCommand);
@@ -118,7 +91,7 @@ exports.handler = async (event) => {
         statusCode: 200,
         headers: corsHeaders,
         body: JSON.stringify({
-          message: "Presigned URL generated successfully",
+          message: 'Presigned URL generated successfully',
           url: bodyPayload.url, // Include the URL in the response
         }),
       };
@@ -142,7 +115,7 @@ exports.handler = async (event) => {
       statusCode: 500,
       headers: corsHeaders,
       body: JSON.stringify({
-        message: "Error processing request",
+        message: 'Error processing request',
         error: error.message,
       }),
     };

@@ -1,137 +1,125 @@
-const { PrismaClient } = require("@prisma/client");
-const { LambdaClient, InvokeCommand } = require("@aws-sdk/client-lambda");
-const { verifyToken } = require('./tokenUtils');
-const { refreshAndVerifyToken } = require('./refreshAndVerifyToken'); // Ensure this is correctly pointing to the file
+const { PrismaClient } = require('@prisma/client');
+const { LambdaClient, InvokeCommand } = require('@aws-sdk/client-lambda');
 
 const prisma = new PrismaClient();
-const lambdaClient = new LambdaClient({ region: process.env.AWS_REGION });
+const lambda = new LambdaClient({ region: process.env.AWS_REGION });
+
 const corsHeaders = {
-  'Content-Type': 'application/json',
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'Content-Type',
-  'Access-Control-Allow-Methods': 'OPTIONS,POST,GET'
+    'Content-Type': 'application/json',
+    'Access-Control-Allow-Origin': '*',
+    'Access-Control-Allow-Headers': 'Content-Type,Authorization',
+    'Access-Control-Allow-Methods': 'OPTIONS,DELETE'
 };
+
+async function verifyToken(token) {
+    const params = {
+        FunctionName: 'verifyToken', // Replace with your actual Lambda function name
+        Payload: new TextEncoder().encode(JSON.stringify({ token })),
+    };
+
+    const command = new InvokeCommand(params);
+    const response = await lambda.send(command);
+
+    const payload = JSON.parse(new TextDecoder().decode(response.Payload));
+
+    if (payload.errorMessage) {
+        throw new Error(payload.errorMessage);
+    }
+
+    return payload.isValid;
+}
+
+async function invokeCalculateRunningTotal(householdId) {
+    const params = {
+        FunctionName: 'calculateRunningTotal', // Replace with your actual Lambda function name
+        Payload: new TextEncoder().encode(JSON.stringify({
+            householdId: householdId,
+            paymentSourceId: null // Adjust based on your actual payment source logic
+        })),
+    };
+
+    const command = new InvokeCommand(params);
+    const response = await lambda.send(command);
+
+    const payload = JSON.parse(new TextDecoder().decode(response.Payload));
+
+    if (payload.statusCode !== 200) {
+        throw new Error(`Error invoking calculateRunningTotal: ${payload.message}`);
+    }
+
+    return payload.message;
+}
 
 exports.handler = async (event) => {
-  const { authorizationToken, refreshToken, billId } = JSON.parse(event.body);
+    if (event.httpMethod === 'OPTIONS') {
+        return {
+            statusCode: 200,
+            headers: corsHeaders,
+        };
+    }
 
-  if (!authorizationToken || !refreshToken) {
-    return {
-      statusCode: 401,
-      headers: corsHeaders,
-      body: JSON.stringify({
-        message: 'Access denied. No token provided.'
-      })
-    };
-  }
+    const { authToken, householdId, billId } = JSON.parse(event.body);
 
-  let username;
-  let tokenValid = false;
+    // Verify the token
+    const isValid = await verifyToken(authToken);
+    if (!isValid) {
+        return {
+            statusCode: 401,
+            headers: corsHeaders,
+            body: JSON.stringify({ message: 'Invalid authorization token' }),
+        };
+    }
 
-  // First attempt to verify the token
-  try {
-    username = await verifyToken(authorizationToken);
-    tokenValid = true;
-  } catch (error) {
-    console.error('Token verification failed, attempting refresh:', error.message);
-
-    // Attempt to refresh the token and verify again
     try {
-      const result = await refreshAndVerifyToken(authorizationToken, refreshToken);
-      username = result.userId;
-      tokenValid = true;
-    } catch (refreshError) {
-      console.error('Token refresh and verification failed:', refreshError);
-      return {
-        statusCode: 401,
-        headers: corsHeaders,
-        body: JSON.stringify({ message: 'Invalid token.', error: refreshError.message }),
-      };
+        // Fetch the bill to be deleted
+        const bill = await prisma.bill.findUnique({
+            where: { billId: billId },
+            include: { ledger: true },
+        });
+
+        if (!bill || bill.householdId !== householdId) {
+            return {
+                statusCode: 404,
+                headers: corsHeaders,
+                body: JSON.stringify({ message: 'Bill not found or does not belong to the specified household' }),
+            };
+        }
+
+        // Delete associated ledger entries
+        await prisma.ledger.deleteMany({
+            where: { billId: billId },
+        });
+
+        // Delete the bill
+        await prisma.bill.delete({
+            where: { billId: billId },
+        });
+
+        // Invoke calculateRunningTotal Lambda function
+        await invokeCalculateRunningTotal(householdId);
+
+        return {
+            statusCode: 200,
+            headers: corsHeaders,
+            body: JSON.stringify({ message: 'Bill deleted successfully' }),
+        };
+    } catch (error) {
+        console.error('Error deleting bill:', error);
+        return {
+            statusCode: 500,
+            headers: corsHeaders,
+            body: JSON.stringify({ message: 'Error deleting bill', error: error.message }),
+        };
+    } finally {
+        await prisma.$disconnect();
     }
-  }
-
-  if (!tokenValid) {
-    return {
-      statusCode: 401,
-      headers: corsHeaders,
-      body: JSON.stringify({ message: 'Invalid token.' }),
-    };
-  }
-
-  try {
-    if (!billId) {
-      return {
-        statusCode: 400,
-        headers: corsHeaders,
-        body: JSON.stringify({ message: "Missing billId parameter" }),
-      };
-    }
-
-    const bill = await prisma.bill.findUnique({
-      where: { billId: billId },
-    });
-
-    if (!bill) {
-      return {
-        statusCode: 404,
-        headers: corsHeaders,
-        body: JSON.stringify({ message: "Bill not found" }),
-      };
-    }
-
-    const ledgerEntries = await prisma.ledger.findMany({
-      where: { billId: billId },
-    });
-
-    // Delete the bill
-    await prisma.bill.delete({
-      where: { billId: billId },
-    });
-
-    // Delete ledger entries associated with the bill
-    for (const entry of ledgerEntries) {
-      await prisma.ledger.delete({
-        where: { ledgerId: entry.ledgerId },
-      });
-    }
-
-    // Invoke deleteNotification.js Lambda to delete the associated notification
-    const deleteNotificationCommand = new InvokeCommand({
-      FunctionName: 'deleteNotification',
-      Payload: JSON.stringify({
-        authorizationToken,
-        notificationId: bill.notificationId, // assuming the bill has a notificationId field
-      })
-    });
-
-    const deleteNotificationResponse = await lambdaClient.send(deleteNotificationCommand);
-    const deleteNotificationPayload = JSON.parse(new TextDecoder('utf-8').decode(deleteNotificationResponse.Payload));
-
-    if (deleteNotificationResponse.FunctionError) {
-      throw new Error(deleteNotificationPayload.errorMessage || 'Notification deletion failed.');
-    }
-
-    // Invoke the updateRunningTotal Lambda function to update running totals
-    const updateTotalsCommand = new InvokeCommand({
-      FunctionName: 'calculateRunningTotal',
-      Payload: JSON.stringify({ householdId: bill.householdId, paymentSourceId: bill.paymentSourceId }),
-    });
-
-    await lambdaClient.send(updateTotalsCommand);
-
-    return {
-      statusCode: 200,
-      headers: corsHeaders,
-      body: JSON.stringify({ message: "Bill, associated ledger entries, and notification deleted successfully" }),
-    };
-  } catch (error) {
-    console.error(`Error deleting bill ${billId}:`, error);
-    return {
-      statusCode: 500,
-      headers: corsHeaders,
-      body: JSON.stringify({ message: "Error deleting bill", error: error.message }),
-    };
-  } finally {
-    await prisma.$disconnect();
-  }
 };
+
+// Example usage:
+// const authToken = 'your-auth-token';
+// const householdId = 'your-household-id';
+// const billId = 'your-bill-id';
+
+// deleteBill(authToken, householdId, billId)
+//     .then(response => console.log(response))
+//     .catch(error => console.error('Error deleting bill:', error));

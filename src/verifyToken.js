@@ -1,68 +1,59 @@
 const jwt = require('jsonwebtoken');
-const jwksClient = require('jwks-rsa');
+const fetch = require('node-fetch');
 
-const client = jwksClient({
-  jwksUri: `https://cognito-idp.${process.env.AWS_REGION}.amazonaws.com/${process.env.USER_POOL_ID}/.well-known/jwks.json`
-});
+// Google public keys URL
+const GOOGLE_KEYS_URL = 'https://www.googleapis.com/robot/v1/metadata/x509/securetoken@system.gserviceaccount.com';
 
-function getKey(header, callback) {
-  client.getSigningKey(header.kid, (err, key) => {
-    if (err) {
-      console.error('Error getting signing key:', err);
-      callback(err, null);
-      return;
+// Cache for public keys
+let cachedKeys = null;
+
+async function getGooglePublicKeys() {
+  if (!cachedKeys) {
+    const response = await fetch(GOOGLE_KEYS_URL);
+    if (!response.ok) {
+      throw new Error('Failed to fetch Google public keys');
     }
-
-    const signingKey = key.publicKey || key.rsaPublicKey;
-    callback(null, signingKey);
-  });
+    cachedKeys = await response.json();
+  }
+  return cachedKeys;
 }
 
 exports.handler = async (event) => {
-  const token = event.authorizationToken;
-
-  if (!token) {
-    return {
-      statusCode: 401,
-      body: JSON.stringify({ message: 'Access denied. No token provided.' }),
-    };
-  }
+  const token = event.headers.Authorization.split(' ')[1];
 
   try {
-    const decoded = await new Promise((resolve, reject) => {
-      jwt.verify(token, getKey, { algorithms: ['RS256'] }, (err, decoded) => {
-        if (err) {
-          console.error('Token verification error:', err);
-          reject(new Error('Invalid token.'));
-        } else {
-          resolve(decoded);
-        }
-      });
-    });
+    const keys = await getGooglePublicKeys();
+    const decodedHeader = jwt.decode(token, { complete: true });
 
-    // Assuming 'expires_in' is passed as part of the token payload and is in seconds
-    const expiresIn = decoded.expires_in || 3600; // Default to 3600 seconds if not provided
-    const issuedAt = decoded.iat; // Issued at timestamp in seconds
-    const expirationTime = issuedAt + expiresIn;
-    const currentTimestamp = Math.floor(Date.now() / 1000);
-
-    if (currentTimestamp > expirationTime) {
-      console.error('Token expired:', decoded);
+    if (!decodedHeader) {
       return {
         statusCode: 401,
-        body: JSON.stringify({ message: 'Token expired.' }),
+        body: JSON.stringify({ message: 'Invalid token' }),
       };
     }
 
+    const kid = decodedHeader.header.kid;
+    const publicKey = keys[kid];
+
+    if (!publicKey) {
+      return {
+        statusCode: 401,
+        body: JSON.stringify({ message: 'Invalid token' }),
+      };
+    }
+
+    const decodedToken = jwt.verify(token, publicKey);
+
+    // Optional: Additional validation can be added here (e.g., checking issuer, audience)
+
     return {
       statusCode: 200,
-      body: JSON.stringify({ username: decoded.username }),
+      body: JSON.stringify({ message: 'Token is valid', decodedToken }),
     };
   } catch (err) {
-    console.error('Token verification failed:', err);
     return {
       statusCode: 401,
-      body: JSON.stringify({ message: err.message || 'Invalid token.' }),
+      body: JSON.stringify({ message: 'Invalid token', error: err.message }),
     };
   }
 };

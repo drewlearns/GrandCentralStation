@@ -1,138 +1,119 @@
 const { PrismaClient } = require('@prisma/client');
 const { LambdaClient, InvokeCommand } = require('@aws-sdk/client-lambda');
-const { verifyToken } = require('./tokenUtils');
-const { refreshAndVerifyToken } = require('./refreshAndVerifyToken'); // Ensure this is correctly pointing to the file
 
 const prisma = new PrismaClient();
-const lambdaClient = new LambdaClient({ region: process.env.AWS_REGION });
-const corsHeaders = {
-  'Content-Type': 'application/json',
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'Content-Type',
-  'Access-Control-Allow-Methods': 'OPTIONS,POST,GET'
+const lambda = new LambdaClient({ region: 'us-east-1' }); // Adjust the region as necessary
+
+const CORS_HEADERS = {
+    'Access-Control-Allow-Origin': '*', // Adjust this to your specific origin if needed
+    'Access-Control-Allow-Methods': 'OPTIONS,DELETE',
+    'Access-Control-Allow-Headers': 'Content-Type,Authorization',
 };
 
-exports.handler = async (event) => {
-  const { authorizationToken, refreshToken, householdId, memberUuid } = JSON.parse(event.body);
-
-  if (!authorizationToken || !refreshToken) {
-    return {
-      statusCode: 401,
-      headers: corsHeaders,
-      body: JSON.stringify({
-        message: 'Access denied. No token provided.'
-      })
+async function verifyToken(token) {
+    const params = {
+        FunctionName: 'verifyToken', // Replace with your actual Lambda function name
+        Payload: new TextEncoder().encode(JSON.stringify({ token })),
     };
-  }
 
-  let removingUserUuid;
-  let tokenValid = false;
+    const command = new InvokeCommand(params);
+    const response = await lambda.send(command);
 
-  // First attempt to verify the token
-  try {
-    removingUserUuid = await verifyToken(authorizationToken);
-    tokenValid = true;
-  } catch (error) {
-    console.error('Token verification failed, attempting refresh:', error.message);
+    const payload = JSON.parse(new TextDecoder().decode(response.Payload));
 
-    // Attempt to refresh the token and verify again
-    try {
-      const result = await refreshAndVerifyToken(authorizationToken, refreshToken);
-      removingUserUuid = result.userId;
-      tokenValid = true;
-    } catch (refreshError) {
-      console.error('Token refresh and verification failed:', refreshError);
-      return {
-        statusCode: 401,
-        headers: corsHeaders,
-        body: JSON.stringify({ message: 'Invalid token.', error: refreshError.message }),
-      };
+    if (payload.errorMessage) {
+        throw new Error(payload.errorMessage);
     }
-  }
 
-  if (!tokenValid) {
-    return {
-      statusCode: 401,
-      headers: corsHeaders,
-      body: JSON.stringify({ message: 'Invalid token.' }),
-    };
-  }
+    return payload;
+}
 
-  try {
-    // Check if the household exists
-    const household = await prisma.household.findUnique({
-      where: { householdId: householdId },
-      include: {
-        members: true
-      }
+async function getHouseholdOwner(householdId) {
+    const owner = await prisma.household.findUnique({
+        where: { householdId: householdId },
+        select: { defaultHouseholdId: true }
     });
 
-    if (!household) {
-      return {
-        statusCode: 404,
-        headers: corsHeaders,
-        body: JSON.stringify({
-          message: 'Household not found',
-        }),
-      };
+    return owner ? owner.defaultHouseholdId : null;
+}
+
+async function deleteHouseholdMember(authToken, householdId, memberUuid) {
+    // Verify the token
+    const payload = await verifyToken(authToken);
+    const uid = payload.uid;
+
+    if (!uid) {
+        throw new Error('Invalid token payload: missing uid');
     }
 
-    // Check if the removing user is an owner of the household
-    const isOwner = household.members.some(member => member.memberUuid === removingUserUuid && member.role === 'Owner');
+    // Check if the user is the owner or the member themselves
+    const ownerUuid = await getHouseholdOwner(householdId);
 
-    if (!isOwner) {
-      return {
-        statusCode: 403,
-        headers: corsHeaders,
-        body: JSON.stringify({
-          message: 'You do not have permission to remove members from this household',
-        }),
-      };
+    if (uid !== ownerUuid && uid !== memberUuid) {
+        throw new Error('Not authorized to delete this member');
     }
 
-    // Check if the member exists in the household
-    const membership = await prisma.householdMembers.findFirst({
-      where: {
-        householdId: householdId,
-        memberUuid: memberUuid,
-      },
-    });
-
-    if (!membership) {
-      return {
-        statusCode: 404,
-        headers: corsHeaders,
-        body: JSON.stringify({
-          message: 'User is not a member of the household',
-        }),
-      };
-    }
-
-    // Delete the member from the household
+    // Proceed to delete the member
     await prisma.householdMembers.delete({
-      where: {
-        id: membership.id,
-      },
+        where: {
+            householdId_memberUuid: {
+                householdId: householdId,
+                memberUuid: memberUuid,
+            },
+        },
     });
 
-    return {
-      statusCode: 200,
-      headers: corsHeaders,
-      body: JSON.stringify({
-        message: 'Household member removed successfully',
-      }),
-    };
-  } catch (error) {
-    console.error('Error removing household member:', error);
-    return {
-      statusCode: 500,
-      headers: corsHeaders,
-      body: JSON.stringify({
-        message: 'Error removing household member',
-        error: error.message,
-      }),
-    };
-  } finally {
-    await prisma.$disconnect();
-  }
+    return { message: 'Member deleted successfully' };
+}
+
+exports.handler = async (event) => {
+    if (event.httpMethod === 'OPTIONS') {
+        return {
+            statusCode: 200,
+            headers: CORS_HEADERS,
+        };
+    }
+
+    if (event.httpMethod !== 'DELETE') {
+        return {
+            statusCode: 405,
+            headers: CORS_HEADERS,
+            body: JSON.stringify({ error: 'Method not allowed' }),
+        };
+    }
+
+    const authToken = event.headers.Authorization;
+    const householdId = event.pathParameters.householdId;
+    const memberUuid = event.pathParameters.memberUuid;
+
+    if (!authToken) {
+        return {
+            statusCode: 401,
+            headers: CORS_HEADERS,
+            body: JSON.stringify({ error: 'Authorization token is missing' }),
+        };
+    }
+
+    if (!householdId || !memberUuid) {
+        return {
+            statusCode: 400,
+            headers: CORS_HEADERS,
+            body: JSON.stringify({ error: 'householdId or memberUuid is missing' }),
+        };
+    }
+
+    try {
+        const result = await deleteHouseholdMember(authToken, householdId, memberUuid);
+        return {
+            statusCode: 200,
+            headers: CORS_HEADERS,
+            body: JSON.stringify(result),
+        };
+    } catch (error) {
+        return {
+            statusCode: 500,
+            headers: CORS_HEADERS,
+            body: JSON.stringify({ error: error.message }),
+        };
+    }
 };

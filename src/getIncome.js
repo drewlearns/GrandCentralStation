@@ -1,143 +1,98 @@
-const { PrismaClient } = require("@prisma/client");
-const { LambdaClient, InvokeCommand } = require("@aws-sdk/client-lambda");
-const { verifyToken } = require('./tokenUtils'); // Ensure this is correctly pointing to the file
-const { refreshAndVerifyToken } = require('./refreshAndVerifyToken'); // Ensure this is correctly pointing to the file
+const { PrismaClient } = require('@prisma/client');
+const { LambdaClient, InvokeCommand } = require('@aws-sdk/client-lambda');
 
 const prisma = new PrismaClient();
-const lambdaClient = new LambdaClient({ region: process.env.AWS_REGION });
-const corsHeaders = {
-  'Content-Type': 'application/json',
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'Content-Type',
-  'Access-Control-Allow-Methods': 'OPTIONS,POST,GET'
-};
+const lambda = new LambdaClient({ region: 'us-east-1' }); // Adjust the region as necessary
 
-exports.handler = async (event) => {
-  try {
-    const body = JSON.parse(event.body);
-    const { authorizationToken, refreshToken, incomeId } = body;
+async function verifyToken(token) {
+    const params = {
+        FunctionName: 'verifyToken', // Replace with your actual Lambda function name
+        Payload: new TextEncoder().encode(JSON.stringify({ token })),
+    };
 
-    if (!authorizationToken || !refreshToken) {
-      return {
-        statusCode: 401,
-        headers: corsHeaders,
-        body: JSON.stringify({
-          message: 'Access denied. No token or refresh token provided.'
-        })
-      };
+    const command = new InvokeCommand(params);
+    const response = await lambda.send(command);
+
+    const payload = JSON.parse(new TextDecoder().decode(response.Payload));
+
+    if (payload.errorMessage) {
+        throw new Error(payload.errorMessage);
     }
 
-    let username;
-    let tokenValid = false;
+    return payload;
+}
 
-    // First attempt to verify the token
-    try {
-      username = await verifyToken(authorizationToken);
-      tokenValid = true;
-    } catch (error) {
-      console.error('Token verification failed, attempting refresh:', error.message);
+async function getIncomeDetails(authToken, incomeId) {
+    // Verify the token
+    const payload = await verifyToken(authToken);
+    const uid = payload.uid;
 
-      // Attempt to refresh the token and verify again
-      try {
-        const result = await refreshAndVerifyToken(authorizationToken, refreshToken);
-        username = result.userId;
-        tokenValid = true;
-      } catch (refreshError) {
-        console.error('Token refresh and verification failed:', refreshError);
-        return {
-          statusCode: 401,
-          headers: corsHeaders,
-          body: JSON.stringify({
-            message: 'Invalid token.',
-            error: refreshError.message,
-          }),
-        };
-      }
+    if (!uid) {
+        throw new Error('Invalid token payload: missing uid');
     }
 
-    if (!tokenValid) {
-      return {
-        statusCode: 401,
-        headers: corsHeaders,
-        body: JSON.stringify({ message: 'Invalid token.' }),
-      };
-    }
-
-    if (!incomeId) {
-      return {
-        statusCode: 400,
-        headers: corsHeaders,
-        body: JSON.stringify({ message: "Missing incomeId parameter" }),
-      };
-    }
-
+    // Fetch income details
     const income = await prisma.incomes.findUnique({
-      where: { incomeId: incomeId },
-      include: {
-        household: true,
-        ledgers: true,
-      },
+        where: {
+            incomeId: incomeId,
+        },
+        select: {
+            incomeId: true,
+            householdId: true,
+            name: true,
+            amount: true,
+            frequency: true,
+            firstPayDay: true,
+            createdAt: true,
+            updatedAt: true,
+        },
     });
 
     if (!income) {
-      return {
-        statusCode: 404,
-        headers: corsHeaders,
-        body: JSON.stringify({ message: "Income not found" }),
-      };
+        throw new Error(`Income with ID ${incomeId} not found`);
     }
 
-    const flattenedResponse = {
-      incomeId: income.incomeId,
-      householdId: income.householdId,
-      name: income.name,
-      amount: income.amount,
-      frequency: income.frequency,
-      firstPayDay: income.firstPayDay,
-      createdAt: income.createdAt,
-      updatedAt: income.updatedAt,
-      householdId: income.household.householdId,
-      householdName: income.household.householdName,
-      householdCreationDate: income.household.creationDate,
-      householdCreatedAt: income.household.createdAt,
-      householdUpdatedAt: income.household.updatedAt,
-      householdSetupComplete: income.household.setupComplete,
-      householdActiveSubscription: income.household.activeSubscription,
-      ledgers: income.ledgers.map(ledger => ({
-        ledgerId: ledger.ledgerId,
-        householdId: ledger.householdId,
-        paymentSourceId: ledger.paymentSourceId,
-        amount: ledger.amount,
-        transactionType: ledger.transactionType,
-        transactionDate: ledger.transactionDate,
-        category: ledger.category,
-        description: ledger.description,
-        status: ledger.status,
-        ledgerCreatedAt: ledger.createdAt,
-        ledgerUpdatedAt: ledger.updatedAt,
-        updatedBy: ledger.updatedBy,
-        billId: ledger.billId,
-        incomeId: ledger.incomeId,
-        runningTotal: ledger.runningTotal,
-        interestRate: ledger.interestRate,
-        cashBack: ledger.cashBack,
-        tags: ledger.tags
-      }))
+    return income;
+}
+
+exports.handler = async (event) => {
+    const authToken = event.headers.Authorization;
+    const incomeId = event.pathParameters.incomeId;
+
+    const headers = {
+        'Access-Control-Allow-Origin': '*',
+        'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+        'Access-Control-Allow-Methods': 'GET',
     };
 
-    return {
-      statusCode: 200,
-      headers: corsHeaders,
-      body: JSON.stringify({ income: flattenedResponse }),
-    };
-  } catch (error) {
-    console.error('Error retrieving income:', error);
-    return {
-      statusCode: 500,
-      headers: corsHeaders,
-      body: JSON.stringify({ message: "Error retrieving income", error: error.message }),
-    };
-  } finally {
-    await prisma.$disconnect();
-  }
+    if (!authToken) {
+        return {
+            statusCode: 401,
+            headers,
+            body: JSON.stringify({ error: 'Authorization token is missing' }),
+        };
+    }
+
+    if (!incomeId) {
+        return {
+            statusCode: 400,
+            headers,
+            body: JSON.stringify({ error: 'incomeId is missing' }),
+        };
+    }
+
+    try {
+        const income = await getIncomeDetails(authToken, incomeId);
+        return {
+            statusCode: 200,
+            headers,
+            body: JSON.stringify(income),
+        };
+    } catch (error) {
+        return {
+            statusCode: 500,
+            headers,
+            body: JSON.stringify({ error: error.message }),
+        };
+    }
 };
