@@ -5,7 +5,6 @@ const { getSignedUrl } = require("@aws-sdk/s3-request-presigner");
 const { SESClient, SendEmailCommand } = require("@aws-sdk/client-ses");
 const { Parser } = require('json2csv');
 const { v4: uuidv4 } = require("uuid");
-const { verifyToken } = require('./tokenUtils'); // Ensure this is correctly pointing to the file
 
 const prisma = new PrismaClient();
 const lambdaClient = new LambdaClient({ region: process.env.AWS_REGION });
@@ -19,21 +18,21 @@ const corsHeaders = {
 };
 
 async function verifyToken(token) {
-    const params = {
-        FunctionName: 'verifyToken', // Replace with your actual Lambda function name
-        Payload: new TextEncoder().encode(JSON.stringify({ token })),
-    };
+  const params = {
+    FunctionName: 'verifyToken', // Replace with your actual Lambda function name
+    Payload: new TextEncoder().encode(JSON.stringify({ token })),
+  };
 
-    const command = new InvokeCommand(params);
-    const response = await lambdaClient.send(command);
+  const command = new InvokeCommand(params);
+  const response = await lambdaClient.send(command);
 
-    const payload = JSON.parse(new TextDecoder().decode(response.Payload));
+  const payload = JSON.parse(new TextDecoder().decode(response.Payload));
 
-    if (payload.errorMessage) {
-        throw new Error(payload.errorMessage);
-    }
+  if (payload.errorMessage) {
+    throw new Error(payload.errorMessage);
+  }
 
-    return payload.isValid;
+  return payload.username; // Assuming the payload contains a username
 }
 
 exports.handler = async (event) => {
@@ -43,9 +42,7 @@ exports.handler = async (event) => {
     return {
       statusCode: 401,
       headers: corsHeaders,
-      body: JSON.stringify({
-        message: 'Access denied. No token provided.'
-      })
+      body: JSON.stringify({ message: 'Access denied. No token provided.' }),
     };
   }
 
@@ -63,7 +60,6 @@ exports.handler = async (event) => {
   let username;
   let tokenValid = false;
 
-  // Attempt to verify the token
   try {
     username = await verifyToken(authorizationToken);
     tokenValid = true;
@@ -115,7 +111,6 @@ exports.handler = async (event) => {
       };
     }
 
-    // Define the fields for the CSV output
     const json2csvParser = new Parser({
       fields: [
         'amount',
@@ -148,10 +143,9 @@ exports.handler = async (event) => {
     const getObjectCommand = new GetObjectCommand({ Bucket: s3Bucket, Key: s3Key });
     const presignedUrl = await getSignedUrl(s3Client, getObjectCommand, { expiresIn: 3600 });
 
-    // Send email with presigned URL
     const sesParams = {
       Destination: {
-        ToAddresses: [username] // Using username as the email
+        ToAddresses: [username]
       },
       Message: {
         Body: {

@@ -9,11 +9,9 @@ generator client {
 
 model User {
   uuid                String    @id @default(uuid())
-  username            String    @unique
   firstName           String
   lastName            String
   email               String    @unique
-  phoneNumber         String
   signupDate          DateTime
   mailOptIn           Boolean
   defaultHouseholdId  String?
@@ -52,8 +50,11 @@ model UnverifiedSubscription {
 model Household {
   householdId        String   @id @default(uuid())
   householdName      String
+  creationDate       DateTime
   createdAt          DateTime
   updatedAt          DateTime
+  setupComplete      Boolean
+  activeSubscription Boolean
 
   // Relations
   members        HouseholdMembers[]
@@ -110,6 +111,8 @@ model Ledger {
   billId          String?
   incomeId        String?
   runningTotal    Float
+  interestRate    Float?
+  cashBack        Float?
   tags            String?
   isInitial       Boolean  @default(false)
 
@@ -130,6 +133,9 @@ model Bill {
   amount       Float
   dayOfMonth   Int
   frequency    String
+  isDebt       Boolean
+  interestRate Float
+  cashBack     Float
   description  String
   status       Boolean
   url          String?

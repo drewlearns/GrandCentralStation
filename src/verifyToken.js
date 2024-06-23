@@ -19,13 +19,36 @@ async function getGooglePublicKeys() {
 }
 
 exports.handler = async (event) => {
-  const token = event.headers.Authorization.split(' ')[1];
+  console.log('Event:', JSON.stringify(event, null, 2)); // Log the incoming event
+
+  let token;
+  try {
+    token = event.authToken; // Directly access authToken
+    console.log('Token:', token); // Log the extracted token
+  } catch (err) {
+    console.error('Invalid request body:', err.message); // Log the error
+    return {
+      statusCode: 400,
+      body: JSON.stringify({ message: 'Invalid request body', error: err.message }),
+    };
+  }
+
+  if (!token) {
+    console.error('Authorization token is missing'); // Log the missing token error
+    return {
+      statusCode: 401,
+      body: JSON.stringify({ message: 'Authorization token is missing' }),
+    };
+  }
 
   try {
     const keys = await getGooglePublicKeys();
     const decodedHeader = jwt.decode(token, { complete: true });
 
+    console.log('Decoded Header:', JSON.stringify(decodedHeader, null, 2)); // Log the decoded header
+
     if (!decodedHeader) {
+      console.error('Invalid token: Unable to decode header'); // Log the invalid token error
       return {
         statusCode: 401,
         body: JSON.stringify({ message: 'Invalid token' }),
@@ -36,6 +59,7 @@ exports.handler = async (event) => {
     const publicKey = keys[kid];
 
     if (!publicKey) {
+      console.error('Invalid token: Public key not found'); // Log the missing public key error
       return {
         statusCode: 401,
         body: JSON.stringify({ message: 'Invalid token' }),
@@ -44,13 +68,22 @@ exports.handler = async (event) => {
 
     const decodedToken = jwt.verify(token, publicKey);
 
-    // Optional: Additional validation can be added here (e.g., checking issuer, audience)
+    console.log('Decoded Token:', JSON.stringify(decodedToken, null, 2)); // Log the decoded token
 
-    return {
-      statusCode: 200,
-      body: JSON.stringify({ message: 'Token is valid', decodedToken }),
-    };
+    if (decodedToken && decodedToken.user_id) {
+      return {
+        statusCode: 200,
+        body: JSON.stringify(decodedToken), // Return the entire payload
+      };
+    } else {
+      console.error('user_id not found in token'); // Log the missing user_id error
+      return {
+        statusCode: 401,
+        body: JSON.stringify({ message: 'user_id not found in token' }),
+      };
+    }
   } catch (err) {
+    console.error('Token verification error:', err.message); // Log the verification error
     return {
       statusCode: 401,
       body: JSON.stringify({ message: 'Invalid token', error: err.message }),

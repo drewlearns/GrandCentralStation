@@ -1,4 +1,5 @@
 import { PrismaClient } from '@prisma/client';
+import { v4 as uuidv4 } from 'uuid';
 const prisma = new PrismaClient();
 
 const corsHeaders = {
@@ -8,7 +9,9 @@ const corsHeaders = {
     'Access-Control-Allow-Methods': 'OPTIONS,POST'
 };
 
-exports.handler = async (event) => {
+export const handler = async (event) => {
+    console.log('Received event:', JSON.stringify(event));
+
     if (event.httpMethod === 'OPTIONS') {
         return {
             statusCode: 200,
@@ -16,14 +19,32 @@ exports.handler = async (event) => {
         };
     }
 
-    const { email, mailOptIn, firstName, lastName, uuid } = JSON.parse(event.body);
+    if (event.httpMethod !== 'POST') {
+        return {
+            statusCode: 405,
+            headers: corsHeaders,
+            body: JSON.stringify({ error: 'Method not allowed' }),
+        };
+    }
+
+    let parsedBody;
+    try {
+        parsedBody = JSON.parse(event.body);
+        console.log('Parsed body:', parsedBody);
+    } catch (error) {
+        console.error('Error parsing request body:', error);
+        return {
+            statusCode: 400,
+            headers: corsHeaders,
+            body: JSON.stringify({ error: 'Invalid request body' }),
+        };
+    }
+
+    const { email, mailOptIn, firstName, lastName, uuid } = parsedBody;
     const timestamp = new Date().toISOString();
 
     try {
-        // Check if the email already exists
-        const existingUser = await prisma.user.findUnique({
-            where: { email }
-        });
+        const existingUser = await prisma.user.findUnique({ where: { email } });
 
         if (existingUser) {
             return {
@@ -46,9 +67,12 @@ exports.handler = async (event) => {
                 confirmedEmail: false,
             },
         });
+        console.log('User created:', newUser);
 
+        const householdId = uuidv4();
         const newHousehold = await prisma.household.create({
             data: {
+                householdId,
                 householdName: `${lastName} Household`,
                 creationDate: new Date(),
                 createdAt: new Date(),
@@ -57,9 +81,11 @@ exports.handler = async (event) => {
                 activeSubscription: false,
             },
         });
+        console.log('Household created:', newHousehold);
 
         const newHouseholdMember = await prisma.householdMembers.create({
             data: {
+                id: uuidv4(),
                 householdId: newHousehold.householdId,
                 memberUuid: newUser.uuid,
                 role: 'owner',
@@ -68,9 +94,12 @@ exports.handler = async (event) => {
                 updatedAt: new Date(),
             },
         });
+        console.log('Household member created:', newHouseholdMember);
 
+        const paymentSourceId = uuidv4();
         const newPaymentSource = await prisma.paymentSource.create({
             data: {
+                sourceId: paymentSourceId,
                 householdId: newHousehold.householdId,
                 sourceName: `${firstName} ${lastName} Payment Source - ${timestamp}`,
                 sourceType: 'bank_account',
@@ -79,10 +108,32 @@ exports.handler = async (event) => {
                 updatedAt: new Date(),
             },
         });
+        console.log('Payment source created:', newPaymentSource);
 
+        const ledgerId = uuidv4();
+        const newLedger = await prisma.ledger.create({
+            data: {
+                ledgerId,
+                householdId: newHousehold.householdId,
+                paymentSourceId: newPaymentSource.sourceId,
+                amount: 0.0,
+                transactionType: 'initial',
+                transactionDate: new Date(),
+                category: 'initial',
+                description: 'Initial ledger entry during user signup',
+                status: true,
+                createdAt: new Date(),
+                updatedAt: new Date(),
+                runningTotal: 0.0,
+            },
+        });
+        console.log('Ledger created:', newLedger);
+
+        const transactionId = uuidv4();
         const newTransaction = await prisma.transaction.create({
             data: {
-                ledgerId: newHousehold.householdId, // Assuming ledgerId is the same as householdId for simplicity
+                transactionId,
+                ledgerId: newLedger.ledgerId,
                 sourceId: newPaymentSource.sourceId,
                 amount: 0.0,
                 transactionDate: new Date(),
@@ -91,6 +142,7 @@ exports.handler = async (event) => {
                 updatedAt: new Date(),
             },
         });
+        console.log('Transaction created:', newTransaction);
 
         return {
             statusCode: 201,
@@ -100,6 +152,7 @@ exports.handler = async (event) => {
                 user: newUser,
                 household: newHousehold,
                 paymentSource: newPaymentSource,
+                ledger: newLedger,
                 transaction: newTransaction,
             }),
         };
@@ -109,7 +162,7 @@ exports.handler = async (event) => {
         return {
             statusCode: 500,
             headers: corsHeaders,
-            body: JSON.stringify({ error: 'Internal server error' }),
+            body: JSON.stringify({ error: 'Internal server error', details: error.message }),
         };
     } finally {
         await prisma.$disconnect();

@@ -3,30 +3,35 @@ const { PrismaClient } = require('@prisma/client');
 const { LambdaClient, InvokeCommand } = require('@aws-sdk/client-lambda');
 
 const prisma = new PrismaClient();
-const lambda = new LambdaClient({ region: 'us-east-1' }); // Adjust the region as necessary
+const lambda = new LambdaClient({ region: 'us-east-1' });
 
 async function verifyToken(token) {
   const params = {
-    FunctionName: 'verifyToken', // Replace with your actual Lambda function name
-    Payload: new TextEncoder().encode(JSON.stringify({ token })),
+    FunctionName: 'verifyToken',
+    Payload: JSON.stringify({ authToken: token }),
   };
-  
+
   const command = new InvokeCommand(params);
   const response = await lambda.send(command);
-  
-  const payload = JSON.parse(new TextDecoder().decode(response.Payload));
 
-  if (payload.errorMessage) {
-    throw new Error(payload.errorMessage);
+  const result = JSON.parse(new TextDecoder().decode(response.Payload));
+
+  console.log('Token verification result:', JSON.stringify(result, null, 2)); // Log the result
+
+  if (result.errorMessage) {
+    throw new Error(result.errorMessage);
   }
 
-  return payload.isValid;
+  const payload = JSON.parse(result.body); // Parse the body to get the actual payload
+
+  return payload;
 }
 
 async function getLedgerEntries(authToken, householdId, pageNumber = 1, filters = {}) {
   // Verify the token
-  const isValid = await verifyToken(authToken);
-  if (!isValid) {
+  const payload = await verifyToken(authToken);
+  const userId = payload.user_id;
+  if (!userId) {
     throw new Error('Invalid authorization token');
   }
 
@@ -47,10 +52,14 @@ async function getLedgerEntries(authToken, householdId, pageNumber = 1, filters 
       lt: new Date(currentYear, currentMonth, 1),
     };
   } else if (month && year) {
-    where.transactionDate = {
-      gte: new Date(year, month - 1, 1),
-      lt: new Date(year, month, 1),
-    };
+    const monthInt = parseInt(month, 10);
+    const yearInt = parseInt(year, 10);
+    if (!isNaN(monthInt) && !isNaN(yearInt)) {
+      where.transactionDate = {
+        gte: new Date(yearInt, monthInt - 1, 1),
+        lt: new Date(yearInt, monthInt, 1),
+      };
+    }
   } else if (showCurrentMonthUpToToday) {
     where.transactionDate = {
       gte: new Date(currentYear, currentMonth - 1, 1),
@@ -81,14 +90,19 @@ async function getLedgerEntries(authToken, householdId, pageNumber = 1, filters 
       bill: true,
       income: true,
       transactions: true,
+      paymentSource: {
+        select: {
+          sourceName: true,
+        },
+      },
     },
   });
 
   // Format the results
   const result = ledgerEntries.map(entry => ({
     ...entry,
-    amount: new Decimal(entry.amount).toFixed(2),
-    runningTotal: new Decimal(entry.runningTotal).toFixed(2),
+    amount: new Decimal(entry.amount).toNumber(), // Convert to number
+    runningTotal: new Decimal(entry.runningTotal).toNumber(), // Convert to number
     month: entry.transactionDate.getMonth() + 1,
     year: entry.transactionDate.getFullYear(),
     dayOfMonth: entry.transactionDate.getDate(),
@@ -96,6 +110,7 @@ async function getLedgerEntries(authToken, householdId, pageNumber = 1, filters 
     bill: entry.bill || null,
     income: entry.income || null,
     transaction: entry.transactions.length > 0 ? entry.transactions[0] : null,
+    paymentSourceName: entry.paymentSource?.sourceName || null,
   }));
 
   return {

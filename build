@@ -1,15 +1,11 @@
 #!/bin/bash
-
+set -vex
 # Define the source and deploy directories
 SRC_DIR="./src"
 DEPLOY_DIR="./deploy"
 TMP_DIR="$DEPLOY_DIR/tmp"
 
 npm i
-
-# Clean and prepare the deploy directory
-rm -rf $DEPLOY_DIR
-mkdir -p $DEPLOY_DIR
 
 # Copy the schema.prisma and the .so.node file to the deploy directory if not already copied
 cp "prisma/schema.prisma" "$DEPLOY_DIR"
@@ -19,6 +15,13 @@ cp "node_modules/.prisma/client/libquery_engine-rhel-openssl-3.0.x.so.node" "$DE
 process_file() {
   entry=$1
   base_name=$(basename "$entry" .js)
+  zip_file="$DEPLOY_DIR/$base_name.zip"
+
+  # Skip processing if the .zip file already exists
+  if [ -f "$zip_file" ]; then
+    echo "Skipping $base_name, $zip_file already exists."
+    return
+  fi
 
   echo "Full path of the file being processed: $entry"
   relative_path=${entry#"$SRC_DIR/"}
@@ -45,7 +48,7 @@ process_file() {
   cp -r node_modules/uuid "$TMP_DIR/node_modules/uuid"
 
   # Copy all required node modules
-  modules=("date-fns" "@smithy" "@aws-sdk" "tslib" "fast-xml-parser" "strnum" "axios" "follow-redirects" "form-data" "proxy-from-env" "combined-stream" "delayed-stream" "mime-types" "mime-db" "asynckit" "@aws-crypto" "jsonwebtoken" "jws" "safe-buffer" "jwa" "buffer-equal-constant-time" "ecdsa-sig-formatter" "ms" "lodash" "lodash.includes" "lodash.isboolean" "lodash.isinteger" "lodash.isnumber" "lodash.isplainobject" "lodash.once" "lodash.isstring" "jwks-rsa" "debug" "jose" "lru-memoizer" "lodash.clonedeep" "limiter" "json2csv" "@streamparser/json" "@aws-sdk/client-cognito-identity-provider" "decimal.js" "busboy" "streamsearch" "lodash.get")
+  modules=("date-fns" "whatwg-url" "node-fetch" "@smithy" "tslib" "fast-xml-parser" "strnum" "axios" "follow-redirects" "form-data" "proxy-from-env" "combined-stream" "delayed-stream" "mime-types" "mime-db" "asynckit" "@aws-crypto" "jsonwebtoken" "jws" "safe-buffer" "jwa" "buffer-equal-constant-time" "ecdsa-sig-formatter" "ms" "lodash" "lodash.includes" "lodash.isboolean" "lodash.isinteger" "lodash.isnumber" "lodash.isplainobject" "lodash.once" "lodash.isstring" "jwks-rsa" "debug" "jose" "lru-memoizer" "lodash.clonedeep" "limiter" "json2csv" "@streamparser/json" "@aws-sdk/client-cognito-identity-provider" "decimal.js" "busboy" "streamsearch" "lodash.get" "stripe")
 
   for module in "${modules[@]}"; do
     if [ -d "node_modules/$module" ]; then

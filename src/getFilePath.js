@@ -1,6 +1,5 @@
 const { PrismaClient } = require('@prisma/client');
 const { LambdaClient, InvokeCommand } = require('@aws-sdk/client-lambda');
-const { verifyToken } = require('./tokenUtils'); // Ensure this is correctly pointing to the file
 
 const prisma = new PrismaClient();
 const lambdaClient = new LambdaClient({ region: 'us-east-1' }); // Adjust the region as necessary
@@ -10,6 +9,25 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'Content-Type',
   'Access-Control-Allow-Methods': 'OPTIONS,POST,GET',
 };
+
+// Verify token function
+async function verifyToken(token) {
+  const params = {
+    FunctionName: 'verifyToken', // Replace with your actual Lambda function name
+    Payload: new TextEncoder().encode(JSON.stringify({ token })),
+  };
+
+  const command = new InvokeCommand(params);
+  const response = await lambdaClient.send(command);
+
+  const payload = JSON.parse(new TextDecoder().decode(response.Payload));
+
+  if (payload.errorMessage) {
+    throw new Error(payload.errorMessage);
+  }
+
+  return payload.isValid;
+}
 
 exports.handler = async (event) => {
   try {

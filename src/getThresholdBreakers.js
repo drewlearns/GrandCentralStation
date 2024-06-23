@@ -1,6 +1,5 @@
 const { PrismaClient } = require("@prisma/client");
 const { LambdaClient, InvokeCommand } = require("@aws-sdk/client-lambda");
-const { verifyToken } = require('./tokenUtils'); // Assuming this utility exists and works similarly to the model
 
 const prisma = new PrismaClient();
 const lambda = new LambdaClient({ region: 'us-east-1' }); // Adjust the region as necessary

@@ -1,6 +1,5 @@
 const { PrismaClient } = require('@prisma/client');
-const jwt = require('jsonwebtoken');
-const fetch = require('node-fetch');
+const { InvokeCommand, LambdaClient } = require('@aws-sdk/client-lambda');
 
 const prisma = new PrismaClient();
 const corsHeaders = {
@@ -10,44 +9,24 @@ const corsHeaders = {
   'Access-Control-Allow-Methods': 'OPTIONS,POST,GET'
 };
 
-const GOOGLE_KEYS_URL = 'https://www.googleapis.com/robot/v1/metadata/x509/securetoken@system.gserviceaccount.com';
-let cachedKeys = null;
-
-async function getGooglePublicKeys() {
-  if (!cachedKeys) {
-    const response = await fetch(GOOGLE_KEYS_URL);
-    if (!response.ok) {
-      throw new Error('Failed to fetch Google public keys');
-    }
-    cachedKeys = await response.json();
-  }
-  return cachedKeys;
-}
+const lambda = new LambdaClient();
 
 async function verifyToken(token) {
-  try {
-    const keys = await getGooglePublicKeys();
-    const decodedHeader = jwt.decode(token, { complete: true });
+  const params = {
+    FunctionName: 'verifyToken', // Replace with your actual Lambda function name
+    Payload: new TextEncoder().encode(JSON.stringify({ token })),
+  };
 
-    if (!decodedHeader) {
-      throw new Error('Invalid token');
-    }
+  const command = new InvokeCommand(params);
+  const response = await lambda.send(command);
 
-    const kid = decodedHeader.header.kid;
-    const publicKey = keys[kid];
+  const payload = JSON.parse(new TextDecoder().decode(response.Payload));
 
-    if (!publicKey) {
-      throw new Error('Invalid token');
-    }
-
-    const decodedToken = jwt.verify(token, publicKey);
-
-    // Optional: Additional validation can be added here (e.g., checking issuer, audience)
-
-    return decodedToken;
-  } catch (err) {
-    throw new Error('Invalid token');
+  if (payload.errorMessage) {
+    throw new Error(payload.errorMessage);
   }
+
+  return payload;
 }
 
 exports.handler = async (event) => {

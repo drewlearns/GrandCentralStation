@@ -5,7 +5,6 @@ const { getSignedUrl } = require("@aws-sdk/s3-request-presigner");
 const { SESClient, SendEmailCommand } = require("@aws-sdk/client-ses");
 const { v4: uuidv4 } = require("uuid");
 const { format } = require('date-fns');
-const { verifyToken } = require('./tokenUtils'); // Ensure this is correctly pointing to the file
 
 const prisma = new PrismaClient();
 const lambdaClient = new LambdaClient({ region: process.env.AWS_REGION });
@@ -14,26 +13,26 @@ const sesClient = new SESClient({ region: process.env.AWS_REGION });
 const corsHeaders = {
   'Content-Type': 'application/json',
   'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'Content-Type',
+  'Access-Control-Allow-Headers': 'Content-Type,Authorization',
   'Access-Control-Allow-Methods': 'OPTIONS,POST,GET'
 };
 
 async function verifyToken(token) {
-    const params = {
-        FunctionName: 'verifyToken', // Replace with your actual Lambda function name
-        Payload: new TextEncoder().encode(JSON.stringify({ token })),
-    };
+  const params = {
+    FunctionName: 'verifyToken', // Replace with your actual Lambda function name
+    Payload: new TextEncoder().encode(JSON.stringify({ token })),
+  };
 
-    const command = new InvokeCommand(params);
-    const response = await lambdaClient.send(command);
+  const command = new InvokeCommand(params);
+  const response = await lambdaClient.send(command);
 
-    const payload = JSON.parse(new TextDecoder().decode(response.Payload));
+  const payload = JSON.parse(new TextDecoder().decode(response.Payload));
 
-    if (payload.errorMessage) {
-        throw new Error(payload.errorMessage);
-    }
+  if (payload.errorMessage) {
+    throw new Error(payload.errorMessage);
+  }
 
-    return payload.isValid;
+  return payload;
 }
 
 function generateQBOContent(transactions) {
@@ -133,13 +132,12 @@ exports.handler = async (event) => {
   const s3Bucket = process.env.BUCKET;
   const s3Key = `ledger-exports/${uuidv4()}.qbo`;
 
-  let username;
-  let tokenValid = false;
+  let userUuid;
 
   // Attempt to verify the token
   try {
-    username = await verifyToken(authorizationToken);
-    tokenValid = true;
+    const decodedToken = await verifyToken(authorizationToken);
+    userUuid = decodedToken.uid; // Assuming the token contains a field 'uid' for the user's UUID
   } catch (error) {
     console.error('Token verification failed:', error.message);
     return {
@@ -149,19 +147,12 @@ exports.handler = async (event) => {
     };
   }
 
-  if (!tokenValid) {
-    return {
-      statusCode: 401,
-      headers: corsHeaders,
-      body: JSON.stringify({ message: 'Invalid token.' }),
-    };
-  }
-
   try {
     const ledgerEntries = await prisma.ledger.findMany({
       where: {
         householdId: householdId,
-        paymentSourceId: paymentSourceId
+        paymentSourceId: paymentSourceId,
+        userUuid: userUuid
       },
       select: {
         amount: true,
@@ -206,7 +197,7 @@ exports.handler = async (event) => {
     // Send email with presigned URL
     const sesParams = {
       Destination: {
-        ToAddresses: [username] // Using username as the email
+        ToAddresses: [userUuid] // Using userUuid as the email
       },
       Message: {
         Body: {

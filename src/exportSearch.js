@@ -1,11 +1,10 @@
 const { PrismaClient } = require("@prisma/client");
-const { LambdaClient } = require("@aws-sdk/client-lambda");
+const { LambdaClient, InvokeCommand } = require("@aws-sdk/client-lambda");
 const { S3Client, PutObjectCommand, GetObjectCommand } = require("@aws-sdk/client-s3");
 const { getSignedUrl } = require("@aws-sdk/s3-request-presigner");
 const { SESClient, SendEmailCommand } = require("@aws-sdk/client-ses");
 const { Parser } = require('json2csv');
 const { v4: uuidv4 } = require("uuid");
-const { verifyToken } = require('./tokenUtils'); // Ensure this is correctly pointing to the file
 
 const prisma = new PrismaClient();
 const lambdaClient = new LambdaClient({ region: process.env.AWS_REGION });
@@ -19,21 +18,21 @@ const corsHeaders = {
 };
 
 async function verifyToken(token) {
-    const params = {
-        FunctionName: 'verifyToken', // Replace with your actual Lambda function name
-        Payload: new TextEncoder().encode(JSON.stringify({ token })),
-    };
+  const params = {
+    FunctionName: 'verifyToken', // Replace with your actual Lambda function name
+    Payload: new TextEncoder().encode(JSON.stringify({ token })),
+  };
 
-    const command = new InvokeCommand(params);
-    const response = await lambdaClient.send(command);
+  const command = new InvokeCommand(params);
+  const response = await lambdaClient.send(command);
 
-    const payload = JSON.parse(new TextDecoder().decode(response.Payload));
+  const payload = JSON.parse(new TextDecoder().decode(response.Payload));
 
-    if (payload.errorMessage) {
-        throw new Error(payload.errorMessage);
-    }
+  if (payload.errorMessage) {
+    throw new Error(payload.errorMessage);
+  }
 
-    return payload.isValid;
+  return payload.username; // Assuming the payload contains a username
 }
 
 exports.handler = async (event) => {
@@ -43,9 +42,7 @@ exports.handler = async (event) => {
     return {
       statusCode: 401,
       headers: corsHeaders,
-      body: JSON.stringify({
-        message: 'Access denied. No token provided.'
-      })
+      body: JSON.stringify({ message: 'Access denied. No token provided.' }),
     };
   }
 

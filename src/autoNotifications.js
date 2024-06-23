@@ -48,7 +48,7 @@ exports.handler = async (event) => {
             Data: notification.title,
           },
         },
-        Source: `noreply@${process.env.TPPB_DOMAIN}`,
+        Source: `noreply@app.thepurplepiggybank.com`,
       };
 
       const command = new SendEmailCommand(params);
