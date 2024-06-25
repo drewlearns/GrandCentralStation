@@ -102,6 +102,10 @@ async function getLedgerEntry(authToken, ledgerId) {
         throw new Error('Invalid user or household association.');
     }
 
+    // Convert amount and runningTotal fields from string to float
+    ledgerEntry.amount = parseFloat(ledgerEntry.amount);
+    ledgerEntry.runningTotal = ledgerEntry.runningTotal ? parseFloat(ledgerEntry.runningTotal) : null;
+
     return ledgerEntry;
 }
 
