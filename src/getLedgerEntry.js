@@ -2,18 +2,18 @@ const { PrismaClient } = require('@prisma/client');
 const { LambdaClient, InvokeCommand } = require('@aws-sdk/client-lambda');
 
 const prisma = new PrismaClient();
-const lambda = new LambdaClient({ region: 'us-east-1' }); // Adjust the region as necessary
+const lambda = new LambdaClient({ region: 'us-east-1' });
 
 const CORS_HEADERS = {
-    'Access-Control-Allow-Origin': '*', // Adjust this to your specific origin if needed
+    'Access-Control-Allow-Origin': '*',
     'Access-Control-Allow-Methods': 'OPTIONS,GET',
     'Access-Control-Allow-Headers': 'Content-Type,Authorization',
 };
 
 async function verifyToken(token) {
     const params = {
-        FunctionName: 'verifyToken', // Replace with your actual Lambda function name
-        Payload: new TextEncoder().encode(JSON.stringify({ token })),
+        FunctionName: 'verifyToken',
+        Payload: new TextEncoder().encode(JSON.stringify({ authToken: token })),
     };
 
     const command = new InvokeCommand(params);
@@ -21,37 +21,85 @@ async function verifyToken(token) {
 
     const payload = JSON.parse(new TextDecoder().decode(response.Payload));
 
+    console.log("verifyToken response payload:", payload);
+
     if (payload.errorMessage) {
         throw new Error(payload.errorMessage);
     }
 
-    return payload;
+    const nestedPayload = JSON.parse(payload.body);
+
+    console.log("verifyToken nested payload:", nestedPayload);
+
+    return nestedPayload;
+}
+
+async function validateUser(userId, householdId) {
+    console.log("validateUser - userId:", userId);
+    console.log("validateUser - householdId:", householdId);
+
+    const user = await prisma.user.findUnique({
+        where: { uuid: userId },
+    });
+
+    console.log("validateUser - user:", user);
+
+    if (!user) {
+        return false;
+    }
+
+    const householdMembers = await prisma.householdMembers.findMany({
+        where: {
+            householdId: householdId,
+        },
+        select: {
+            memberUuid: true,
+        },
+    });
+
+    console.log("validateUser - householdMembers:", householdMembers);
+
+    const memberUuids = householdMembers.map(member => member.memberUuid);
+    const isValidUser = memberUuids.includes(userId);
+
+    console.log("validateUser - isValidUser:", isValidUser);
+
+    return isValidUser;
 }
 
 async function getLedgerEntry(authToken, ledgerId) {
-    // Verify the token
     const payload = await verifyToken(authToken);
-    const uid = payload.uid;
+    const userId = payload.user_id;
 
-    if (!uid) {
-        throw new Error('Invalid token payload: missing uid');
+    console.log("getLedgerEntry - userId:", userId);
+
+    if (!userId) {
+        throw new Error('Invalid authorization token: No user ID found in token.');
     }
 
-    // Fetch the ledger entry details
     const ledgerEntry = await prisma.ledger.findUnique({
         where: { ledgerId: ledgerId },
         include: {
             household: true,
             paymentSource: true,
-            bill: true,
-            income: true,
+            bill: false,
+            income: false,
             attachments: true,
-            transactions: true
+            transactions: false
         },
     });
 
+    console.log("getLedgerEntry - ledgerEntry:", ledgerEntry);
+
     if (!ledgerEntry) {
         throw new Error('Ledger entry not found');
+    }
+
+    const householdId = ledgerEntry.householdId;
+
+    const isValidUser = await validateUser(userId, householdId);
+    if (!isValidUser) {
+        throw new Error('Invalid user or household association.');
     }
 
     return ledgerEntry;
@@ -65,8 +113,18 @@ exports.handler = async (event) => {
         };
     }
 
-    const authToken = event.headers.Authorization;
-    const ledgerId = event.pathParameters.ledgerId;
+    let body;
+    try {
+        body = JSON.parse(event.body);
+    } catch (error) {
+        return {
+            statusCode: 400,
+            headers: CORS_HEADERS,
+            body: JSON.stringify({ error: 'Invalid JSON body' }),
+        };
+    }
+    const authToken = body.authToken;
+    const ledgerId = body.ledgerId;
 
     if (!authToken) {
         return {
@@ -92,6 +150,8 @@ exports.handler = async (event) => {
             body: JSON.stringify(ledgerEntry),
         };
     } catch (error) {
+        console.error("Error:", error);
+
         return {
             statusCode: 500,
             headers: CORS_HEADERS,

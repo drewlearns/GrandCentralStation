@@ -13,7 +13,7 @@ const corsHeaders = {
 
 async function verifyToken(token) {
     const params = {
-        FunctionName: 'verifyToken',
+        FunctionName: 'verifyToken', // Replace with your actual Lambda function name
         Payload: JSON.stringify({ authToken: token }),
     };
 
@@ -33,13 +33,36 @@ async function verifyToken(token) {
     return payload;
 }
 
-async function validateUser(userId) {
+async function validateUser(userId, householdId) {
     console.log('Validating user with ID:', userId);
+
     const user = await prisma.user.findUnique({
         where: { uuid: userId },
     });
+
     console.log('User found:', user);
-    return user !== null;
+
+    if (!user) {
+        return false;
+    }
+
+    const householdMembers = await prisma.householdMembers.findMany({
+        where: {
+            householdId: householdId,
+        },
+        select: {
+            memberUuid: true,
+        },
+    });
+
+    console.log("validateUser - householdMembers:", householdMembers);
+
+    const memberUuids = householdMembers.map(member => member.memberUuid);
+    const isValidUser = memberUuids.includes(userId);
+
+    console.log("validateUser - isValidUser:", isValidUser);
+
+    return isValidUser;
 }
 
 function calculateFutureDates(startDate, frequency) {
@@ -131,12 +154,12 @@ exports.handler = async (event) => {
 
         console.log('User ID from token:', userId);
 
-        const isValidUser = await validateUser(userId);
+        const isValidUser = await validateUser(userId, householdId);
         if (!isValidUser) {
             return {
                 statusCode: 401,
                 headers: corsHeaders,
-                body: JSON.stringify({ message: 'Invalid user: User not found.' }),
+                body: JSON.stringify({ message: 'Invalid user or household association.' }),
             };
         }
 
@@ -165,7 +188,7 @@ exports.handler = async (event) => {
             status: false,
             createdAt: new Date(),
             updatedAt: new Date(),
-            incomeId: newIncome.incomeId,
+            incomeId: newIncome.id, // Ensure incomeId is correctly referenced
             isInitial: false,
             tags: name
         }));
@@ -192,4 +215,4 @@ exports.handler = async (event) => {
     } finally {
         await prisma.$disconnect();
     }
-}
+};

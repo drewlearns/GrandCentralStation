@@ -34,6 +34,38 @@ async function verifyToken(token) {
     return payload;
 }
 
+async function validateUser(userId, householdId) {
+    console.log('Validating user with ID:', userId);
+
+    const user = await prisma.user.findUnique({
+        where: { uuid: userId },
+    });
+
+    console.log('User found:', user);
+
+    if (!user) {
+        return false;
+    }
+
+    const householdMembers = await prisma.householdMembers.findMany({
+        where: {
+            householdId: householdId,
+        },
+        select: {
+            memberUuid: true,
+        },
+    });
+
+    console.log("validateUser - householdMembers:", householdMembers);
+
+    const memberUuids = householdMembers.map(member => member.memberUuid);
+    const isValidUser = memberUuids.includes(userId);
+
+    console.log("validateUser - isValidUser:", isValidUser);
+
+    return isValidUser;
+}
+
 function calculateFutureDates(startDate, frequency) {
     const dates = [];
     let currentDate = new Date(startDate);
@@ -151,6 +183,15 @@ exports.handler = async (event) => {
     const userUuid = payload.user_id;
 
     try {
+        const isValidUser = await validateUser(userUuid, householdId);
+        if (!isValidUser) {
+            return {
+                statusCode: 401,
+                headers: corsHeaders,
+                body: JSON.stringify({ message: 'Invalid user or household association.' }),
+            };
+        }
+
         // Verify paymentSourceId exists for the household if provided
         if (billData.paymentSourceId) {
             const paymentSource = await prisma.paymentSource.findUnique({
@@ -202,11 +243,11 @@ exports.handler = async (event) => {
             transactionType: 'Debit',
             transactionDate: date,
             category: billData.category,
-            description: billData.description,
+            description: `${billData.billName} | ${billData.description}`,
             status: false,
             createdAt: new Date(),
             updatedAt: new Date(),
-            billId: newBill.id, // Assuming billId is correctly referenced
+            billId: newBill.billId, // Ensure billId is correctly referenced
             isInitial: false,
             runningTotal: 0.0,
             tags: tags // Add tags with bill's name and category
