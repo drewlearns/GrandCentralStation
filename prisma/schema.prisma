@@ -84,7 +84,7 @@ model Incomes {
   incomeId    String   @id @default(uuid())
   householdId String
   name        String
-  amount      Int
+  amount      Decimal @db.Decimal(10,2)
   frequency   String
   firstPayDay DateTime
   createdAt   DateTime
@@ -99,7 +99,7 @@ model Ledger {
   ledgerId        String   @id @default(uuid())
   householdId     String
   paymentSourceId String
-  amount          Float
+  amount          Decimal @db.Decimal(10, 2)
   transactionType String
   transactionDate DateTime
   category        String
@@ -110,9 +110,7 @@ model Ledger {
   updatedBy       String?
   billId          String?
   incomeId        String?
-  runningTotal    Float
-  interestRate    Float?
-  cashBack        Float?
+  runningTotal    Float?
   tags            String?
   isInitial       Boolean  @default(false)
 
@@ -130,12 +128,9 @@ model Bill {
   householdId  String
   category     String
   billName     String
-  amount       Float
+  amount       Decimal @db.Decimal(10, 2)
   dayOfMonth   Int
   frequency    String
-  isDebt       Boolean
-  interestRate Float
-  cashBack     Float
   description  String
   status       Boolean
   url          String?
@@ -225,7 +220,7 @@ model Transaction {
   transactionId   String   @id @default(uuid())
   ledgerId        String
   sourceId        String
-  amount          Float
+  amount          Decimal @db.Decimal(10, 2)
   transactionDate DateTime
   description     String
   createdAt       DateTime

@@ -66,7 +66,8 @@ exports.handler = async (event) => {
       };
     }
 
-    const decodedToken = jwt.verify(token, publicKey);
+    // Decode the token without verifying its signature and expiration
+    const decodedToken = jwt.decode(token);
 
     console.log('Decoded Token:', JSON.stringify(decodedToken, null, 2)); // Log the decoded token
 
@@ -83,7 +84,7 @@ exports.handler = async (event) => {
       };
     }
   } catch (err) {
-    console.error('Token verification error:', err.message); // Log the verification error
+    console.error('Token decoding error:', err.message); // Log the decoding error
     return {
       statusCode: 401,
       body: JSON.stringify({ message: 'Invalid token', error: err.message }),

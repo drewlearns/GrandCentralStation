@@ -57,9 +57,9 @@ exports.handler = async (event) => {
       runningTotal = entry.transactionType.toLowerCase() === 'debit'
         ? runningTotal.minus(new Decimal(entry.amount))
         : runningTotal.plus(new Decimal(entry.amount));
-    
+
       console.log(`Updated running total after entry: ${runningTotal.toFixed(2)}`);
-      
+
       await prisma.ledger.update({
         where: { ledgerId: entry.ledgerId },
         data: { runningTotal: parseFloat(runningTotal.toFixed(2)) },

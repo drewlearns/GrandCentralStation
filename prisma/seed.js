@@ -140,8 +140,6 @@ async function main() {
           updatedAt: new Date(),
           updatedBy: user1.uuid,
           runningTotal: 1000 - (100 + month),
-          interestRate: 0.0,
-          cashBack: 0.0
         }
       });
 
@@ -160,8 +158,7 @@ async function main() {
           updatedAt: new Date(),
           updatedBy: user2.uuid,
           runningTotal: 2000 - (200 + month),
-          interestRate: 0.0,
-          cashBack: 0.0
+
         }
       });
     }
