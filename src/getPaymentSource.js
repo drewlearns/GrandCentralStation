@@ -52,11 +52,36 @@ async function getPaymentSources(authToken, householdId) {
         },
     });
 
-    // Separate the payment sources into two arrays
-    const paymentSourceIDs = paymentSources.map(source => source.sourceId);
-    const paymentSourceNames = paymentSources.map(source => source.sourceName);
+    // Separate the payment sources into two arrays and initialize running totals
+    const paymentSourceIDs = [];
+    const paymentSourceNames = [];
+    const runningTotals = [];
 
-    return { paymentSourceIDs, paymentSourceNames };
+    for (const source of paymentSources) {
+        paymentSourceIDs.push(source.sourceId);
+        paymentSourceNames.push(source.sourceName);
+
+        // Fetch the most recent ledger entry up to today's date for each payment source
+        const latestLedger = await prisma.ledger.findFirst({
+            where: {
+                paymentSourceId: source.sourceId,
+                transactionDate: {
+                    lte: new Date(), // Up to today's date
+                },
+            },
+            orderBy: {
+                transactionDate: 'desc',
+            },
+            select: {
+                runningTotal: true,
+            },
+        });
+
+        // Store the running total as a float or null if no entries found
+        runningTotals.push(latestLedger ? parseFloat(latestLedger.runningTotal) : null);
+    }
+
+    return { paymentSourceIDs, paymentSourceNames, runningTotals };
 }
 
 exports.handler = async (event) => {

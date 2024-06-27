@@ -100,7 +100,7 @@ export const handler = async (event) => {
             data: {
                 sourceId: paymentSourceId,
                 householdId: newHousehold.householdId,
-                sourceName: `default${epochTime}`,
+                sourceName: `Default-${epochTime}`,
                 sourceType: 'bank_account',
                 description: 'Default',
                 createdAt: new Date(),

@@ -68,7 +68,7 @@ async function validateUser(userId, householdId) {
     return isValidUser;
 }
 
-async function getLedgerEntries(authToken, householdId, filters = {}) {
+async function getLedgerEntries(authToken, householdId, filters = {}, threshold = 500) {
     const payload = await verifyToken(authToken);
     const userId = payload.user_id;
     if (!userId) {
@@ -213,6 +213,9 @@ async function getLedgerEntries(authToken, householdId, filters = {}) {
         flattenedEntry.year = date.getFullYear();
         flattenedEntry.month = date.toLocaleString('default', { month: 'long' }).toLowerCase();
 
+        // Check if runningTotal is less than threshold and set threshold boolean
+        flattenedEntry.threshold = threshold !== undefined ? flattenedEntry.runningTotal < threshold : false;
+
         return flattenedEntry;
     });
 
@@ -232,7 +235,7 @@ exports.handler = async (event) => {
     }
 
     try {
-        const { authToken, householdId, filters } = JSON.parse(event.body);
+        const { authToken, householdId, filters, threshold = 500 } = JSON.parse(event.body);
 
         if (!authToken) {
             return {
@@ -250,7 +253,7 @@ exports.handler = async (event) => {
             };
         }
 
-        const { flattenedLedgerEntries, totalPages, totalItems } = await getLedgerEntries(authToken, householdId, filters);
+        const { flattenedLedgerEntries, totalPages, totalItems } = await getLedgerEntries(authToken, householdId, filters, threshold);
 
         return {
             statusCode: 200,

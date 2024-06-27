@@ -92,20 +92,25 @@ function calculateFutureDates(startDate, frequency) {
 }
 
 async function createNotification(ledgerEntry, userUuid) {
+    console.log('Creating notification for ledger entry:', ledgerEntry);  // Log ledger entry for debugging
+
     const params = {
         FunctionName: 'addNotification',
         Payload: JSON.stringify({
             userUuid,
             billId: ledgerEntry.billId,
             title: `Upcoming bill: ${ledgerEntry.category}`,
-            message: `Your bill ${ledgerEntry.category} is due on ${ledgerEntry.transactionDate.toDateString()}`,
-            dueDate: ledgerEntry.transactionDate
+            message: `Your bill ${ledgerEntry.description} is due on ${ledgerEntry.transactionDate.toDateString()}`,
+            dueDate: ledgerEntry.transactionDate.toISOString()  // Ensure date is in proper format
         }),
     };
+
+    console.log('Notification Payload:', params.Payload);  // Log the payload for debugging
 
     const command = new InvokeCommand(params);
     await lambda.send(command);
 }
+
 
 async function invokeCalculateRunningTotal(householdId, paymentSourceId) {
     const params = {
@@ -256,6 +261,7 @@ exports.handler = async (event) => {
             runningTotal: 0.0,
             tags,
         }));
+        
 
         await prisma.ledger.createMany({ data: ledgerEntries });
 
