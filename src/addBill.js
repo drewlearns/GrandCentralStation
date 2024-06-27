@@ -1,9 +1,12 @@
 const { Decimal } = require('decimal.js');
 const { PrismaClient } = require('@prisma/client');
 const { LambdaClient, InvokeCommand } = require('@aws-sdk/client-lambda');
+const { SecretsManagerClient, CreateSecretCommand } = require('@aws-sdk/client-secrets-manager');
+const { v4: uuidv4 } = require('uuid');
 
 const prisma = new PrismaClient();
 const lambda = new LambdaClient({ region: process.env.AWS_REGION });
+const secretsManagerClient = new SecretsManagerClient({ region: process.env.AWS_REGION });
 
 const corsHeaders = {
     'Content-Type': 'application/json',
@@ -14,7 +17,7 @@ const corsHeaders = {
 
 async function verifyToken(token) {
     const params = {
-        FunctionName: 'verifyToken', // Replace with your actual Lambda function name
+        FunctionName: 'verifyToken',
         Payload: JSON.stringify({ authToken: token }),
     };
 
@@ -23,47 +26,31 @@ async function verifyToken(token) {
 
     const result = JSON.parse(new TextDecoder().decode(response.Payload));
 
-    console.log('Token verification result:', JSON.stringify(result, null, 2)); // Log the result
-
     if (result.errorMessage) {
         throw new Error(result.errorMessage);
     }
 
-    const payload = JSON.parse(result.body); // Parse the body to get the actual payload
+    const payload = JSON.parse(result.body);
 
     return payload;
 }
 
 async function validateUser(userId, householdId) {
-    console.log('Validating user with ID:', userId);
-
     const user = await prisma.user.findUnique({
         where: { uuid: userId },
     });
-
-    console.log('User found:', user);
 
     if (!user) {
         return false;
     }
 
     const householdMembers = await prisma.householdMembers.findMany({
-        where: {
-            householdId: householdId,
-        },
-        select: {
-            memberUuid: true,
-        },
+        where: { householdId },
+        select: { memberUuid: true },
     });
 
-    console.log("validateUser - householdMembers:", householdMembers);
-
     const memberUuids = householdMembers.map(member => member.memberUuid);
-    const isValidUser = memberUuids.includes(userId);
-
-    console.log("validateUser - isValidUser:", isValidUser);
-
-    return isValidUser;
+    return memberUuids.includes(userId);
 }
 
 function calculateFutureDates(startDate, frequency) {
@@ -106,9 +93,9 @@ function calculateFutureDates(startDate, frequency) {
 
 async function createNotification(ledgerEntry, userUuid) {
     const params = {
-        FunctionName: 'addNotification', // Replace with your actual Lambda function name
+        FunctionName: 'addNotification',
         Payload: JSON.stringify({
-            userUuid: userUuid,
+            userUuid,
             billId: ledgerEntry.billId,
             title: `Upcoming bill: ${ledgerEntry.category}`,
             message: `Your bill ${ledgerEntry.category} is due on ${ledgerEntry.transactionDate.toDateString()}`,
@@ -122,11 +109,8 @@ async function createNotification(ledgerEntry, userUuid) {
 
 async function invokeCalculateRunningTotal(householdId, paymentSourceId) {
     const params = {
-        FunctionName: 'calculateRunningTotal', 
-        Payload: JSON.stringify({
-            householdId: householdId,
-            paymentSourceId: paymentSourceId
-        }),
+        FunctionName: 'calculateRunningTotal',
+        Payload: JSON.stringify({ householdId, paymentSourceId }),
     };
 
     const command = new InvokeCommand(params);
@@ -135,17 +119,27 @@ async function invokeCalculateRunningTotal(householdId, paymentSourceId) {
     try {
         const payload = JSON.parse(new TextDecoder().decode(response.Payload));
 
-        console.log('calculateRunningTotal response:', JSON.stringify(payload, null, 2)); // Log the response
-
         if (payload.statusCode !== 200) {
             throw new Error(`Error invoking calculateRunningTotal: ${payload.message || 'unknown error'}`);
         }
 
         return payload.message;
     } catch (error) {
-        console.error('Error parsing calculateRunningTotal response:', error);
         throw new Error(`Error invoking calculateRunningTotal: ${error.message}`);
     }
+}
+
+async function storeCredentialsInSecretsManager(billId, username, password) {
+    const secretName = `bill-credentials/${billId}`;
+    const secretValue = JSON.stringify({ username, password });
+
+    const command = new CreateSecretCommand({
+        Name: secretName,
+        SecretString: secretValue,
+    });
+
+    const response = await secretsManagerClient.send(command);
+    return response.ARN;
 }
 
 exports.handler = async (event) => {
@@ -197,7 +191,7 @@ exports.handler = async (event) => {
             const paymentSource = await prisma.paymentSource.findUnique({
                 where: {
                     sourceId: billData.paymentSourceId,
-                    householdId: householdId,
+                    householdId,
                 },
             });
 
@@ -210,10 +204,10 @@ exports.handler = async (event) => {
             }
         }
 
-        // Create the new bill
+        // Create the new bill to get the billId
         const newBill = await prisma.bill.create({
             data: {
-                householdId: householdId,
+                householdId,
                 category: billData.category,
                 billName: billData.billName,
                 amount: billData.amount,
@@ -222,12 +216,22 @@ exports.handler = async (event) => {
                 description: billData.description,
                 status: false,
                 url: billData.url,
-                username: billData.username,
-                password: billData.password,
                 createdAt: new Date(),
                 updatedAt: new Date(),
             }
         });
+
+        // Store credentials in Secrets Manager if provided and update the bill with the ARN
+        if (billData.username && billData.password) {
+            const credentialsArn = await storeCredentialsInSecretsManager(newBill.billId, billData.username, billData.password);
+            await prisma.bill.update({
+                where: { billId: newBill.billId },
+                data: {
+                    username: credentialsArn,
+                    password: credentialsArn,
+                },
+            });
+        }
 
         // Generate ledger entries based on the frequency
         const startDate = new Date();
@@ -237,8 +241,8 @@ exports.handler = async (event) => {
         const tags = `${billData.billName},${billData.category}`;
 
         const ledgerEntries = futureDates.map(date => ({
-            householdId: householdId,
-            paymentSourceId: billData.paymentSourceId, // Get paymentSourceId from billData
+            householdId,
+            paymentSourceId: billData.paymentSourceId,
             amount: billData.amount,
             transactionType: 'Debit',
             transactionDate: date,
@@ -247,10 +251,10 @@ exports.handler = async (event) => {
             status: false,
             createdAt: new Date(),
             updatedAt: new Date(),
-            billId: newBill.billId, // Ensure billId is correctly referenced
+            billId: newBill.billId,
             isInitial: false,
             runningTotal: 0.0,
-            tags: tags // Add tags with bill's name and category
+            tags,
         }));
 
         await prisma.ledger.createMany({ data: ledgerEntries });
@@ -281,4 +285,4 @@ exports.handler = async (event) => {
     } finally {
         await prisma.$disconnect();
     }
-}
+};

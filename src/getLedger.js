@@ -80,73 +80,147 @@ async function getLedgerEntries(authToken, householdId, filters = {}) {
         throw new Error('Invalid user or household association.');
     }
 
+    const currentDate = new Date();
     let where = {
         householdId,
-        transactionDate: {
-            lte: new Date(),
-        },
     };
 
-    const currentDate = new Date();
-    const currentYear = currentDate.getFullYear();
-    const currentMonth = currentDate.getMonth() + 1;
-
+    // Applying filters for transaction date
     if (filters.showCurrentMonthOnly) {
         where.transactionDate = {
-            gte: new Date(currentYear, currentMonth - 1, 1),
-            lt: new Date(currentYear, currentMonth, 1),
+            gte: new Date(currentDate.getFullYear(), currentDate.getMonth(), 1),
+            lt: new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 1),
         };
-    }
-
-    if (filters.showClearedOnly) {
-        where.cleared = true;
-    }
-
-    if (filters.month && filters.year) {
-        const startDate = new Date(filters.year, filters.month - 1, 1);
-        const endDate = new Date(filters.year, filters.month, 1);
+    } else if (filters.month && filters.year) {
         where.transactionDate = {
-            gte: startDate,
-            lt: endDate,
+            gte: new Date(filters.year, filters.month - 1, 1),
+            lt: new Date(filters.year, filters.month, 1),
+        };
+    } else if (filters.showCurrentMonthUpToToday !== false) {
+        // Default case: transactions up to today
+        where.transactionDate = {
+            lte: new Date(),
         };
     }
 
-    if (filters.showCurrentMonthUpToToday === false) {
-        delete where.transactionDate;
+    // Applying the showClearedOnly filter
+    if (filters.showClearedOnly) {
+        where.status = true;
     }
+
+    // Logging to debug where clause
+    console.log("getLedgerEntries - where clause:", where);
 
     const ledgerEntries = await prisma.ledger.findMany({
-        where,
-        orderBy: {
-            transactionDate: 'desc',
-        },
-        include: {
-            bill: true,
-            income: true,
-            transactions: true,
+        where: where,
+        select: {
+            ledgerId: true,
+            householdId: true,
+            paymentSourceId: true,
+            amount: true,
+            transactionType: true,
+            transactionDate: true,
+            category: true,
+            description: true,
+            status: true,
+            createdAt: true,
+            updatedAt: true,
+            updatedBy: true,
+            billId: true,
+            incomeId: true,
+            runningTotal: true,
+            tags: true,
+            isInitial: true,
+            bill: {
+                select: {
+                    billId: true,
+                }
+            },
+            income: {
+                select: {
+                    incomeId: true,
+                }
+            },
+            transactions: {
+                select: {
+                    transactionId: true,
+                }
+            },
             paymentSource: {
                 select: {
-                    sourceName: true,
-                },
-            },
+                    sourceName: true
+                }
+            }
         },
+        orderBy: [
+            { transactionDate: 'desc' },
+        ],
+        // Remove skip and take to disable pagination
     });
 
-    const result = ledgerEntries.map(entry => ({
-        ...entry,
-        amount: new Decimal(entry.amount).toNumber(),
-        runningTotal: new Decimal(entry.runningTotal).toNumber(),
-        month: entry.transactionDate.getMonth() + 1,
-        year: entry.transactionDate.getFullYear(),
-        dayOfMonth: entry.transactionDate.getDate(),
-        type: entry.billId ? 'bill' : entry.incomeId ? 'income' : 'transaction',
-        bill: entry.bill || null,
-        income: entry.income || null,
-        transaction: entry.transactions.length > 0 ? entry.transactions[0] : null,
-        paymentSourceName: entry.paymentSource?.sourceName || null,
-    }));
+    const totalItems = ledgerEntries.length;
+    const totalPages = 1; // Since pagination is disabled, there's only one "page" of results
 
-    return result;
+    if (ledgerEntries.length === 0) {
+        return {
+            statusCode: 404,
+            headers: CORS_HEADERS,
+            body: JSON.stringify({ message: "No ledger entries found" }),
+        };
+    }
+
+    const formatNumber = (num) => Number(new Decimal(num).toFixed(2));
+
+    const setDefaultValues = (entry) => {
+        if (entry.billId === null) entry.billId = '';
+        if (entry.incomeId === null) entry.incomeId = '';
+        if (entry.transactionId === null) entry.transactionId = '';
+    };
+
+    const flattenedLedgerEntries = ledgerEntries.map((entry) => {
+        const flattenedEntry = { ...entry, ledgerId: entry.ledgerId };
+
+        // Assign the first transaction's ID if available
+        if (entry.transactions && entry.transactions.length > 0) {
+            flattenedEntry.transactionId = entry.transactions[0].transactionId;
+        } else {
+            flattenedEntry.transactionId = ''; // Handle cases with no transactions
+        }
+
+        if (flattenedEntry.bill && flattenedEntry.bill.billId) {
+            flattenedEntry.type = 'bill';
+        } else if (flattenedEntry.income && flattenedEntry.income.incomeId) {
+            flattenedEntry.type = 'income';
+        } else if (flattenedEntry.category === 'Income') {
+            flattenedEntry.type = 'income';
+        } else {
+            flattenedEntry.type = 'transaction';
+        }
+
+        setDefaultValues(flattenedEntry);
+
+        if (flattenedEntry.amount !== null) {
+            flattenedEntry.amount = formatNumber(flattenedEntry.amount);
+        }
+        if (flattenedEntry.runningTotal !== null) {
+            flattenedEntry.runningTotal = formatNumber(flattenedEntry.runningTotal);
+        }
+
+        // Format the transactionDate to MM-DD-YYYY
+        const date = new Date(flattenedEntry.transactionDate);
+        const formattedDate = `${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}-${date.getFullYear()}`;
+        flattenedEntry.transactionDate = formattedDate;
+        flattenedEntry.year = date.getFullYear();
+        flattenedEntry.month = date.toLocaleString('default', { month: 'long' }).toLowerCase();
+
+        return flattenedEntry;
+    });
+
+    return {
+        flattenedLedgerEntries,
+        totalPages,
+        totalItems,
+    };
 }
 
 exports.handler = async (event) => {
@@ -158,7 +232,7 @@ exports.handler = async (event) => {
     }
 
     try {
-        const { authToken, householdId, filters = {} } = JSON.parse(event.body);
+        const { authToken, householdId, filters } = JSON.parse(event.body);
 
         if (!authToken) {
             return {
@@ -176,14 +250,16 @@ exports.handler = async (event) => {
             };
         }
 
-        const ledgerEntries = await getLedgerEntries(authToken, householdId, filters);
+        const { flattenedLedgerEntries, totalPages, totalItems } = await getLedgerEntries(authToken, householdId, filters);
 
         return {
             statusCode: 200,
             headers: CORS_HEADERS,
             body: JSON.stringify({
                 success: true,
-                data: ledgerEntries,
+                data: flattenedLedgerEntries,
+                totalPages: totalPages,
+                totalItems: totalItems
             }),
         };
     } catch (error) {

@@ -3,18 +3,18 @@ const { PrismaClient } = require('@prisma/client');
 const { LambdaClient, InvokeCommand } = require('@aws-sdk/client-lambda');
 
 const prisma = new PrismaClient();
-const lambda = new LambdaClient({ region: 'us-east-1' }); // Adjust the region as necessary
+const lambda = new LambdaClient({ region: 'us-east-1' });
 
 const CORS_HEADERS = {
-    'Access-Control-Allow-Origin': '*', // Adjust this to your specific origin if needed
-    'Access-Control-Allow-Methods': 'OPTIONS,GET',
+    'Access-Control-Allow-Origin': '*',
+    'Access-Control-Allow-Methods': 'OPTIONS,POST',
     'Access-Control-Allow-Headers': 'Content-Type,Authorization',
 };
 
 async function verifyToken(token) {
     const params = {
-        FunctionName: 'verifyToken', // Replace with your actual Lambda function name
-        Payload: new TextEncoder().encode(JSON.stringify({ token })),
+        FunctionName: 'verifyToken',
+        Payload: new TextEncoder().encode(JSON.stringify({ authToken: token })),
     };
 
     const command = new InvokeCommand(params);
@@ -26,13 +26,17 @@ async function verifyToken(token) {
         throw new Error(payload.errorMessage);
     }
 
-    return payload.isValid;
+    const nestedPayload = JSON.parse(payload.body);
+
+    return nestedPayload;
 }
 
 async function getCurrentMonthIncome(authToken, householdId) {
     // Verify the token
-    const isValid = await verifyToken(authToken);
-    if (!isValid) {
+    const payload = await verifyToken(authToken);
+    const userId = payload.user_id;
+
+    if (!userId) {
         throw new Error('Invalid authorization token');
     }
 
@@ -63,9 +67,9 @@ async function getCurrentMonthIncome(authToken, householdId) {
         return sum.plus(new Decimal(entry.amount));
     }, new Decimal(0));
 
-    // Format the result
+    // Format the result as a float
     return {
-        totalIncome: totalIncome.toFixed(2),
+        totalIncome: totalIncome.toNumber(), // Convert Decimal to float
     };
 }
 
@@ -77,26 +81,27 @@ exports.handler = async (event) => {
         };
     }
 
-    const authToken = event.headers.Authorization;
-    const householdId = event.pathParameters.householdId;
-
-    if (!authToken) {
-        return {
-            statusCode: 401,
-            headers: CORS_HEADERS,
-            body: JSON.stringify({ error: 'Authorization token is missing' }),
-        };
-    }
-
-    if (!householdId) {
-        return {
-            statusCode: 400,
-            headers: CORS_HEADERS,
-            body: JSON.stringify({ error: 'householdId is missing' }),
-        };
-    }
-
     try {
+        const body = JSON.parse(event.body);
+        const authToken = body.authToken;
+        const householdId = body.householdId;
+
+        if (!authToken) {
+            return {
+                statusCode: 401,
+                headers: CORS_HEADERS,
+                body: JSON.stringify({ error: 'Authorization token is missing' }),
+            };
+        }
+
+        if (!householdId) {
+            return {
+                statusCode: 400,
+                headers: CORS_HEADERS,
+                body: JSON.stringify({ error: 'householdId is missing' }),
+            };
+        }
+
         const income = await getCurrentMonthIncome(authToken, householdId);
         return {
             statusCode: 200,
@@ -104,6 +109,7 @@ exports.handler = async (event) => {
             body: JSON.stringify(income),
         };
     } catch (error) {
+        console.error("Error:", error);
         return {
             statusCode: 500,
             headers: CORS_HEADERS,

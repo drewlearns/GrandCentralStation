@@ -2,18 +2,18 @@ const { PrismaClient } = require('@prisma/client');
 const { LambdaClient, InvokeCommand } = require('@aws-sdk/client-lambda');
 
 const prisma = new PrismaClient();
-const lambda = new LambdaClient({ region: process.env.AWS_REGION });
+const lambda = new LambdaClient({ region: 'us-east-1' });
 
 const CORS_HEADERS = {
-    'Access-Control-Allow-Origin': '*', // Adjust this to your specific origin if needed
-    'Access-Control-Allow-Methods': 'OPTIONS,GET',
+    'Access-Control-Allow-Origin': '*',
+    'Access-Control-Allow-Methods': 'OPTIONS,POST',
     'Access-Control-Allow-Headers': 'Content-Type,Authorization',
 };
 
 async function verifyToken(token) {
     const params = {
-        FunctionName: 'verifyToken', // Replace with your actual Lambda function name
-        Payload: new TextEncoder().encode(JSON.stringify({ token })),
+        FunctionName: 'verifyToken',
+        Payload: new TextEncoder().encode(JSON.stringify({ authToken: token })),
     };
 
     const command = new InvokeCommand(params);
@@ -25,17 +25,19 @@ async function verifyToken(token) {
         throw new Error(payload.errorMessage);
     }
 
-    return payload.isValid;
+    const nestedPayload = JSON.parse(payload.body);
+
+    return nestedPayload;
 }
 
-async function getBill(authToken, billId) {
-    // Verify the token
-    const isValid = await verifyToken(authToken);
-    if (!isValid) {
+async function getBillDetails(authToken, billId) {
+    const payload = await verifyToken(authToken);
+    const userId = payload.user_id;
+
+    if (!userId) {
         throw new Error('Invalid authorization token');
     }
 
-    // Fetch the bill details
     const bill = await prisma.bill.findUnique({
         where: { billId: billId },
         include: {
@@ -46,10 +48,18 @@ async function getBill(authToken, billId) {
     });
 
     if (!bill) {
-        throw new Error('Bill not found');
+        return {
+            statusCode: 404,
+            headers: CORS_HEADERS,
+            body: JSON.stringify({ message: 'Bill not found' }),
+        };
     }
 
-    return bill;
+    return {
+        statusCode: 200,
+        headers: CORS_HEADERS,
+        body: JSON.stringify(bill),
+    };
 }
 
 exports.handler = async (event) => {
@@ -60,37 +70,40 @@ exports.handler = async (event) => {
         };
     }
 
-    const authToken = event.headers.Authorization;
-    const billId = event.pathParameters.billId;
-
-    if (!authToken) {
-        return {
-            statusCode: 401,
-            headers: CORS_HEADERS,
-            body: JSON.stringify({ error: 'Authorization token is missing' }),
-        };
-    }
-
-    if (!billId) {
-        return {
-            statusCode: 400,
-            headers: CORS_HEADERS,
-            body: JSON.stringify({ error: 'billId is missing' }),
-        };
-    }
-
     try {
-        const bill = await getBill(authToken, billId);
-        return {
-            statusCode: 200,
-            headers: CORS_HEADERS,
-            body: JSON.stringify(bill),
-        };
+        const body = JSON.parse(event.body);
+        const authToken = body.authToken;
+        const billId = body.billId;
+
+        if (!authToken) {
+            return {
+                statusCode: 401,
+                headers: CORS_HEADERS,
+                body: JSON.stringify({ error: 'Authorization token is missing' }),
+            };
+        }
+
+        if (!billId) {
+            return {
+                statusCode: 400,
+                headers: CORS_HEADERS,
+                body: JSON.stringify({ error: 'billId is missing' }),
+            };
+        }
+
+        const response = await getBillDetails(authToken, billId);
+
+        return response;
     } catch (error) {
+        console.error("Error:", error);
+
         return {
             statusCode: 500,
             headers: CORS_HEADERS,
-            body: JSON.stringify({ error: error.message }),
+            body: JSON.stringify({
+                success: false,
+                message: error.message,
+            }),
         };
     }
 };

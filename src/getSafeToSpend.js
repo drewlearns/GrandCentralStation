@@ -8,14 +8,14 @@ const lambdaClient = new LambdaClient({ region: process.env.AWS_REGION });
 const corsHeaders = {
   'Content-Type': 'application/json',
   'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'Content-Type,Authorization',
+  'Access-Control-Allow-Headers': 'Content-Type',
   'Access-Control-Allow-Methods': 'OPTIONS,POST,GET'
 };
 
 async function verifyToken(token) {
   const params = {
-    FunctionName: 'verifyToken', // Replace with your actual Lambda function name
-    Payload: new TextEncoder().encode(JSON.stringify({ token })),
+    FunctionName: 'verifyToken', // Ensure this is the correct Lambda function name
+    Payload: new TextEncoder().encode(JSON.stringify({ authToken: token })),
   };
 
   const command = new InvokeCommand(params);
@@ -27,13 +27,16 @@ async function verifyToken(token) {
     throw new Error(payload.errorMessage);
   }
 
-  return payload;
+  const nestedPayload = JSON.parse(payload.body);
+  console.log("verifyToken nested payload:", nestedPayload);
+
+  return nestedPayload;
 }
 
 exports.handler = async (event) => {
-  const { authorizationToken, householdId } = JSON.parse(event.body);
+  const { authToken, householdId } = JSON.parse(event.body);
 
-  if (!authorizationToken) {
+  if (!authToken) {
     return {
       statusCode: 401,
       headers: corsHeaders,
@@ -53,14 +56,10 @@ exports.handler = async (event) => {
     };
   }
 
-  let username;
-  let tokenValid = false;
-
-  // Attempt to verify the token
+  let userId;
   try {
-    const tokenPayload = await verifyToken(authorizationToken);
-    username = tokenPayload.uid;
-    tokenValid = true;
+    const tokenPayload = await verifyToken(authToken);
+    userId = tokenPayload.user_id;
   } catch (error) {
     console.error('Token verification failed:', error.message);
     return {
@@ -73,17 +72,32 @@ exports.handler = async (event) => {
     };
   }
 
-  if (!tokenValid) {
-    return {
-      statusCode: 401,
-      headers: corsHeaders,
-      body: JSON.stringify({ message: 'Invalid token.' }),
-    };
-  }
-
+  // Check if user is part of the household
   try {
+    const householdMembers = await prisma.householdMembers.findMany({
+      where: {
+        householdId: householdId,
+      },
+      select: {
+        memberUuid: true,
+      },
+    });
+
+    const memberUuids = householdMembers.map(member => member.memberUuid);
+
+    if (!memberUuids.includes(userId)) {
+      return {
+        statusCode: 403,
+        headers: corsHeaders,
+        body: JSON.stringify({
+          message: 'Access denied. User is not a member of the household.'
+        }),
+      };
+    }
+
+    // Proceed with the logic to fetch incomes and calculate safe to spend amount
     const today = new Date();
-    today.setUTCHours(0, 0, 0, 0); // Normalize today's date to midnight UTC
+    today.setUTCHours(23, 59, 59, 59); // Normalize today's date to midnight UTC
     console.log(`Today's date: ${today}`);
 
     // Fetch all incomes for the household
@@ -93,7 +107,7 @@ exports.handler = async (event) => {
     });
 
     console.log(`Incomes found: ${JSON.stringify(incomes)}`);
-    
+
     if (incomes.length === 0) {
       return {
         statusCode: 404,
@@ -119,8 +133,6 @@ exports.handler = async (event) => {
           payday.setMonth(payday.getMonth() + 2);
         } else if (frequency === 'quarterly') {
           payday.setMonth(payday.getMonth() + 3);
-        } else if (frequency === 'semiannually') {
-          payday.setMonth(payday.getMonth() + 6);
         } else if (frequency === 'annually') {
           payday.setFullYear(payday.getFullYear() + 1);
         } else {
@@ -136,7 +148,6 @@ exports.handler = async (event) => {
     if (!nextPayday || nextPayday <= today) {
       return {
         statusCode: 500,
-        headers: corsHeaders,
         body: JSON.stringify({ message: "Could not determine the next payday in the future." }),
       };
     }
@@ -145,7 +156,7 @@ exports.handler = async (event) => {
     const dayBeforeNextPayday = new Date(nextPayday);
     dayBeforeNextPayday.setDate(nextPayday.getDate() - 1);
     dayBeforeNextPayday.setUTCHours(23, 59, 59, 999); // Set to the end of the previous day
-    
+
     const ledgerEntries = await prisma.ledger.findMany({
       where: {
         householdId: householdId,

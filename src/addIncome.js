@@ -1,5 +1,6 @@
 const { PrismaClient, Decimal } = require('@prisma/client');
 const { LambdaClient, InvokeCommand } = require('@aws-sdk/client-lambda');
+const { v4: uuidv4 } = require('uuid');
 
 const prisma = new PrismaClient();
 const lambda = new LambdaClient({ region: process.env.AWS_REGION });
@@ -163,8 +164,11 @@ exports.handler = async (event) => {
             };
         }
 
+        const incomeId = uuidv4();
+
         const newIncome = await prisma.incomes.create({
             data: {
+                incomeId, // Use the generated UUID for incomeId
                 householdId,
                 name: name,
                 amount: new Decimal(amount), // Ensure the amount is correctly converted to Decimal
@@ -188,7 +192,7 @@ exports.handler = async (event) => {
             status: false,
             createdAt: new Date(),
             updatedAt: new Date(),
-            incomeId: newIncome.id, // Ensure incomeId is correctly referenced
+            incomeId: incomeId, // Ensure incomeId is correctly referenced
             isInitial: false,
             tags: name
         }));

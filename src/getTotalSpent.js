@@ -1,5 +1,6 @@
 const { PrismaClient } = require("@prisma/client");
 const { LambdaClient, InvokeCommand } = require("@aws-sdk/client-lambda");
+const { TextEncoder, TextDecoder } = require('util');
 
 const prisma = new PrismaClient();
 const lambda = new LambdaClient({ region: 'us-east-1' }); // Adjust the region as necessary
@@ -13,8 +14,8 @@ const CORS_HEADERS = {
 
 async function verifyToken(token) {
     const params = {
-        FunctionName: 'verifyToken', // Replace with your actual Lambda function name
-        Payload: new TextEncoder().encode(JSON.stringify({ token })),
+        FunctionName: 'verifyToken', // Ensure this is the correct Lambda function name
+        Payload: new TextEncoder().encode(JSON.stringify({ authToken: token })),
     };
 
     const command = new InvokeCommand(params);
@@ -26,7 +27,10 @@ async function verifyToken(token) {
         throw new Error(payload.errorMessage);
     }
 
-    return payload;
+    const nestedPayload = JSON.parse(payload.body);
+    console.log("verifyToken nested payload:", nestedPayload);
+
+    return nestedPayload;
 }
 
 exports.handler = async (event) => {
@@ -37,7 +41,18 @@ exports.handler = async (event) => {
     };
   }
 
-  const authToken = event.headers.Authorization;
+  let eventBody;
+  try {
+    eventBody = JSON.parse(event.body);
+  } catch (error) {
+    return {
+      statusCode: 400,
+      headers: CORS_HEADERS,
+      body: JSON.stringify({ message: "Invalid request body" }),
+    };
+  }
+
+  const authToken = eventBody.authToken;
 
   if (!authToken) {
     return {
@@ -47,12 +62,10 @@ exports.handler = async (event) => {
     };
   }
 
-  let uid;
-
-  // Verify the token
+  let userId;
   try {
-    const payload = await verifyToken(authToken);
-    uid = payload.uid;
+    const tokenPayload = await verifyToken(authToken);
+    userId = tokenPayload.user_id; // Assuming the payload includes user_id; adjust as necessary
   } catch (error) {
     console.error('Token verification failed:', error.message);
     return {
@@ -65,11 +78,11 @@ exports.handler = async (event) => {
     };
   }
 
-  if (!uid) {
+  if (!userId) {
     return {
       statusCode: 401,
       headers: CORS_HEADERS,
-      body: JSON.stringify({ message: 'Invalid token payload: missing uid' }),
+      body: JSON.stringify({ message: 'Invalid token payload: missing user_id' }),
     };
   }
 
@@ -81,7 +94,7 @@ exports.handler = async (event) => {
     // Fetch transactions for the current month with status true and transactionType 'debit' (case-insensitive)
     const transactions = await prisma.ledger.findMany({
       where: {
-        userUuid: uid,
+        householdId: eventBody.householdId,
         status: true,
         transactionType: {
           contains: 'debit',
@@ -97,7 +110,7 @@ exports.handler = async (event) => {
       },
     });
 
-    const totalSpent = transactions.reduce((sum, transaction) => sum + transaction.amount, 0);
+    const totalSpent = transactions.reduce((sum, transaction) => sum + Number(transaction.amount), 0);
 
     return {
       statusCode: 200,

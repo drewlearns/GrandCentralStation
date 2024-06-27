@@ -2,12 +2,18 @@ const { PrismaClient } = require('@prisma/client');
 const { LambdaClient, InvokeCommand } = require('@aws-sdk/client-lambda');
 
 const prisma = new PrismaClient();
-const lambda = new LambdaClient({ region: 'us-east-1' }); // Adjust the region as necessary
+const lambda = new LambdaClient({ region: 'us-east-1' });
+
+const CORS_HEADERS = {
+    'Access-Control-Allow-Origin': '*',
+    'Access-Control-Allow-Headers': 'Content-Type,Authorization',
+    'Access-Control-Allow-Methods': 'OPTIONS,POST',
+};
 
 async function verifyToken(token) {
     const params = {
-        FunctionName: 'verifyToken', // Replace with your actual Lambda function name
-        Payload: new TextEncoder().encode(JSON.stringify({ token })),
+        FunctionName: 'verifyToken',
+        Payload: new TextEncoder().encode(JSON.stringify({ authToken: token })),
     };
 
     const command = new InvokeCommand(params);
@@ -19,19 +25,19 @@ async function verifyToken(token) {
         throw new Error(payload.errorMessage);
     }
 
-    return payload;
+    const nestedPayload = JSON.parse(payload.body);
+
+    return nestedPayload;
 }
 
 async function getIncomeDetails(authToken, incomeId) {
-    // Verify the token
     const payload = await verifyToken(authToken);
-    const uid = payload.uid;
+    const userId = payload.user_id;
 
-    if (!uid) {
-        throw new Error('Invalid token payload: missing uid');
+    if (!userId) {
+        throw new Error('Invalid authorization token');
     }
 
-    // Fetch income details
     const income = await prisma.incomes.findUnique({
         where: {
             incomeId: incomeId,
@@ -49,50 +55,62 @@ async function getIncomeDetails(authToken, incomeId) {
     });
 
     if (!income) {
-        throw new Error(`Income with ID ${incomeId} not found`);
-    }
-
-    return income;
-}
-
-exports.handler = async (event) => {
-    const authToken = event.headers.Authorization;
-    const incomeId = event.pathParameters.incomeId;
-
-    const headers = {
-        'Access-Control-Allow-Origin': '*',
-        'Access-Control-Allow-Headers': 'Content-Type, Authorization',
-        'Access-Control-Allow-Methods': 'GET',
-    };
-
-    if (!authToken) {
         return {
-            statusCode: 401,
-            headers,
-            body: JSON.stringify({ error: 'Authorization token is missing' }),
+            statusCode: 404,
+            headers: CORS_HEADERS,
+            body: JSON.stringify({ message: `Income with ID ${incomeId} not found` }),
         };
     }
 
-    if (!incomeId) {
+    return {
+        statusCode: 200,
+        headers: CORS_HEADERS,
+        body: JSON.stringify(income),
+    };
+}
+
+exports.handler = async (event) => {
+    if (event.httpMethod === 'OPTIONS') {
         return {
-            statusCode: 400,
-            headers,
-            body: JSON.stringify({ error: 'incomeId is missing' }),
+            statusCode: 200,
+            headers: CORS_HEADERS,
         };
     }
 
     try {
-        const income = await getIncomeDetails(authToken, incomeId);
-        return {
-            statusCode: 200,
-            headers,
-            body: JSON.stringify(income),
-        };
+        const body = JSON.parse(event.body);
+        const authToken = body.authToken;
+        const incomeId = body.incomeId;
+
+        if (!authToken) {
+            return {
+                statusCode: 401,
+                headers: CORS_HEADERS,
+                body: JSON.stringify({ error: 'Authorization token is missing' }),
+            };
+        }
+
+        if (!incomeId) {
+            return {
+                statusCode: 400,
+                headers: CORS_HEADERS,
+                body: JSON.stringify({ error: 'incomeId is missing' }),
+            };
+        }
+
+        const response = await getIncomeDetails(authToken, incomeId);
+
+        return response;
     } catch (error) {
+        console.error("Error:", error);
+
         return {
             statusCode: 500,
-            headers,
-            body: JSON.stringify({ error: error.message }),
+            headers: CORS_HEADERS,
+            body: JSON.stringify({
+                success: false,
+                message: error.message,
+            }),
         };
     }
 };

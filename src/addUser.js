@@ -41,8 +41,6 @@ export const handler = async (event) => {
     }
 
     const { email, mailOptIn, firstName, lastName, uuid } = parsedBody;
-    const timestamp = new Date().toISOString();
-
     try {
         const existingUser = await prisma.user.findUnique({ where: { email } });
 
@@ -97,11 +95,12 @@ export const handler = async (event) => {
         console.log('Household member created:', newHouseholdMember);
 
         const paymentSourceId = uuidv4();
+        const epochTime = Date.now();
         const newPaymentSource = await prisma.paymentSource.create({
             data: {
                 sourceId: paymentSourceId,
                 householdId: newHousehold.householdId,
-                sourceName: `${firstName} ${lastName} Payment Source - ${timestamp}`,
+                sourceName: `default${epochTime}`,
                 sourceType: 'bank_account',
                 description: 'Default',
                 createdAt: new Date(),

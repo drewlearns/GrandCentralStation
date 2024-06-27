@@ -1,9 +1,7 @@
 const { S3Client, GetObjectCommand, HeadBucketCommand } = require("@aws-sdk/client-s3");
 const { getSignedUrl } = require("@aws-sdk/s3-request-presigner");
-const { LambdaClient, InvokeCommand } = require("@aws-sdk/client-lambda");
 
 const s3Client = new S3Client({ region: process.env.AWS_REGION });
-const lambdaClient = new LambdaClient({ region: process.env.AWS_REGION });
 
 const BUCKET = process.env.BUCKET;
 const corsHeaders = {
@@ -29,47 +27,15 @@ exports.handler = async (event) => {
       body = event;
     }
 
-    const { authorizationToken, filePath } = body;
+    const { filePath } = body;
 
-    if (!authorizationToken) {
+    if (!filePath) {
       return {
-        statusCode: 401,
+        statusCode: 400,
         headers: corsHeaders,
         body: JSON.stringify({
-          message: 'Access denied. No token provided.'
+          message: 'File path is required.'
         })
-      };
-    }
-
-    let username;
-
-    // Verify token and retrieve username
-    try {
-      const verifyTokenCommand = new InvokeCommand({
-        FunctionName: 'verifyToken',
-        Payload: JSON.stringify({ authorizationToken })
-      });
-
-      const verifyTokenResponse = await lambdaClient.send(verifyTokenCommand);
-      const payload = JSON.parse(new TextDecoder('utf-8').decode(verifyTokenResponse.Payload));
-
-      if (verifyTokenResponse.FunctionError) {
-        throw new Error(payload.errorMessage || 'Token verification failed.');
-      }
-
-      username = payload.username;
-      if (!username) {
-        throw new Error('Token verification did not return a valid username.');
-      }
-    } catch (error) {
-      console.error('Token verification failed:', error);
-      return {
-        statusCode: 401,
-        headers: corsHeaders,
-        body: JSON.stringify({
-          message: 'Invalid token.',
-          error: error.message,
-        }),
       };
     }
 
@@ -97,6 +63,7 @@ exports.handler = async (event) => {
 
     return {
       statusCode: 200,
+      headers: corsHeaders,
       body: JSON.stringify({
         message: "Presigned URL generated successfully",
         url: presignedUrl,
@@ -109,6 +76,7 @@ exports.handler = async (event) => {
 
     return {
       statusCode: 500,
+      headers: corsHeaders,
       body: JSON.stringify({
         message: "Error processing request",
         error: error.message,
