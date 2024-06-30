@@ -1,62 +1,22 @@
+// ... other imports
 const { PrismaClient } = require("@prisma/client");
-const { LambdaClient, InvokeCommand } = require("@aws-sdk/client-lambda");
-const Decimal = require('decimal.js');
-const { TextEncoder, TextDecoder } = require('util');
 
-const prisma = new PrismaClient();
-const lambdaClient = new LambdaClient({ region: process.env.AWS_REGION });
-const corsHeaders = {
-  'Content-Type': 'application/json',
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'Content-Type',
-  'Access-Control-Allow-Methods': 'OPTIONS,POST,GET'
-};
+async function getDefaultPaymentSource(householdId) {
+  const preference = await prisma.preferences.findUnique({
+    where: {
+      householdId_preferenceType: {
+        householdId: householdId,
+        preferenceType: 'defaultPaymentSource'
+      },
+    },
+  });
 
-async function verifyToken(token) {
-  const params = {
-    FunctionName: 'verifyToken', // Ensure this is the correct Lambda function name
-    Payload: new TextEncoder().encode(JSON.stringify({ authToken: token })),
-  };
-
-  const command = new InvokeCommand(params);
-  const response = await lambdaClient.send(command);
-
-  const payload = JSON.parse(new TextDecoder().decode(response.Payload));
-
-  if (payload.errorMessage) {
-    throw new Error(payload.errorMessage);
-  }
-
-  const nestedPayload = JSON.parse(payload.body);
-  console.log("verifyToken nested payload:", nestedPayload);
-
-  return nestedPayload;
+  return preference ? preference.preferenceValue : null;
 }
 
 exports.handler = async (event) => {
-  const { authToken, householdId } = JSON.parse(event.body);
+  // ... other code
 
-  if (!authToken) {
-    return {
-      statusCode: 401,
-      headers: corsHeaders,
-      body: JSON.stringify({
-        message: 'Access denied. No token provided.'
-      })
-    };
-  }
-
-  if (!householdId) {
-    return {
-      statusCode: 400,
-      headers: corsHeaders,
-      body: JSON.stringify({
-        message: 'No householdId provided.'
-      })
-    };
-  }
-
-  let userId;
   try {
     const tokenPayload = await verifyToken(authToken);
     userId = tokenPayload.user_id;
@@ -72,7 +32,6 @@ exports.handler = async (event) => {
     };
   }
 
-  // Check if user is part of the household
   try {
     const householdMembers = await prisma.householdMembers.findMany({
       where: {
@@ -95,28 +54,34 @@ exports.handler = async (event) => {
       };
     }
 
-    // Proceed with the logic to fetch incomes and calculate safe to spend amount
     const today = new Date();
-    today.setUTCHours(23, 59, 59, 59); // Normalize today's date to midnight UTC
-    console.log(`Today's date: ${today}`);
+    today.setUTCHours(23, 59, 59, 59);
 
-    // Fetch all incomes for the household
-    console.log(`Fetching incomes for householdId: ${householdId}`);
+    const defaultPaymentSourceId = await getDefaultPaymentSource(householdId);
+    if (!defaultPaymentSourceId) {
+      return {
+        statusCode: 400,
+        headers: corsHeaders,
+        body: JSON.stringify({
+          message: 'Default payment source not set.'
+        }),
+      };
+    }
+
     const incomes = await prisma.incomes.findMany({
       where: { householdId: householdId },
     });
 
-    console.log(`Incomes found: ${JSON.stringify(incomes)}`);
-
     if (incomes.length === 0) {
       return {
-        statusCode: 404,
+        statusCode: 200,
         headers: corsHeaders,
-        body: JSON.stringify({ message: "No incomes found for the household." }),
-      };
+        body: JSON.stringify({
+          safeToSpend: 0.0,
+          nextPayday: "n/a",
+        }),      };
     }
 
-    // Find the next payday
     let nextPayday = null;
     for (const income of incomes) {
       const frequency = income.frequency.toLowerCase();
@@ -152,14 +117,14 @@ exports.handler = async (event) => {
       };
     }
 
-    // Fetch ledger entries up to the end of the day before the next payday
     const dayBeforeNextPayday = new Date(nextPayday);
     dayBeforeNextPayday.setDate(nextPayday.getDate() - 1);
-    dayBeforeNextPayday.setUTCHours(23, 59, 59, 999); // Set to the end of the previous day
+    dayBeforeNextPayday.setUTCHours(23, 59, 59, 999);
 
     const ledgerEntries = await prisma.ledger.findMany({
       where: {
         householdId: householdId,
+        paymentSourceId: defaultPaymentSourceId,
         transactionDate: {
           gte: today,
           lte: dayBeforeNextPayday,
@@ -167,15 +132,15 @@ exports.handler = async (event) => {
       },
       orderBy: [
         { transactionDate: 'asc' },
-        { createdAt: 'asc' } // Ensure the entries are ordered by both date and creation time
+        { createdAt: 'asc' }
       ],
     });
 
     if (ledgerEntries.length === 0) {
-      // Fetch the most recent ledger entry before today if no ledger entries are found in the period
       const recentLedgerEntry = await prisma.ledger.findFirst({
         where: {
           householdId: householdId,
+          paymentSourceId: defaultPaymentSourceId,
           transactionDate: {
             lte: today,
           },
@@ -194,7 +159,6 @@ exports.handler = async (event) => {
       };
     }
 
-    // Find the lowest running total between today and the end of the day before the next payday
     const lowestRunningTotal = ledgerEntries.reduce((lowest, entry) => {
       const runningTotal = new Decimal(entry.runningTotal);
       return runningTotal.lessThan(lowest) ? runningTotal : lowest;

@@ -6,7 +6,7 @@ const lambda = new LambdaClient({ region: 'us-east-1' });
 
 const CORS_HEADERS = {
     'Access-Control-Allow-Origin': '*', // Adjust this to your specific origin if needed
-    'Access-Control-Allow-Methods': 'OPTIONS,PUT',
+    'Access-Control-Allow-Methods': 'OPTIONS,POST',
     'Access-Control-Allow-Headers': 'Content-Type,Authorization',
 };
 
@@ -56,7 +56,7 @@ exports.handler = async (event) => {
         };
     }
 
-    const { authToken, notificationId, title, message, dueDate } = body;
+    const { authToken, notificationId } = body;
 
     if (!authToken) {
         console.error('Authorization token is missing');
@@ -78,27 +78,39 @@ exports.handler = async (event) => {
 
         console.log('Verified user ID:', userUuid);
 
-        // Update the notification
-        const updatedNotification = await prisma.notification.update({
+        // Fetch the notification
+        const notification = await prisma.notification.findUnique({
             where: { notificationId },
-            data: {
-                userUuid,
-                title,
-                message,
-                dueDate: new Date(dueDate),
-                updatedAt: new Date(),
-            },
         });
 
-        console.log('Updated notification:', updatedNotification);
+        if (!notification) {
+            console.error('Notification not found');
+            return {
+                statusCode: 404,
+                headers: CORS_HEADERS,
+                body: JSON.stringify({ error: 'Notification not found' }),
+            };
+        }
+
+        console.log('Fetched notification:', notification);
+
+        // Ensure the user requesting the notification is the owner
+        if (notification.userUuid !== userUuid) {
+            console.error('User is not authorized to access this notification');
+            return {
+                statusCode: 403,
+                headers: CORS_HEADERS,
+                body: JSON.stringify({ error: 'User is not authorized to access this notification' }),
+            };
+        }
 
         return {
             statusCode: 200,
             headers: CORS_HEADERS,
-            body: JSON.stringify(updatedNotification),
+            body: JSON.stringify(notification),
         };
     } catch (error) {
-        console.error('Error updating notification:', error.message);
+        console.error('Error fetching notification:', error.message);
         return {
             statusCode: 500,
             headers: CORS_HEADERS,

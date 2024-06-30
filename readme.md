@@ -213,3 +213,78 @@ END $$;
 |------|-------------|
 | <a name="output_tunnel_command"></a> [tunnel\_command](#output\_tunnel\_command) | run this before trying to connect with pgadmin |
 <!-- END_TF_DOCS -->
+
+# STRIPEWEBHOOK
+Step-by-Step Guide to Configure API Gateway
+Create a New API or Use an Existing One:
+
+Go to the API Gateway console.
+Create a new API or select an existing one.
+Create a Resource and Method:
+
+Create a new resource if you don't already have one.
+Add a method (e.g., POST) to the resource.
+Integration Request Setup:
+
+In the Method Execution page, click on the Integration Request.
+Ensure that the Integration type is set to Lambda Function.
+Check the box for Use Lambda Proxy integration.
+Mapping Template Configuration:
+
+Click on Mapping Templates.
+Add a new mapping template for application/json.
+In the template input box, use the following code to ensure the raw body is passed as-is:
+
+```json
+#set($inputRoot = $input.path('$'))
+{
+  "body": "$util.escapeJavaScript($input.body).replaceAll("\\'", "'")",
+  "headers": {
+    #foreach($header in $input.params().header.keySet())
+    "$header": "$util.escapeJavaScript($input.params().header.get($header))"
+    #if($foreach.hasNext),#end
+    #end
+  },
+  "queryStringParameters": {
+    #foreach($queryParam in $input.params().querystring.keySet())
+    "$queryParam": "$util.escapeJavaScript($input.params().querystring.get($queryParam))"
+    #if($foreach.hasNext),#end
+    #end
+  },
+  "pathParameters": {
+    #foreach($pathParam in $input.params().path.keySet())
+    "$pathParam": "$util.escapeJavaScript($input.params().path.get($pathParam))"
+    #if($foreach.hasNext),#end
+    #end
+  },
+  "stageVariables": {
+    #foreach($stageVariable in $stageVariables.keySet())
+    "$stageVariable": "$util.escapeJavaScript($stageVariables.get($stageVariable))"
+    #if($foreach.hasNext),#end
+    #end
+  },
+  "requestContext": {
+    "accountId": "$context.identity.accountId",
+    "resourceId": "$context.resourceId",
+    "stage": "$context.stage",
+    "requestId": "$context.requestId",
+    "identity": {
+      "cognitoIdentityPoolId": "$context.identity.cognitoIdentityPoolId",
+      "accountId": "$context.identity.accountId",
+      "cognitoIdentityId": "$context.identity.cognitoIdentityId",
+      "caller": "$context.identity.caller",
+      "sourceIp": "$context.identity.sourceIp",
+      "principalOrgId": "$context.identity.principalOrgId",
+      "accessKey": "$context.identity.accessKey",
+      "cognitoAuthenticationType": "$context.identity.cognitoAuthenticationType",
+      "cognitoAuthenticationProvider": "$context.identity.cognitoAuthenticationProvider",
+      "userArn": "$context.identity.userArn",
+      "userAgent": "$context.identity.userAgent",
+      "user": "$context.identity.user"
+    },
+    "resourcePath": "$context.resourcePath",
+    "httpMethod": "$context.httpMethod",
+    "apiId": "$context.apiId"
+  }
+}
+```

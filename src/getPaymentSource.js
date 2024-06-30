@@ -1,5 +1,6 @@
 const { PrismaClient } = require('@prisma/client');
 const { LambdaClient, InvokeCommand } = require('@aws-sdk/client-lambda');
+const { TextDecoder } = require('util');
 
 const prisma = new PrismaClient();
 const lambda = new LambdaClient({ region: 'us-east-1' });
@@ -32,6 +33,19 @@ async function verifyToken(token) {
     return payload;
 }
 
+async function getDefaultPaymentSource(householdId) {
+    const preference = await prisma.preferences.findUnique({
+        where: {
+            householdId_preferenceType: {
+                householdId: householdId,
+                preferenceType: 'defaultPaymentSource',
+            },
+        },
+    });
+
+    return preference ? preference.preferenceValue : null;
+}
+
 async function getPaymentSources(authToken, householdId) {
     // Verify the token
     const payload = await verifyToken(authToken);
@@ -40,6 +54,9 @@ async function getPaymentSources(authToken, householdId) {
     if (!uid) {
         throw new Error('Invalid token payload: missing uid');
     }
+
+    // Fetch the default payment source for the household
+    const defaultPaymentSourceId = await getDefaultPaymentSource(householdId);
 
     // Fetch payment sources associated with the householdId
     const paymentSources = await prisma.paymentSource.findMany({
@@ -52,15 +69,9 @@ async function getPaymentSources(authToken, householdId) {
         },
     });
 
-    // Separate the payment sources into two arrays and initialize running totals
-    const paymentSourceIDs = [];
-    const paymentSourceNames = [];
-    const runningTotals = [];
-
+    const response = [];
+    
     for (const source of paymentSources) {
-        paymentSourceIDs.push(source.sourceId);
-        paymentSourceNames.push(source.sourceName);
-
         // Fetch the most recent ledger entry up to today's date for each payment source
         const latestLedger = await prisma.ledger.findFirst({
             where: {
@@ -77,11 +88,17 @@ async function getPaymentSources(authToken, householdId) {
             },
         });
 
-        // Store the running total as a float or null if no entries found
-        runningTotals.push(latestLedger ? parseFloat(latestLedger.runningTotal) : null);
+        const runningTotal = latestLedger ? parseFloat(latestLedger.runningTotal) : null;
+
+        response.push({
+            sourceId: source.sourceId,
+            sourceName: source.sourceName,
+            runningTotal: runningTotal,
+            isDefault: source.sourceId === defaultPaymentSourceId,
+        });
     }
 
-    return { paymentSourceIDs, paymentSourceNames, runningTotals };
+    return response;
 }
 
 exports.handler = async (event) => {

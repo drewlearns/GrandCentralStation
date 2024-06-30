@@ -63,6 +63,8 @@ export const handler = async (event) => {
                 createdAt: new Date(),
                 updatedAt: new Date(),
                 confirmedEmail: false,
+                subscriptionStatus: 'trial',
+                subscriptionEndDate: new Date(Date.now() + 14 * 24 * 60 * 60 * 1000),
             },
         });
         console.log('User created:', newUser);
@@ -108,6 +110,19 @@ export const handler = async (event) => {
             },
         });
         console.log('Payment source created:', newPaymentSource);
+
+        // Set the newly created payment source as the default
+        await prisma.preferences.create({
+            data: {
+                preferenceId: uuidv4(),
+                householdId: newHousehold.householdId,
+                preferenceType: 'defaultPaymentSource',
+                preferenceValue: newPaymentSource.sourceId,
+                createdAt: new Date(),
+                updatedAt: new Date(),
+            },
+        });
+        console.log('Default payment source set:', newPaymentSource.sourceId);
 
         const ledgerId = uuidv4();
         const newLedger = await prisma.ledger.create({

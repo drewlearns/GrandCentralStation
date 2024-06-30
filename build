@@ -48,7 +48,7 @@ process_file() {
   cp -r node_modules/uuid "$TMP_DIR/node_modules/uuid"
 
   # Copy all required node modules
-  modules=("date-fns" "whatwg-url" "node-fetch" "@smithy" "tslib" "fast-xml-parser" "strnum" "axios" "follow-redirects" "form-data" "proxy-from-env" "combined-stream" "delayed-stream" "mime-types" "mime-db" "asynckit" "@aws-crypto" "jsonwebtoken" "jws" "safe-buffer" "jwa" "buffer-equal-constant-time" "ecdsa-sig-formatter" "ms" "lodash" "lodash.includes" "lodash.isboolean" "lodash.isinteger" "lodash.isnumber" "lodash.isplainobject" "lodash.once" "lodash.isstring" "jwks-rsa" "debug" "jose" "lru-memoizer" "lodash.clonedeep" "limiter" "json2csv" "@streamparser/json" "@aws-sdk/client-cognito-identity-provider" "decimal.js" "busboy" "streamsearch" "lodash.get" "stripe")
+  modules=("date-fns" "whatwg-url" "node-fetch" "@smithy" "tslib" "fast-xml-parser" "strnum" "axios" "follow-redirects" "form-data" "proxy-from-env" "combined-stream" "delayed-stream" "mime-types" "mime-db" "asynckit" "@aws-crypto" "jsonwebtoken" "jws" "safe-buffer" "jwa" "buffer-equal-constant-time" "ecdsa-sig-formatter" "ms" "lodash" "lodash.includes" "lodash.isboolean" "lodash.isinteger" "lodash.isnumber" "lodash.isplainobject" "lodash.once" "lodash.isstring" "jwks-rsa" "debug" "jose" "lru-memoizer" "lodash.clonedeep" "limiter" "json2csv" "@streamparser/json" "@aws-sdk/client-cognito-identity-provider" "decimal.js" "busboy" "streamsearch" "lodash.get" "stripe" "qs" "side-channel" "get-intrinsic" "es-errors" "has-symbols" "has-proto" "function-bind" "hasown" "call-bind" "set-function-length" "define-data-property" "es-define-property" "gopd" "has-property-descriptors" "object-inspect")
 
   for module in "${modules[@]}"; do
     if [ -d "node_modules/$module" ]; then

@@ -1,15 +1,52 @@
-const stripe = require('stripe')('sk_test_...');
+const { PrismaClient } = require('@prisma/client');
+const prisma = new PrismaClient();
+const stripe = require('stripe')('sk_test_51OKoUuJMeGUbw0WodKTGYm9ICvEUEy14E2vjIci3XVvDQN0xTK6Yg0mOiCDNIRXYCrlxZT1BGKao12HsHudDXANE00hMkf8i1x');
+const endpointSecret = 'whsec_vhdfIsguzsGwXZ2xFhLZX8Kya3PjcWBK';
 
-// This is your Stripe CLI webhook secret for testing your endpoint locally.
-const endpointSecret = "whsec_a20942aafc242052a8973ad80b4914eb969d8558b61885fde8665857fe9239f8";
+async function updateUserSubscriptionStatus(stripeCustomerId, subscriptionStatus, endDate = null) {
+  try {
+    const user = await prisma.user.findUnique({
+      where: {
+        uuid: stripeCustomerId,
+      },
+    });
 
-exports.handler = async (event, context) => {
-  const sig = event.headers['stripe-signature'];
+    if (!user) {
+      console.error('User not found in database');
+      return;
+    }
+
+    const dataToUpdate = {
+      subscriptionStatus,
+    };
+
+    if (endDate) {
+      dataToUpdate.subscriptionEndDate = endDate;
+    }
+
+    const updatedUser = await prisma.user.update({
+      where: {
+        uuid: stripeCustomerId,
+      },
+      data: dataToUpdate,
+    });
+
+    console.log('User subscription status updated successfully', updatedUser);
+  } catch (error) {
+    console.error('Error updating user subscription status:', error);
+  }
+}
+
+exports.handler = async (event) => {
+  const headers = event.headers || {};
+
+  const sig = headers['Stripe-Signature'] || headers['stripe-signature'];
+  const rawBody = event.body;
 
   let stripeEvent;
 
   try {
-    stripeEvent = stripe.webhooks.constructEvent(event.body, sig, endpointSecret);
+    stripeEvent = stripe.webhooks.constructEvent(rawBody, sig, endpointSecret);
   } catch (err) {
     console.error(`Webhook Error: ${err.message}`);
     return {
@@ -18,42 +55,78 @@ exports.handler = async (event, context) => {
     };
   }
 
-  // Handle the event
+  console.log(`Received event: ${stripeEvent.type}`);
+  console.log(`Event data: ${JSON.stringify(stripeEvent.data.object)}`);
+
+  const handleSubscriptionEvent = async (subscription, status) => {
+    const endDate = status === 'active' ? new Date(subscription.current_period_end * 1000) : null;
+    await updateUserSubscriptionStatus(subscription.customer, status, endDate);
+  };
+
   switch (stripeEvent.type) {
-    case 'checkout.session.async_payment_failed':
-      const checkoutSessionAsyncPaymentFailed = stripeEvent.data.object;
-      // Then define and call a function to handle the event checkout.session.async_payment_failed
+    case 'customer.subscription.updated':
+    case 'customer.subscription.created':
+    case 'customer.subscription.trial_will_end':
+    case 'customer.subscription.pending_update_applied':
+    case 'customer.subscription.resumed':
+    case 'customer.subscription.pending_update_expired':
+    case 'customer.subscription.paused':
+    case 'customer.subscription.deleted':
+      const subscription = stripeEvent.data.object;
+      let subscriptionStatus = 'expired';
+      if (subscription.status === 'trialing') {
+        subscriptionStatus = 'trial';
+      } else if (subscription.status === 'active') {
+        subscriptionStatus = 'active';
+      } else if (subscription.status === 'canceled' || subscription.status === 'incomplete_expired') {
+        subscriptionStatus = 'cancelled';
+      }
+      await handleSubscriptionEvent(subscription, subscriptionStatus);
       break;
-    case 'checkout.session.async_payment_succeeded':
-      const checkoutSessionAsyncPaymentSucceeded = stripeEvent.data.object;
-      // Then define and call a function to handle the event checkout.session.async_payment_succeeded
+
+    case 'charge.succeeded':
+      const charge = stripeEvent.data.object;
+      if (charge.customer) {
+        let endDate = null;
+        if (charge.amount === 299) {
+          endDate = new Date();
+          endDate.setMonth(endDate.getMonth() + 1);
+          await updateUserSubscriptionStatus(charge.customer, 'active', endDate);
+        } else if (charge.amount === 2999) {
+          endDate = new Date();
+          endDate.setFullYear(endDate.getFullYear() + 1);
+          await updateUserSubscriptionStatus(charge.customer, 'active', endDate);
+        } else if (charge.amount === 14999) {
+          endDate = new Date();
+          endDate.setFullYear(endDate.getFullYear() + 100);
+          await updateUserSubscriptionStatus(charge.customer, 'active', endDate);
+        }
+      }
       break;
-    case 'checkout.session.completed':
-      const checkoutSessionCompleted = stripeEvent.data.object;
-      // Then define and call a function to handle the event checkout.session.completed
-      break;
-    case 'checkout.session.expired':
-      const checkoutSessionExpired = stripeEvent.data.object;
-      // Then define and call a function to handle the event checkout.session.expired
-      break;
-    case 'entitlements.active_entitlement_summary.updated':
-      const entitlementsActiveEntitlementSummaryUpdated = stripeEvent.data.object;
-      // Then define and call a function to handle the event entitlements.active_entitlement_summary.updated
-      break;
+
+    case 'charge.refunded':
+    case 'charge.expired':
+    case 'charge.failed':
+    case 'charge.pending':
+    case 'charge.updated':
+    case 'charge.captured':
+    case 'charge.dispute.closed':
+    case 'charge.dispute.created':
+    case 'charge.dispute.funds_reinstated':
+    case 'charge.dispute.funds_withdrawn':
+    case 'charge.dispute.updated':
+    case 'charge.refund.updated':
     case 'refund.created':
-      const refundCreated = stripeEvent.data.object;
-      // Then define and call a function to handle the event refund.created
-      break;
     case 'refund.updated':
-      const refundUpdated = stripeEvent.data.object;
-      // Then define and call a function to handle the event refund.updated
+      const chargeEvent = stripeEvent.data.object;
+      if (chargeEvent.customer) {
+        await updateUserSubscriptionStatus(chargeEvent.customer, 'expired');
+      }
       break;
-    // ... handle other event types
     default:
       console.log(`Unhandled event type ${stripeEvent.type}`);
   }
 
-  // Return a 200 response to acknowledge receipt of the event
   return {
     statusCode: 200,
     body: JSON.stringify({ received: true }),

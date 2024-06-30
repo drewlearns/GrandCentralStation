@@ -116,9 +116,7 @@ exports.handler = async (event) => {
                 newUserUuid = await invokeAddUserLambda({
                     username,
                     email: invitedUserEmail,
-                    password,
                     mailOptIn,
-                    phoneNumber,
                     firstName,
                     lastName,
                 });

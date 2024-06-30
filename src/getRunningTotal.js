@@ -68,7 +68,6 @@ exports.handler = async (event) => {
     };
   }
 
-  let updatedBy;
   let tokenValid = false;
 
   // Attempt to verify the token

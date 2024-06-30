@@ -173,14 +173,11 @@ async function main() {
         amount: 1500,
         dayOfMonth: 1,
         frequency: 'monthly',
-        isDebt: false,
         description: 'Monthly apartment rent',
         status: false,
         url: 'http://example.com',
         username: 'landlord',
         password: 'password',
-        interestRate: 0.0,
-        cashBack: 0.0,
         createdAt: new Date(),
         updatedAt: new Date()
       }
@@ -195,14 +192,11 @@ async function main() {
         amount: 60,
         dayOfMonth: 1,
         frequency: 'monthly',
-        isDebt: false,
         description: 'Monthly internet bill',
         status: false,
         url: 'http://example.com',
         username: 'isp',
         password: 'password',
-        interestRate: 0.0,
-        cashBack: 0.0,
         createdAt: new Date(),
         updatedAt: new Date()
       }
