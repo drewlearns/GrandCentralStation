@@ -34,12 +34,10 @@ async function verifyToken(token) {
 }
 
 async function getDefaultPaymentSource(householdId) {
-    const preference = await prisma.preferences.findUnique({
+    const preference = await prisma.preferences.findFirst({
         where: {
-            householdId_preferenceType: {
-                householdId: householdId,
-                preferenceType: 'defaultPaymentSource',
-            },
+            householdId: householdId,
+            preferenceType: 'defaultPaymentSource',
         },
     });
 
@@ -69,7 +67,10 @@ async function getPaymentSources(authToken, householdId) {
         },
     });
 
-    const response = [];
+    const paymentSourceIds = [];
+    const paymentSourceNames = [];
+    const runningTotals = [];
+    const isDefaultArray = [];
     
     for (const source of paymentSources) {
         // Fetch the most recent ledger entry up to today's date for each payment source
@@ -90,15 +91,18 @@ async function getPaymentSources(authToken, householdId) {
 
         const runningTotal = latestLedger ? parseFloat(latestLedger.runningTotal) : null;
 
-        response.push({
-            sourceId: source.sourceId,
-            sourceName: source.sourceName,
-            runningTotal: runningTotal,
-            isDefault: source.sourceId === defaultPaymentSourceId,
-        });
+        paymentSourceIds.push(source.sourceId);
+        paymentSourceNames.push(source.sourceName);
+        runningTotals.push(runningTotal);
+        isDefaultArray.push(source.sourceId === defaultPaymentSourceId);
     }
 
-    return response;
+    return {
+        paymentSourceIds,
+        paymentSourceNames,
+        runningTotals,
+        isDefault: isDefaultArray,
+    };
 }
 
 exports.handler = async (event) => {

@@ -5,6 +5,7 @@ resource "aws_lambda_function" "auto_notifications" {
   role          = aws_iam_role.lambda_exec.arn
   handler       = "autoNotifications.handler"
   runtime       = "nodejs20.x"
+  timeout = 840
   environment {
     variables = {
       TPPB_DOMAIN  = var.domain_name
