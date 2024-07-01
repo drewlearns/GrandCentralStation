@@ -4,122 +4,165 @@ const { LambdaClient, InvokeCommand } = require('@aws-sdk/client-lambda');
 const prisma = new PrismaClient();
 const lambda = new LambdaClient({ region: process.env.AWS_REGION });
 
-const corsHeaders = {
-    'Content-Type': 'application/json',
-    'Access-Control-Allow-Origin': '*',
+const CORS_HEADERS = {
+    'Access-Control-Allow-Origin': '*', // Adjust this to your specific origin if needed
+    'Access-Control-Allow-Methods': 'OPTIONS,POST',
     'Access-Control-Allow-Headers': 'Content-Type,Authorization',
-    'Access-Control-Allow-Methods': 'OPTIONS,DELETE'
 };
 
 async function verifyToken(token) {
+    console.log("Verifying token:", token);
     const params = {
         FunctionName: 'verifyToken', // Replace with your actual Lambda function name
-        Payload: new TextEncoder().encode(JSON.stringify({ token })),
+        Payload: new TextEncoder().encode(JSON.stringify({ authToken: token })),
     };
 
-    const command = new InvokeCommand(params);
-    const response = await lambda.send(command);
+    try {
+        const command = new InvokeCommand(params);
+        const response = await lambda.send(command);
+        const payload = JSON.parse(new TextDecoder().decode(response.Payload));
 
-    const payload = JSON.parse(new TextDecoder().decode(response.Payload));
+        console.log("verifyToken response payload:", payload);
 
-    if (payload.errorMessage) {
-        throw new Error(payload.errorMessage);
+        if (payload.errorMessage) {
+            throw new Error(payload.errorMessage);
+        }
+
+        const nestedPayload = JSON.parse(payload.body);
+
+        console.log("verifyToken nested payload:", nestedPayload);
+
+        return nestedPayload;
+    } catch (error) {
+        console.error("Error verifying token:", error);
+        throw new Error('Invalid authorization token');
     }
-
-    return payload.isValid;
 }
 
 async function invokeCalculateRunningTotal(householdId) {
     const params = {
-        FunctionName: 'calculateRunningTotal', // Replace with your actual Lambda function name
-        Payload: new TextEncoder().encode(JSON.stringify({
-            householdId: householdId,
-            paymentSourceId: null // Adjust based on your actual payment source logic
-        })),
+        FunctionName: 'calculateRunningTotal',
+        Payload: JSON.stringify({ householdId }),
     };
 
     const command = new InvokeCommand(params);
-    const response = await lambda.send(command);
+    try {
+        const response = await lambda.send(command);
+        const payload = JSON.parse(new TextDecoder().decode(response.Payload));
 
-    const payload = JSON.parse(new TextDecoder().decode(response.Payload));
+        if (payload.statusCode !== 200) {
+            throw new Error(`Error invoking calculateRunningTotal: ${payload.message || 'unknown error'}`);
+        }
 
-    if (payload.statusCode !== 200) {
-        throw new Error(`Error invoking calculateRunningTotal: ${payload.message}`);
+        return payload.message;
+    } catch (error) {
+        console.error('Error invoking calculateRunningTotal:', error);
+        throw new Error(`Error invoking calculateRunningTotal: ${error.message}`);
     }
-
-    return payload.message;
 }
 
 exports.handler = async (event) => {
     if (event.httpMethod === 'OPTIONS') {
         return {
             statusCode: 200,
-            headers: corsHeaders,
+            headers: CORS_HEADERS,
         };
     }
 
-    const { authToken, householdId, incomeId } = JSON.parse(event.body);
+    let parsedBody;
+    try {
+        parsedBody = JSON.parse(event.body);
+    } catch (error) {
+        console.error('Error parsing request body:', error);
+        return {
+            statusCode: 400,
+            headers: CORS_HEADERS,
+            body: JSON.stringify({ message: 'Invalid request body' }),
+        };
+    }
 
-    // Verify the token
-    const isValid = await verifyToken(authToken);
-    if (!isValid) {
+    const { authToken, incomeId } = parsedBody;
+
+    if (!authToken) {
         return {
             statusCode: 401,
-            headers: corsHeaders,
-            body: JSON.stringify({ message: 'Invalid authorization token' }),
+            headers: CORS_HEADERS,
+            body: JSON.stringify({ error: 'Unauthorized: No token provided' }),
+        };
+    }
+
+    if (!incomeId) {
+        return {
+            statusCode: 400,
+            headers: CORS_HEADERS,
+            body: JSON.stringify({ error: 'incomeId is missing' }),
         };
     }
 
     try {
-        // Fetch the income to be deleted
-        const income = await prisma.incomes.findUnique({
-            where: { incomeId: incomeId },
-            include: { ledger: true },
+        // Verify the token
+        const user = await verifyToken(authToken);
+        const uid = user.user_id;
+
+        if (!uid) {
+            throw new Error('Invalid token payload: missing user_id');
+        }
+
+        // Retrieve the existing income
+        const existingIncome = await prisma.incomes.findUnique({
+            where: { incomeId },
         });
 
-        if (!income || income.householdId !== householdId) {
+        if (!existingIncome) {
             return {
                 statusCode: 404,
-                headers: corsHeaders,
-                body: JSON.stringify({ message: 'Income not found or does not belong to the specified household' }),
+                headers: CORS_HEADERS,
+                body: JSON.stringify({ error: 'Income not found' }),
             };
         }
 
-        // Delete associated ledger entries
+        const householdId = existingIncome.householdId;
+
+        // Get today's date at midnight
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+
+        // Delete ledger entries with transactionDate on or after today's date
         await prisma.ledger.deleteMany({
-            where: { incomeId: incomeId },
+            where: {
+                incomeId: incomeId,
+                transactionDate: {
+                    gte: today
+                }
+            },
         });
 
         // Delete the income
         await prisma.incomes.delete({
-            where: { incomeId: incomeId },
+            where: { incomeId },
         });
 
         // Invoke calculateRunningTotal Lambda function
+        console.log('Invoking calculateRunningTotal with householdId:', householdId);
         await invokeCalculateRunningTotal(householdId);
 
         return {
             statusCode: 200,
-            headers: corsHeaders,
-            body: JSON.stringify({ message: 'Income deleted successfully' }),
+            headers: CORS_HEADERS,
+            body: JSON.stringify({
+                message: 'Income deleted successfully',
+                incomeId: incomeId,
+            }),
         };
     } catch (error) {
         console.error('Error deleting income:', error);
+
         return {
             statusCode: 500,
-            headers: corsHeaders,
-            body: JSON.stringify({ message: 'Error deleting income', error: error.message }),
+            headers: CORS_HEADERS,
+            body: JSON.stringify({ error: 'Internal server error' }),
         };
     } finally {
         await prisma.$disconnect();
     }
 };
-
-// Example usage:
-// const authToken = 'your-auth-token';
-// const householdId = 'your-household-id';
-// const incomeId = 'your-income-id';
-
-// deleteIncome(authToken, householdId, incomeId)
-//     .then(response => console.log(response))
-//     .catch(error => console.error('Error deleting income:', error));

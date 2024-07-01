@@ -12,35 +12,71 @@ const CORS_HEADERS = {
 };
 
 async function verifyToken(token) {
+    console.log("Verifying token:", token);
     const params = {
         FunctionName: 'verifyToken', // Replace with your actual Lambda function name
-        Payload: new TextEncoder().encode(JSON.stringify({ token })),
+        Payload: new TextEncoder().encode(JSON.stringify({ authToken: token })),
     };
 
-    const command = new InvokeCommand(params);
-    const response = await lambda.send(command);
+    try {
+        const command = new InvokeCommand(params);
+        const response = await lambda.send(command);
+        const payload = JSON.parse(new TextDecoder().decode(response.Payload));
 
-    const payload = JSON.parse(new TextDecoder().decode(response.Payload));
+        console.log("verifyToken response payload:", payload);
 
-    if (payload.errorMessage) {
-        throw new Error(payload.errorMessage);
+        if (payload.errorMessage) {
+            throw new Error(payload.errorMessage);
+        }
+
+        const nestedPayload = JSON.parse(payload.body);
+
+        console.log("verifyToken nested payload:", nestedPayload);
+
+        return nestedPayload;
+    } catch (error) {
+        console.error("Error verifying token:", error);
+        throw new Error('Invalid authorization token');
     }
-
-    return payload.isValid;
 }
 
 async function getCategories(authToken, householdId) {
     // Verify the token
-    const isValid = await verifyToken(authToken);
-    if (!isValid) {
-        throw new Error('Invalid authorization token');
+    const user = await verifyToken(authToken);
+    const uid = user.user_id;
+
+    if (!uid) {
+        throw new Error('Invalid token payload: missing user_id');
     }
 
-    // Fetch categories and their transaction totals
-    const categories = await prisma.ledger.groupBy({
+    const now = new Date();
+    const startOfYear = new Date(now.getFullYear(), 0, 1);
+    const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+
+    // Fetch year-to-date categories and their transaction totals
+    const yearToDateCategories = await prisma.ledger.groupBy({
         by: ['category'],
         where: {
             householdId,
+            transactionDate: {
+                gte: startOfYear,
+                lte: now,
+            },
+        },
+        _sum: {
+            amount: true,
+        },
+    });
+
+    // Fetch month-to-date categories and their transaction totals
+    const monthToDateCategories = await prisma.ledger.groupBy({
+        by: ['category'],
+        where: {
+            householdId,
+            transactionDate: {
+                gte: startOfMonth,
+                lte: now,
+            },
         },
         _sum: {
             amount: true,
@@ -48,12 +84,17 @@ async function getCategories(authToken, householdId) {
     });
 
     // Format the results
-    const result = categories.map(category => ({
+    const yearToDateResult = yearToDateCategories.map(category => ({
         category: category.category,
-        totalAmount: new Decimal(category._sum.amount).toFixed(2),
+        totalAmount: parseFloat(new Decimal(category._sum.amount).toFixed(2)),
     }));
 
-    return result;
+    const monthToDateResult = monthToDateCategories.map(category => ({
+        category: category.category,
+        totalAmount: parseFloat(new Decimal(category._sum.amount).toFixed(2)),
+    }));
+
+    return { yearToDate: yearToDateResult, monthToDate: monthToDateResult };
 }
 
 exports.handler = async (event) => {
@@ -64,8 +105,19 @@ exports.handler = async (event) => {
         };
     }
 
-    const authToken = event.headers.Authorization;
-    const householdId = event.pathParameters.householdId;
+    let parsedBody;
+    try {
+        parsedBody = JSON.parse(event.body);
+    } catch (error) {
+        console.error('Error parsing request body:', error);
+        return {
+            statusCode: 400,
+            headers: CORS_HEADERS,
+            body: JSON.stringify({ message: 'Invalid request body' }),
+        };
+    }
+
+    const { authToken, householdId } = parsedBody;
 
     if (!authToken) {
         return {
@@ -91,10 +143,13 @@ exports.handler = async (event) => {
             body: JSON.stringify(categories),
         };
     } catch (error) {
+        console.error('Error getting categories:', error);
         return {
             statusCode: 500,
             headers: CORS_HEADERS,
-            body: JSON.stringify({ error: error.message }),
+            body: JSON.stringify({ error: 'Internal server error' }),
         };
+    } finally {
+        await prisma.$disconnect();
     }
 };
