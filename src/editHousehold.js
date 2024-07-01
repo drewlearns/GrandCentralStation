@@ -13,7 +13,7 @@ const CORS_HEADERS = {
 async function verifyToken(token) {
     const params = {
         FunctionName: 'verifyToken', // Replace with your actual Lambda function name
-        Payload: new TextEncoder().encode(JSON.stringify({ token })),
+        Payload: new TextEncoder().encode(JSON.stringify({ authToken: token })),
     };
 
     const command = new InvokeCommand(params);
@@ -21,11 +21,17 @@ async function verifyToken(token) {
 
     const payload = JSON.parse(new TextDecoder().decode(response.Payload));
 
+    console.log("verifyToken response payload:", payload);
+
     if (payload.errorMessage) {
         throw new Error(payload.errorMessage);
     }
 
-    return payload.isValid;
+    const nestedPayload = JSON.parse(payload.body);
+
+    console.log("verifyToken nested payload:", nestedPayload);
+
+    return nestedPayload;
 }
 
 exports.handler = async (event) => {
@@ -36,20 +42,35 @@ exports.handler = async (event) => {
         };
     }
 
-    const { authToken, householdId, householdData } = JSON.parse(event.body);
-
-    if (!authToken) {
+    let parsedBody;
+    try {
+        parsedBody = JSON.parse(event.body);
+        console.log('Parsed request body:', parsedBody);
+    } catch (error) {
+        console.error('Error parsing request body:', error);
         return {
-            statusCode: 401,
+            statusCode: 400,
             headers: CORS_HEADERS,
-            body: JSON.stringify({ message: 'Unauthorized: No token provided' }),
+            body: JSON.stringify({ message: 'Invalid request body' }),
+        };
+    }
+
+    const { authToken, householdId, householdData } = parsedBody;
+
+    // Validate required fields
+    if (!authToken || !householdId || !householdData || !householdData.householdName) {
+        console.error('Missing required fields', { authToken, householdId, householdData });
+        return {
+            statusCode: 400,
+            headers: CORS_HEADERS,
+            body: JSON.stringify({ message: 'Missing required fields' }),
         };
     }
 
     try {
         // Verify the token
-        const isValid = await verifyToken(authToken);
-        if (!isValid) {
+        const user = await verifyToken(authToken);
+        if (!user) {
             return {
                 statusCode: 403,
                 headers: CORS_HEADERS,
@@ -65,6 +86,7 @@ exports.handler = async (event) => {
                 updatedAt: new Date(),
             },
         });
+        console.log('Household updated:', updatedHousehold);
 
         return {
             statusCode: 200,
@@ -72,10 +94,11 @@ exports.handler = async (event) => {
             body: JSON.stringify(updatedHousehold),
         };
     } catch (error) {
+        console.error('Error updating household:', error);
         return {
             statusCode: 500,
             headers: CORS_HEADERS,
-            body: JSON.stringify({ message: error.message }),
+            body: JSON.stringify({ message: 'Error updating household', error: error.message }),
         };
     } finally {
         await prisma.$disconnect();

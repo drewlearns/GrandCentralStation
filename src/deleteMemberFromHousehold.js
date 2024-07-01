@@ -6,14 +6,14 @@ const lambda = new LambdaClient({ region: 'us-east-1' }); // Adjust the region a
 
 const CORS_HEADERS = {
     'Access-Control-Allow-Origin': '*', // Adjust this to your specific origin if needed
-    'Access-Control-Allow-Methods': 'OPTIONS,DELETE',
+    'Access-Control-Allow-Methods': 'OPTIONS,POST',
     'Access-Control-Allow-Headers': 'Content-Type,Authorization',
 };
 
 async function verifyToken(token) {
     const params = {
         FunctionName: 'verifyToken', // Replace with your actual Lambda function name
-        Payload: new TextEncoder().encode(JSON.stringify({ token })),
+        Payload: new TextEncoder().encode(JSON.stringify({ authToken: token })),
     };
 
     const command = new InvokeCommand(params);
@@ -21,20 +21,29 @@ async function verifyToken(token) {
 
     const payload = JSON.parse(new TextDecoder().decode(response.Payload));
 
+    console.log("verifyToken response payload:", payload);
+
     if (payload.errorMessage) {
         throw new Error(payload.errorMessage);
     }
 
-    return payload;
+    const nestedPayload = JSON.parse(payload.body);
+
+    console.log("verifyToken nested payload:", nestedPayload);
+
+    return nestedPayload;
 }
 
 async function getHouseholdOwner(householdId) {
-    const owner = await prisma.household.findUnique({
-        where: { householdId: householdId },
-        select: { defaultHouseholdId: true }
+    const owner = await prisma.householdMembers.findFirst({
+        where: { 
+            householdId: householdId,
+            role: 'Owner'
+        },
+        select: { memberUuid: true }
     });
 
-    return owner ? owner.defaultHouseholdId : null;
+    return owner ? owner.memberUuid : null;
 }
 
 async function deleteHouseholdMember(authToken, householdId, memberUuid) {
@@ -74,7 +83,7 @@ exports.handler = async (event) => {
         };
     }
 
-    if (event.httpMethod !== 'DELETE') {
+    if (event.httpMethod !== 'POST') {
         return {
             statusCode: 405,
             headers: CORS_HEADERS,
@@ -82,11 +91,25 @@ exports.handler = async (event) => {
         };
     }
 
-    const authToken = event.headers.Authorization;
-    const householdId = event.pathParameters.householdId;
-    const memberUuid = event.pathParameters.memberUuid;
+    let parsedBody;
 
+    try {
+        parsedBody = JSON.parse(event.body);
+        console.log('Parsed request body:', parsedBody);
+    } catch (error) {
+        console.error('Error parsing request body:', error);
+        return {
+            statusCode: 400,
+            headers: CORS_HEADERS,
+            body: JSON.stringify({ message: 'Invalid request body' }),
+        };
+    }
+
+    const { authToken, householdId, memberUuid } = parsedBody;
+
+    // Validate required fields
     if (!authToken) {
+        console.error('Authorization token is missing');
         return {
             statusCode: 401,
             headers: CORS_HEADERS,
@@ -95,6 +118,7 @@ exports.handler = async (event) => {
     }
 
     if (!householdId || !memberUuid) {
+        console.error('householdId or memberUuid is missing');
         return {
             statusCode: 400,
             headers: CORS_HEADERS,
@@ -104,16 +128,20 @@ exports.handler = async (event) => {
 
     try {
         const result = await deleteHouseholdMember(authToken, householdId, memberUuid);
+        console.log('Member deleted successfully:', result);
         return {
             statusCode: 200,
             headers: CORS_HEADERS,
             body: JSON.stringify(result),
         };
     } catch (error) {
+        console.error('Error deleting household member:', error);
         return {
             statusCode: 500,
             headers: CORS_HEADERS,
-            body: JSON.stringify({ error: error.message }),
+            body: JSON.stringify({ error: 'Error deleting household member', details: error.message }),
         };
+    } finally {
+        await prisma.$disconnect();
     }
 };

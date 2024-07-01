@@ -1,4 +1,3 @@
-const { Decimal } = require('decimal.js');
 const { PrismaClient } = require('@prisma/client');
 const { v4: uuidv4 } = require('uuid');
 const { LambdaClient, InvokeCommand } = require('@aws-sdk/client-lambda');
@@ -6,7 +5,7 @@ const { LambdaClient, InvokeCommand } = require('@aws-sdk/client-lambda');
 const prisma = new PrismaClient();
 const lambdaClient = new LambdaClient({ region: process.env.AWS_REGION });
 
-const corsHeaders = {
+const CORS_HEADERS = {
     'Content-Type': 'application/json',
     'Access-Control-Allow-Origin': '*',
     'Access-Control-Allow-Headers': 'Content-Type',
@@ -16,7 +15,10 @@ const corsHeaders = {
 async function invokeAddUserLambda(userData) {
     const params = {
         FunctionName: 'addUser',
-        Payload: new TextEncoder().encode(JSON.stringify({ body: JSON.stringify(userData) })),
+        Payload: new TextEncoder().encode(JSON.stringify({
+            body: JSON.stringify(userData),
+            httpMethod: 'POST'
+        })),
     };
 
     const command = new InvokeCommand(params);
@@ -24,11 +26,17 @@ async function invokeAddUserLambda(userData) {
 
     const payload = JSON.parse(new TextDecoder().decode(response.Payload));
 
+    // Log the response from addUser Lambda function
+    console.log('addUser Lambda function response:', response);
+    console.log('addUser Lambda function payload:', payload);
+
     if (response.FunctionError || !payload || !payload.body) {
         throw new Error('Invalid response from addUser Lambda function.');
     }
 
     const body = JSON.parse(payload.body);
+    console.log('Parsed body from addUser Lambda function:', body);
+    
     if (!body.user || !body.user.uuid) {
         throw new Error('Invalid user data in addUser response.');
     }
@@ -40,7 +48,7 @@ exports.handler = async (event) => {
     if (event.httpMethod === 'OPTIONS') {
         return {
             statusCode: 200,
-            headers: corsHeaders,
+            headers: CORS_HEADERS,
         };
     }
 
@@ -51,32 +59,34 @@ exports.handler = async (event) => {
         console.error('Error parsing request body:', error);
         return {
             statusCode: 400,
-            headers: corsHeaders,
+            headers: CORS_HEADERS,
             body: JSON.stringify({ message: 'Invalid request body' }),
         };
     }
 
-    const { invitationId, username, mailOptIn, firstName, lastName, phoneNumber, password } = parsedBody;
+    const { invitationId, email, mailOptIn, firstName, lastName, uuid } = parsedBody;
+
+    // Log parsedBody for debugging
+    console.log('Parsed request body:', parsedBody);
 
     // Validate required fields
-    if (!invitationId || !username || !password || !firstName || !lastName || !phoneNumber) {
-        console.error('Missing required fields');
+    if (!invitationId || !email || !firstName || !lastName || !uuid) {
+        console.error('Missing required fields', { invitationId, email, mailOptIn, firstName, lastName, uuid });
         return {
             statusCode: 400,
-            headers: corsHeaders,
-            body: JSON.stringify({ message: 'Missing required fields' }),
+            headers: CORS_HEADERS,
+            body: JSON.stringify({ message: 'Missing required fields', missingFields: { invitationId, email, mailOptIn, firstName, lastName, uuid } }),
         };
     }
 
     try {
-        // Check if the invitation exists and is still pending
         const invitation = await prisma.invitations.findUnique({ where: { invitationId } });
 
         if (!invitation) {
             console.error('Invitation not found');
             return {
                 statusCode: 404,
-                headers: corsHeaders,
+                headers: CORS_HEADERS,
                 body: JSON.stringify({ message: 'Invitation not found' }),
             };
         }
@@ -85,65 +95,60 @@ exports.handler = async (event) => {
             console.error('Invitation is not pending');
             return {
                 statusCode: 409,
-                headers: corsHeaders,
+                headers: CORS_HEADERS,
                 body: JSON.stringify({ message: 'Invitation is not pending' }),
             };
         }
 
         const { householdId, invitedUserEmail } = invitation;
 
-        // Check if the user already exists
-        const existingUser = await prisma.user.findUnique({ where: { uuid: invitedUserEmail } });
+        const existingUser = await prisma.user.findUnique({ where: { email: invitedUserEmail } });
 
         let newUserUuid;
         if (existingUser) {
             newUserUuid = existingUser.uuid;
         } else {
-            // Check if the username is unique
-            const existingUserByUsername = await prisma.user.findFirst({ where: { username } });
+            const existingUserByEmail = await prisma.user.findUnique({ where: { email } });
 
-            if (existingUserByUsername) {
-                console.error('Username is already taken');
+            if (existingUserByEmail) {
+                console.error('Email is already taken');
                 return {
                     statusCode: 409,
-                    headers: corsHeaders,
-                    body: JSON.stringify({ message: 'Username is already taken' }),
+                    headers: CORS_HEADERS,
+                    body: JSON.stringify({ message: 'Email is already taken' }),
                 };
             }
 
-            // Invoke addUser Lambda function
             try {
                 newUserUuid = await invokeAddUserLambda({
-                    username,
-                    email: invitedUserEmail,
+                    email,
                     mailOptIn,
                     firstName,
                     lastName,
+                    uuid
                 });
             } catch (error) {
                 console.error('Error invoking addUser Lambda function:', error);
                 return {
                     statusCode: 500,
-                    headers: corsHeaders,
+                    headers: CORS_HEADERS,
                     body: JSON.stringify({ message: 'Error creating user', error: error.message }),
                 };
             }
         }
 
-        // Add the user as a member of the household
         const householdMember = await prisma.householdMembers.create({
             data: {
                 id: uuidv4(),
                 householdId,
                 memberUuid: newUserUuid,
-                role: 'Member', // Adjust the role as needed
+                role: 'Member',
                 joinedDate: new Date(),
                 createdAt: new Date(),
                 updatedAt: new Date(),
             },
         });
 
-        // Update the invitation status to accepted and set the invitedUserUuid
         await prisma.invitations.update({
             where: { invitationId },
             data: {
@@ -155,14 +160,14 @@ exports.handler = async (event) => {
 
         return {
             statusCode: 200,
-            headers: corsHeaders,
+            headers: CORS_HEADERS,
             body: JSON.stringify({ message: 'Invitation accepted successfully', householdMember }),
         };
     } catch (error) {
         console.error('Error accepting invitation:', error);
         return {
             statusCode: 500,
-            headers: corsHeaders,
+            headers: CORS_HEADERS,
             body: JSON.stringify({ message: 'Error accepting invitation', error: error.message }),
         };
     } finally {
