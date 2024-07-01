@@ -38,10 +38,12 @@ async function getHouseholdOwner(householdId) {
     const owner = await prisma.householdMembers.findFirst({
         where: { 
             householdId: householdId,
-            role: 'Owner'
+            role: 'owner'
         },
         select: { memberUuid: true }
     });
+
+    console.log("Household owner UUID:", owner ? owner.memberUuid : "None");
 
     return owner ? owner.memberUuid : null;
 }
@@ -49,7 +51,7 @@ async function getHouseholdOwner(householdId) {
 async function deleteHouseholdMember(authToken, householdId, memberUuid) {
     // Verify the token
     const payload = await verifyToken(authToken);
-    const uid = payload.uid;
+    const uid = payload.user_id;
 
     if (!uid) {
         throw new Error('Invalid token payload: missing uid');
@@ -58,17 +60,19 @@ async function deleteHouseholdMember(authToken, householdId, memberUuid) {
     // Check if the user is the owner or the member themselves
     const ownerUuid = await getHouseholdOwner(householdId);
 
+    console.log("Current user UUID:", uid);
+    console.log("Owner UUID:", ownerUuid);
+    console.log("Member UUID to be deleted:", memberUuid);
+
     if (uid !== ownerUuid && uid !== memberUuid) {
         throw new Error('Not authorized to delete this member');
     }
 
     // Proceed to delete the member
-    await prisma.householdMembers.delete({
+    await prisma.householdMembers.deleteMany({
         where: {
-            householdId_memberUuid: {
-                householdId: householdId,
-                memberUuid: memberUuid,
-            },
+            householdId: householdId,
+            memberUuid: memberUuid,
         },
     });
 
