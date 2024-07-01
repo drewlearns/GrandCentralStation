@@ -7,14 +7,14 @@ const lambda = new LambdaClient({ region: process.env.AWS_REGION });
 
 const CORS_HEADERS = {
     'Access-Control-Allow-Origin': '*', // Adjust this to your specific origin if needed
-    'Access-Control-Allow-Methods': 'OPTIONS,PUT',
+    'Access-Control-Allow-Methods': 'OPTIONS,POST',
     'Access-Control-Allow-Headers': 'Content-Type,Authorization',
 };
 
 async function verifyToken(token) {
     const params = {
         FunctionName: 'verifyToken', // Replace with your actual Lambda function name
-        Payload: new TextEncoder().encode(JSON.stringify({ token })),
+        Payload: new TextEncoder().encode(JSON.stringify({ authToken: token })),
     };
 
     const command = new InvokeCommand(params);
@@ -22,11 +22,17 @@ async function verifyToken(token) {
 
     const payload = JSON.parse(new TextDecoder().decode(response.Payload));
 
+    console.log("verifyToken response payload:", payload);
+
     if (payload.errorMessage) {
         throw new Error(payload.errorMessage);
     }
 
-    return payload.isValid;
+    const nestedPayload = JSON.parse(payload.body);
+
+    console.log("verifyToken nested payload:", nestedPayload);
+
+    return nestedPayload;
 }
 
 async function invokeCalculateRunningTotal(householdId) {
@@ -52,9 +58,11 @@ async function invokeCalculateRunningTotal(householdId) {
 
 async function editIncome(authToken, incomeId, updatedIncomeData) {
     // Verify the token
-    const isValid = await verifyToken(authToken);
-    if (!isValid) {
-        throw new Error('Invalid authorization token');
+    const user = await verifyToken(authToken);
+    const uid = user.user_id;
+
+    if (!uid) {
+        throw new Error('Invalid token payload: missing user_id');
     }
 
     // Retrieve the existing income
@@ -66,6 +74,30 @@ async function editIncome(authToken, incomeId, updatedIncomeData) {
         throw new Error('Income not found');
     }
 
+    console.log('updatedIncomeData:', updatedIncomeData);
+
+    // Validate the firstPayDay
+    if (!updatedIncomeData.firstPayDay) {
+        console.error('firstPayDay is missing in updatedIncomeData:', updatedIncomeData);
+        throw new Error('firstPayDay is missing');
+    }
+
+    const firstPayDay = new Date(updatedIncomeData.firstPayDay);
+    if (isNaN(firstPayDay.getTime())) {
+        console.error('Invalid firstPayDay date:', updatedIncomeData.firstPayDay);
+        throw new Error('Invalid firstPayDay date');
+    }
+
+    // Validate the paymentSourceId
+    const paymentSource = await prisma.paymentSource.findUnique({
+        where: { sourceId: updatedIncomeData.paymentSourceId }
+    });
+
+    if (!paymentSource) {
+        console.error('Invalid paymentSourceId:', updatedIncomeData.paymentSourceId);
+        throw new Error('Invalid paymentSourceId');
+    }
+
     // Update the income
     const updatedIncome = await prisma.incomes.update({
         where: { incomeId },
@@ -73,7 +105,7 @@ async function editIncome(authToken, incomeId, updatedIncomeData) {
             name: updatedIncomeData.name,
             amount: new Decimal(updatedIncomeData.amount).toFixed(2),
             frequency: updatedIncomeData.frequency,
-            firstPayDay: new Date(updatedIncomeData.firstPayDay),
+            firstPayDay: firstPayDay,
             updatedAt: new Date(),
         },
     });
@@ -84,11 +116,11 @@ async function editIncome(authToken, incomeId, updatedIncomeData) {
     });
 
     // Generate new ledger entries based on the new frequency
-    const futureDates = calculateFutureDates(new Date(updatedIncomeData.firstPayDay), updatedIncomeData.frequency);
+    const futureDates = calculateFutureDates(firstPayDay, updatedIncomeData.frequency);
 
     const ledgerEntries = futureDates.map(date => ({
         householdId: existingIncome.householdId,
-        paymentSourceId: null, // assuming no payment source initially
+        paymentSourceId: updatedIncomeData.paymentSourceId, // Use provided paymentSourceId
         amount: new Decimal(updatedIncomeData.amount).toFixed(2),
         transactionType: 'income',
         transactionDate: date,
@@ -155,8 +187,19 @@ exports.handler = async (event) => {
         };
     }
 
-    const authToken = event.headers.Authorization || event.headers.authorization;
-    const { incomeId, updatedIncomeData } = JSON.parse(event.body);
+    let parsedBody;
+    try {
+        parsedBody = JSON.parse(event.body);
+    } catch (error) {
+        console.error('Error parsing request body:', error);
+        return {
+            statusCode: 400,
+            headers: CORS_HEADERS,
+            body: JSON.stringify({ message: 'Invalid request body' }),
+        };
+    }
+
+    const { authToken, incomeId, updatedIncomeData } = parsedBody;
 
     if (!authToken) {
         return {
@@ -171,6 +214,14 @@ exports.handler = async (event) => {
             statusCode: 400,
             headers: CORS_HEADERS,
             body: JSON.stringify({ error: 'incomeId or updatedIncomeData is missing' }),
+        };
+    }
+
+    if (!updatedIncomeData.paymentSourceId) {
+        return {
+            statusCode: 400,
+            headers: CORS_HEADERS,
+            body: JSON.stringify({ error: 'paymentSourceId is missing' }),
         };
     }
 
@@ -196,17 +247,3 @@ exports.handler = async (event) => {
         await prisma.$disconnect();
     }
 };
-
-// Example usage:
-// const authToken = 'your-auth-token';
-// const incomeId = 'your-income-id';
-// const updatedIncomeData = {
-//     name: 'Updated Salary',
-//     amount: 3500.00,
-//     frequency: 'monthly',
-//     firstPayDay: '2024-08-01',
-// };
-
-// editIncome(authToken, incomeId, updatedIncomeData)
-//     .then(updatedIncome => console.log('Income updated:', updatedIncome))
-//     .catch(error => console.error('Error updating income:', error));
