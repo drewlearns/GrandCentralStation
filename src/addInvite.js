@@ -7,7 +7,7 @@ const prisma = new PrismaClient();
 const lambdaClient = new LambdaClient({ region: process.env.AWS_REGION });
 const sesClient = new SESClient({ region: process.env.AWS_REGION });
 
-const corsHeaders = {
+const CORS_HEADERS = {
     'Content-Type': 'application/json',
     'Access-Control-Allow-Origin': '*',
     'Access-Control-Allow-Headers': 'Content-Type',
@@ -16,8 +16,8 @@ const corsHeaders = {
 
 async function verifyToken(token) {
     const params = {
-        FunctionName: 'verifyToken', // Replace with your actual Lambda function name
-        Payload: new TextEncoder().encode(JSON.stringify({ token })),
+        FunctionName: 'verifyToken',
+        Payload: new TextEncoder().encode(JSON.stringify({ authToken: token })),
     };
 
     const command = new InvokeCommand(params);
@@ -25,11 +25,50 @@ async function verifyToken(token) {
 
     const payload = JSON.parse(new TextDecoder().decode(response.Payload));
 
+    console.log("verifyToken response payload:", payload);
+
     if (payload.errorMessage) {
         throw new Error(payload.errorMessage);
     }
 
-    return payload.isValid;
+    const nestedPayload = JSON.parse(payload.body);
+
+    console.log("verifyToken nested payload:", nestedPayload);
+
+    return nestedPayload;
+}
+
+async function validateUser(userId, householdId) {
+    console.log("validateUser - userId:", userId);
+    console.log("validateUser - householdId:", householdId);
+
+    const user = await prisma.user.findUnique({
+        where: { uuid: userId },
+    });
+
+    console.log("validateUser - user:", user);
+
+    if (!user) {
+        return false;
+    }
+
+    const householdMembers = await prisma.householdMembers.findMany({
+        where: {
+            householdId: householdId,
+        },
+        select: {
+            memberUuid: true,
+        },
+    });
+
+    console.log("validateUser - householdMembers:", householdMembers);
+
+    const memberUuids = householdMembers.map(member => member.memberUuid);
+    const isValidUser = memberUuids.includes(userId);
+
+    console.log("validateUser - isValidUser:", isValidUser);
+
+    return isValidUser;
 }
 
 async function sendEmail(emailParams) {
@@ -41,7 +80,7 @@ exports.handler = async (event) => {
     if (event.httpMethod === 'OPTIONS') {
         return {
             statusCode: 200,
-            headers: corsHeaders,
+            headers: CORS_HEADERS,
         };
     }
 
@@ -52,7 +91,7 @@ exports.handler = async (event) => {
         console.error('Error parsing request body:', error);
         return {
             statusCode: 400,
-            headers: corsHeaders,
+            headers: CORS_HEADERS,
             body: JSON.stringify({ message: 'Invalid request body' }),
         };
     }
@@ -62,52 +101,58 @@ exports.handler = async (event) => {
         console.log('Missing required fields');
         return {
             statusCode: 400,
-            headers: corsHeaders,
+            headers: CORS_HEADERS,
             body: JSON.stringify({ message: 'Missing required fields' }),
         };
     }
 
+    let userId;
     try {
-        const isValid = await verifyToken(authorizationToken);
-        if (!isValid) {
-            return {
-                statusCode: 401,
-                headers: corsHeaders,
-                body: JSON.stringify({ message: 'Invalid token.' }),
-            };
+        const payload = await verifyToken(authorizationToken);
+        userId = payload.user_id;
+        if (!userId) {
+            throw new Error('Invalid authorization token');
         }
     } catch (error) {
         console.error('Token verification failed:', error.message);
         return {
             statusCode: 401,
-            headers: corsHeaders,
+            headers: CORS_HEADERS,
             body: JSON.stringify({ message: 'Token verification failed.' }),
         };
     }
 
     try {
+        const isValidUser = await validateUser(userId, householdId);
+        if (!isValidUser) {
+            return {
+                statusCode: 403,
+                headers: CORS_HEADERS,
+                body: JSON.stringify({ message: 'User is not authorized to add members to this household.' }),
+            };
+        }
+
         const household = await prisma.household.findUnique({ where: { householdId } });
         if (!household) {
             console.log(`Household ${householdId} not found`);
             return {
                 statusCode: 404,
-                headers: corsHeaders,
+                headers: CORS_HEADERS,
                 body: JSON.stringify({ message: "Household not found" }),
             };
         }
 
-        const userUUID = email;
-        const existingUser = await prisma.user.findUnique({ where: { uuid: userUUID } });
+        const existingUser = await prisma.user.findUnique({ where: { uuid: email } });
 
         if (existingUser) {
             const isMember = await prisma.householdMembers.findFirst({
-                where: { householdId, memberUuid: userUUID }
+                where: { householdId, memberUuid: email }
             });
 
             if (isMember) {
                 return {
                     statusCode: 200,
-                    headers: corsHeaders,
+                    headers: CORS_HEADERS,
                     body: JSON.stringify({ message: "User is already a member of the household." }),
                 };
             }
@@ -115,7 +160,7 @@ exports.handler = async (event) => {
             await prisma.householdMembers.create({
                 data: {
                     householdId,
-                    memberUuid: userUUID,
+                    memberUuid: email,
                     role: 'member',
                     joinedDate: new Date(),
                     createdAt: new Date(),
@@ -138,14 +183,14 @@ exports.handler = async (event) => {
                 console.error('Error sending email:', error);
                 return {
                     statusCode: 500,
-                    headers: corsHeaders,
+                    headers: CORS_HEADERS,
                     body: JSON.stringify({ message: "Error sending email", error: error.message }),
                 };
             }
 
             return {
                 statusCode: 200,
-                headers: corsHeaders,
+                headers: CORS_HEADERS,
                 body: JSON.stringify({ message: "User added to household and email sent successfully" }),
             };
         } else {
@@ -177,14 +222,14 @@ exports.handler = async (event) => {
                 console.error('Error sending email:', error);
                 return {
                     statusCode: 500,
-                    headers: corsHeaders,
+                    headers: CORS_HEADERS,
                     body: JSON.stringify({ message: "Error sending email", error: error.message }),
                 };
             }
 
             return {
                 statusCode: 201,
-                headers: corsHeaders,
+                headers: CORS_HEADERS,
                 body: JSON.stringify({ message: "Invitation added and email sent successfully", invitation: newInvitation }),
             };
         }
@@ -192,7 +237,7 @@ exports.handler = async (event) => {
         console.error('Error handling request:', error);
         return {
             statusCode: 500,
-            headers: corsHeaders,
+            headers: CORS_HEADERS,
             body: JSON.stringify({ message: "Error processing request", error: error.message }),
         };
     } finally {

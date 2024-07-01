@@ -219,7 +219,8 @@ resource "aws_iam_policy" "lambda_secrets_policy" {
         Action = [
           "secretsmanager:GetSecretValue",
           "secretsmanager:DescribeSecret",
-          "secretsmanager:CreateSecret"
+          "secretsmanager:CreateSecret",
+          "secretsmanager:UpdateSecret"
         ]
         Effect = "Allow"
         Resource = [

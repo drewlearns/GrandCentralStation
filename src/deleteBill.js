@@ -14,7 +14,7 @@ const corsHeaders = {
 async function verifyToken(token) {
     const params = {
         FunctionName: 'verifyToken', // Replace with your actual Lambda function name
-        Payload: new TextEncoder().encode(JSON.stringify({ token })),
+        Payload: new TextEncoder().encode(JSON.stringify({ authToken: token })),
     };
 
     const command = new InvokeCommand(params);
@@ -26,7 +26,9 @@ async function verifyToken(token) {
         throw new Error(payload.errorMessage);
     }
 
-    return payload.isValid;
+    const nestedPayload = JSON.parse(payload.body);
+
+    return nestedPayload;
 }
 
 async function invokeCalculateRunningTotal(householdId) {
@@ -42,6 +44,8 @@ async function invokeCalculateRunningTotal(householdId) {
     const response = await lambda.send(command);
 
     const payload = JSON.parse(new TextDecoder().decode(response.Payload));
+
+    console.log('Lambda response payload:', payload);
 
     if (payload.statusCode !== 200) {
         throw new Error(`Error invoking calculateRunningTotal: ${payload.message}`);
@@ -61,20 +65,24 @@ exports.handler = async (event) => {
     const { authToken, householdId, billId } = JSON.parse(event.body);
 
     // Verify the token
-    const isValid = await verifyToken(authToken);
-    if (!isValid) {
+    let userPayload;
+    try {
+        userPayload = await verifyToken(authToken);
+    } catch (error) {
         return {
             statusCode: 401,
             headers: corsHeaders,
-            body: JSON.stringify({ message: 'Invalid authorization token' }),
+            body: JSON.stringify({ message: 'Invalid authorization token', error: error.message }),
         };
     }
+
+    const userId = userPayload.user_id;
 
     try {
         // Fetch the bill to be deleted
         const bill = await prisma.bill.findUnique({
             where: { billId: billId },
-            include: { ledger: true },
+            include: { notifications: true, ledgers: true },
         });
 
         if (!bill || bill.householdId !== householdId) {
@@ -82,6 +90,22 @@ exports.handler = async (event) => {
                 statusCode: 404,
                 headers: corsHeaders,
                 body: JSON.stringify({ message: 'Bill not found or does not belong to the specified household' }),
+            };
+        }
+
+        // Ensure the user has access to the household
+        const household = await prisma.household.findUnique({
+            where: { householdId: householdId },
+            include: { members: true },
+        });
+
+        const userHasAccess = household.members.some(member => member.memberUuid === userId);
+
+        if (!userHasAccess) {
+            return {
+                statusCode: 403,
+                headers: corsHeaders,
+                body: JSON.stringify({ message: 'User does not have access to this household' }),
             };
         }
 
@@ -114,12 +138,3 @@ exports.handler = async (event) => {
         await prisma.$disconnect();
     }
 };
-
-// Example usage:
-// const authToken = 'your-auth-token';
-// const householdId = 'your-household-id';
-// const billId = 'your-bill-id';
-
-// deleteBill(authToken, householdId, billId)
-//     .then(response => console.log(response))
-//     .catch(error => console.error('Error deleting bill:', error));

@@ -7,20 +7,20 @@ exports.handler = async (event) => {
   const { householdId, paymentSourceId } = event;
 
   try {
-    if (!householdId || !paymentSourceId) {
+    if (!householdId) {
       return {
         statusCode: 400,
         body: JSON.stringify({
-          message: 'Missing householdId or paymentSourceId in the request',
+          message: 'Missing householdId in the request',
         }),
       };
     }
 
-    // Fetch all ledger entries for the household and payment source, ordered by transaction date ascending
+    // Fetch all ledger entries for the household, optionally filtered by payment source, ordered by transaction date ascending
     const ledgerEntries = await prisma.ledger.findMany({
       where: {
         householdId: householdId,
-        paymentSourceId: paymentSourceId,
+        ...(paymentSourceId && { paymentSourceId: paymentSourceId }),
       },
       orderBy: { transactionDate: 'asc' },
     });
@@ -40,7 +40,7 @@ exports.handler = async (event) => {
     const previousEntry = await prisma.ledger.findFirst({
       where: {
         householdId: householdId,
-        paymentSourceId: paymentSourceId,
+        ...(paymentSourceId && { paymentSourceId: paymentSourceId }),
         transactionDate: {
           lt: firstTransactionDate,
         },
@@ -69,7 +69,7 @@ exports.handler = async (event) => {
     return {
       statusCode: 200,
       body: JSON.stringify({
-        message: 'Running totals updated successfully for payment source',
+        message: 'Running totals updated successfully',
       }),
     };
   } catch (error) {
