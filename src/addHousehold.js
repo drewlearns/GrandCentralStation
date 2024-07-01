@@ -92,6 +92,19 @@ exports.handler = async (event) => {
         });
         console.log('Household created:', newHousehold);
 
+        // Add the user to the HouseholdMembers table as the owner
+        const newHouseholdMember = await prisma.householdMembers.create({
+            data: {
+                householdId: newHousehold.householdId,
+                memberUuid: user.user_id,
+                role: 'owner',
+                joinedDate: new Date(),
+                createdAt: new Date(),
+                updatedAt: new Date(),
+            },
+        });
+        console.log('Household member added:', newHouseholdMember);
+
         return {
             statusCode: 201,
             headers: corsHeaders,

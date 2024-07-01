@@ -8,13 +8,13 @@ const corsHeaders = {
     'Content-Type': 'application/json',
     'Access-Control-Allow-Origin': '*',
     'Access-Control-Allow-Headers': 'Content-Type,Authorization',
-    'Access-Control-Allow-Methods': 'OPTIONS,DELETE'
+    'Access-Control-Allow-Methods': 'OPTIONS,POST'
 };
 
 async function verifyToken(token) {
     const params = {
         FunctionName: 'verifyToken', // Replace with your actual Lambda function name
-        Payload: new TextEncoder().encode(JSON.stringify({ token })),
+        Payload: new TextEncoder().encode(JSON.stringify({ authToken: token })),
     };
 
     const command = new InvokeCommand(params);
@@ -22,11 +22,17 @@ async function verifyToken(token) {
 
     const payload = JSON.parse(new TextDecoder().decode(response.Payload));
 
+    console.log("verifyToken response payload:", payload);
+
     if (payload.errorMessage) {
         throw new Error(payload.errorMessage);
     }
 
-    return payload.isValid;
+    const nestedPayload = JSON.parse(payload.body);
+
+    console.log("verifyToken nested payload:", nestedPayload);
+
+    return nestedPayload;
 }
 
 exports.handler = async (event) => {
@@ -37,31 +43,60 @@ exports.handler = async (event) => {
         };
     }
 
-    const { authToken, householdId, deletedBy } = JSON.parse(event.body);
+    let parsedBody;
 
-    // Verify the token
-    const isValid = await verifyToken(authToken);
-    if (!isValid) {
+    try {
+        parsedBody = JSON.parse(event.body);
+        console.log('Parsed request body:', parsedBody);
+    } catch (error) {
+        console.error('Error parsing request body:', error);
+        return {
+            statusCode: 400,
+            headers: corsHeaders,
+            body: JSON.stringify({ message: 'Invalid request body' }),
+        };
+    }
+
+    const { authToken, householdId } = parsedBody;
+
+    // Validate required fields
+    if (!authToken) {
+        console.error('Authorization token is missing');
         return {
             statusCode: 401,
             headers: corsHeaders,
-            body: JSON.stringify({ message: 'Invalid authorization token' }),
+            body: JSON.stringify({ error: 'Authorization token is missing' }),
+        };
+    }
+
+    if (!householdId) {
+        console.error('householdId is missing');
+        return {
+            statusCode: 400,
+            headers: corsHeaders,
+            body: JSON.stringify({ error: 'householdId is missing' }),
         };
     }
 
     try {
+        // Verify the token
+        const user = await verifyToken(authToken);
+        const deletedBy = user.user_id;
+
+        if (!deletedBy) {
+            throw new Error('Invalid token payload: missing user_id');
+        }
+
+        // Fetch household and owner information
         const household = await prisma.household.findUnique({
             where: { householdId: householdId },
             include: {
-                members: {
-                    where: {
-                        role: 'Owner',
-                    }
-                }
-            }
+                members: true,
+            },
         });
 
         if (!household) {
+            console.error('Household not found');
             return {
                 statusCode: 404,
                 headers: corsHeaders,
@@ -71,9 +106,13 @@ exports.handler = async (event) => {
             };
         }
 
-        const owner = household.members.find(member => member.role === 'Owner');
+        const owner = household.members.find(member => member.role === 'owner');
+
+        console.log("Current user UUID:", deletedBy);
+        console.log("Owner UUID:", owner ? owner.memberUuid : "None");
 
         if (!owner || owner.memberUuid !== deletedBy) {
+            console.error('Not authorized to delete this household');
             return {
                 statusCode: 403,
                 headers: corsHeaders,
@@ -143,12 +182,3 @@ exports.handler = async (event) => {
         await prisma.$disconnect();
     }
 };
-
-// Example usage:
-// const authToken = 'your-auth-token';
-// const householdId = 'your-household-id';
-// const deletedBy = 'user-uuid-of-deleter';
-
-// deleteHousehold(authToken, householdId, deletedBy)
-//     .then(response => console.log(response))
-//     .catch(error => console.error('Error deleting household:', error));
