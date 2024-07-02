@@ -2,7 +2,7 @@ const { PrismaClient } = require("@prisma/client");
 const { LambdaClient, InvokeCommand } = require("@aws-sdk/client-lambda");
 
 const prisma = new PrismaClient();
-const lambda = new LambdaClient({ region: 'us-east-1' }); // Adjust the region as necessary
+const lambda = new LambdaClient({ region: process.env.AWS_REGION });
 
 const CORS_HEADERS = {
   'Content-Type': 'application/json',
@@ -12,21 +12,27 @@ const CORS_HEADERS = {
 };
 
 async function verifyToken(token) {
-    const params = {
-        FunctionName: 'verifyToken', // Replace with your actual Lambda function name
-        Payload: new TextEncoder().encode(JSON.stringify({ token })),
-    };
+  const params = {
+    FunctionName: 'verifyToken', // Replace with your actual Lambda function name
+    Payload: new TextEncoder().encode(JSON.stringify({ authToken: token })),
+  };
 
-    const command = new InvokeCommand(params);
-    const response = await lambda.send(command);
+  const command = new InvokeCommand(params);
+  const response = await lambda.send(command);
 
-    const payload = JSON.parse(new TextDecoder().decode(response.Payload));
+  const payload = JSON.parse(new TextDecoder().decode(response.Payload));
 
-    if (payload.errorMessage) {
-        throw new Error(payload.errorMessage);
-    }
+  console.log("verifyToken response payload:", payload);
 
-    return payload;
+  if (payload.errorMessage) {
+    throw new Error(payload.errorMessage);
+  }
+
+  const nestedPayload = JSON.parse(payload.body);
+
+  console.log("verifyToken nested payload:", nestedPayload);
+
+  return nestedPayload;
 }
 
 exports.handler = async (event) => {
@@ -37,7 +43,7 @@ exports.handler = async (event) => {
     };
   }
 
-  const authToken = event.headers.Authorization;
+  const { authToken } = JSON.parse(event.body);
 
   if (!authToken) {
     return {
@@ -47,12 +53,17 @@ exports.handler = async (event) => {
     };
   }
 
-  let uid;
+  let userId;
 
   // Verify the token
   try {
-    const payload = await verifyToken(authToken);
-    uid = payload.uid;
+    const nestedPayload = await verifyToken(authToken);
+    userId = nestedPayload.user_id;
+    console.log('Verified user_id:', userId);
+
+    if (!userId) {
+      throw new Error('User ID is undefined after token verification');
+    }
   } catch (error) {
     console.error('Token verification failed:', error.message);
     return {
@@ -65,19 +76,11 @@ exports.handler = async (event) => {
     };
   }
 
-  if (!uid) {
-    return {
-      statusCode: 401,
-      headers: CORS_HEADERS,
-      body: JSON.stringify({ message: 'Invalid token payload: missing uid' }),
-    };
-  }
-
   try {
-    // Fetch the user details by uid
+    // Fetch the user details by userId
     const user = await prisma.user.findUnique({
       where: {
-        uuid: uid,
+        uuid: userId,
       },
     });
 
