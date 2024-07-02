@@ -2,6 +2,8 @@ const { PrismaClient } = require('@prisma/client');
 const { InvokeCommand, LambdaClient } = require('@aws-sdk/client-lambda');
 
 const prisma = new PrismaClient();
+const lambda = new LambdaClient({ region: process.env.AWS_REGION });
+
 const corsHeaders = {
   'Content-Type': 'application/json',
   'Access-Control-Allow-Origin': '*',
@@ -9,12 +11,10 @@ const corsHeaders = {
   'Access-Control-Allow-Methods': 'OPTIONS,POST,GET'
 };
 
-const lambda = new LambdaClient();
-
 async function verifyToken(token) {
   const params = {
     FunctionName: 'verifyToken', // Replace with your actual Lambda function name
-    Payload: new TextEncoder().encode(JSON.stringify({ token })),
+    Payload: new TextEncoder().encode(JSON.stringify({ authToken: token })),
   };
 
   const command = new InvokeCommand(params);
@@ -22,11 +22,17 @@ async function verifyToken(token) {
 
   const payload = JSON.parse(new TextDecoder().decode(response.Payload));
 
+  console.log("verifyToken response payload:", payload);
+
   if (payload.errorMessage) {
     throw new Error(payload.errorMessage);
   }
 
-  return payload;
+  const nestedPayload = JSON.parse(payload.body);
+
+  console.log("verifyToken nested payload:", nestedPayload);
+
+  return nestedPayload;
 }
 
 exports.handler = async (event) => {
@@ -39,9 +45,9 @@ exports.handler = async (event) => {
 
   try {
     const body = JSON.parse(event.body);
-    const { authorizationToken } = body;
+    const { authToken } = body;
 
-    if (!authorizationToken) {
+    if (!authToken) {
       return {
         statusCode: 401,
         headers: corsHeaders,
@@ -49,16 +55,21 @@ exports.handler = async (event) => {
       };
     }
 
-    // Verify the token and get the decoded token
-    const decodedToken = await verifyToken(authorizationToken);
-    const userUuid = decodedToken.uid; // Assuming the token contains a field 'uid' for the user's UUID
+    // Verify the token
+    const nestedPayload = await verifyToken(authToken);
+    const userId = nestedPayload.user_id; // Assuming the token contains a field 'user_id' for the user's UUID
+    console.log('Verified user_id:', userId);
+
+    if (!userId) {
+      throw new Error('User ID is undefined after token verification');
+    }
 
     // Validate that the user exists
-    const user = await prisma.user.findUnique({ where: { uuid: userUuid } });
+    const user = await prisma.user.findUnique({ where: { uuid: userId } });
     if (!user) return { statusCode: 404, headers: corsHeaders, body: JSON.stringify({ message: "User not found" }) };
 
     // Delete the user and related data
-    await prisma.user.delete({ where: { uuid: userUuid } });
+    await prisma.user.delete({ where: { uuid: userId } });
 
     return {
       statusCode: 200,
