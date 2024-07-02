@@ -28,7 +28,6 @@ module "lambdas" {
       environment = {
         DATABASE_URL = "postgresql://root:${aws_secretsmanager_secret_version.db_master_password_version.secret_string}@${aws_rds_cluster.aurora_cluster.endpoint}:5432/tppb${var.environment}?schema=public",
         STRIPE_SK= data.aws_secretsmanager_secret_version.stripe_version.secret_string
-
       }
     },
     "verifyToken" = {
