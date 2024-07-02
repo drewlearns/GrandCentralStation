@@ -14,7 +14,7 @@ const corsHeaders = {
 async function verifyToken(token) {
     const params = {
         FunctionName: 'verifyToken', // Replace with your actual Lambda function name
-        Payload: new TextEncoder().encode(JSON.stringify({ token })),
+        Payload: new TextEncoder().encode(JSON.stringify({ authToken: token })),
     };
 
     const command = new InvokeCommand(params);
@@ -22,11 +22,17 @@ async function verifyToken(token) {
 
     const payload = JSON.parse(new TextDecoder().decode(response.Payload));
 
+    console.log("verifyToken response payload:", payload);
+
     if (payload.errorMessage) {
         throw new Error(payload.errorMessage);
     }
 
-    return payload.isValid;
+    const nestedPayload = JSON.parse(payload.body);
+
+    console.log("verifyToken nested payload:", nestedPayload);
+
+    return nestedPayload;
 }
 
 exports.handler = async (event) => {
@@ -39,15 +45,24 @@ exports.handler = async (event) => {
 
     const { authToken, householdId, name, type } = JSON.parse(event.body);
 
+    if (!authToken) {
+        return {
+            statusCode: 401,
+            headers: corsHeaders,
+            body: JSON.stringify({ message: 'Access denied. No token provided.' }),
+        };
+    }
+
+    let userId;
+
     try {
         // Verify the token
-        const isValid = await verifyToken(authToken);
-        if (!isValid) {
-            return {
-                statusCode: 401,
-                headers: corsHeaders,
-                body: JSON.stringify({ message: 'Invalid authorization token' }),
-            };
+        const nestedPayload = await verifyToken(authToken);
+        userId = nestedPayload.user_id;
+        console.log('Verified user_id:', userId);
+
+        if (!userId) {
+            throw new Error('User ID is undefined after token verification');
         }
 
         // Create the new payment source
@@ -77,14 +92,4 @@ exports.handler = async (event) => {
     } finally {
         await prisma.$disconnect();
     }
-}
-
-// Example usage:
-// const authToken = 'your-auth-token';
-// const householdId = 'your-household-id';
-// const name = 'Bank Account';
-// const type = 'Checking';
-
-// addPaymentSource(authToken, householdId, name, type)
-//     .then(newPaymentSource => console.log('New payment source added:', newPaymentSource))
-//     .catch(error => console.error('Error adding payment source:', error));
+};
