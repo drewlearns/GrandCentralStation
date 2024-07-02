@@ -20,7 +20,7 @@ const corsHeaders = {
 async function verifyToken(token) {
   const params = {
     FunctionName: 'verifyToken', // Replace with your actual Lambda function name
-    Payload: new TextEncoder().encode(JSON.stringify({ token })),
+    Payload: new TextEncoder().encode(JSON.stringify({ authToken: token })),
   };
 
   const command = new InvokeCommand(params);
@@ -28,11 +28,31 @@ async function verifyToken(token) {
 
   const payload = JSON.parse(new TextDecoder().decode(response.Payload));
 
+  console.log("verifyToken response payload:", payload);
+
   if (payload.errorMessage) {
     throw new Error(payload.errorMessage);
   }
 
-  return payload;
+  const nestedPayload = JSON.parse(payload.body);
+
+  console.log("verifyToken nested payload:", nestedPayload);
+
+  return nestedPayload;
+}
+
+async function getEmailByUserId(userId) {
+  console.log('Fetching email for user_id:', userId);
+  const user = await prisma.user.findUnique({
+    where: { uuid: userId },
+    select: { email: true },
+  });
+
+  if (!user) {
+    throw new Error('User not found');
+  }
+
+  return user.email;
 }
 
 function generateQBOContent(transactions) {
@@ -109,6 +129,7 @@ NEWFILEUID:NONE
 }
 
 exports.handler = async (event) => {
+  console.log('Received event:', event);
   const { authorizationToken, householdId, paymentSourceId } = JSON.parse(event.body);
 
   if (!authorizationToken) {
@@ -132,18 +153,24 @@ exports.handler = async (event) => {
   const s3Bucket = process.env.BUCKET;
   const s3Key = `ledger-exports/${uuidv4()}.qbo`;
 
-  let userUuid;
+  let userId;
+  let email;
 
   // Attempt to verify the token
   try {
-    const decodedToken = await verifyToken(authorizationToken);
-    userUuid = decodedToken.uid; // Assuming the token contains a field 'uid' for the user's UUID
+    const nestedPayload = await verifyToken(authorizationToken);
+    userId = nestedPayload.user_id; // Assuming the token contains a field 'user_id' for the user's UUID
+    console.log('Verified user_id:', userId);
+    if (!userId) {
+      throw new Error('User ID is undefined after token verification');
+    }
+    email = await getEmailByUserId(userId);
   } catch (error) {
-    console.error('Token verification failed:', error.message);
+    console.error('Token verification or email fetching failed:', error.message);
     return {
       statusCode: 401,
       headers: corsHeaders,
-      body: JSON.stringify({ message: 'Invalid token.', error: error.message }),
+      body: JSON.stringify({ message: 'Invalid token or user not found.', error: error.message }),
     };
   }
 
@@ -151,8 +178,7 @@ exports.handler = async (event) => {
     const ledgerEntries = await prisma.ledger.findMany({
       where: {
         householdId: householdId,
-        paymentSourceId: paymentSourceId,
-        userUuid: userUuid
+        paymentSourceId: paymentSourceId
       },
       select: {
         amount: true,
@@ -165,8 +191,6 @@ exports.handler = async (event) => {
         updatedAt: true,
         updatedBy: true,
         runningTotal: true,
-        interestRate: true,
-        cashBack: true,
         tags: true
       }
     });
@@ -197,7 +221,7 @@ exports.handler = async (event) => {
     // Send email with presigned URL
     const sesParams = {
       Destination: {
-        ToAddresses: [userUuid] // Using userUuid as the email
+        ToAddresses: [email]
       },
       Message: {
         Body: {

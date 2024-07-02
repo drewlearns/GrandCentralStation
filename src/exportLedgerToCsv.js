@@ -20,7 +20,7 @@ const corsHeaders = {
 async function verifyToken(token) {
   const params = {
     FunctionName: 'verifyToken', // Replace with your actual Lambda function name
-    Payload: new TextEncoder().encode(JSON.stringify({ token })),
+    Payload: new TextEncoder().encode(JSON.stringify({ authToken: token })),
   };
 
   const command = new InvokeCommand(params);
@@ -28,14 +28,35 @@ async function verifyToken(token) {
 
   const payload = JSON.parse(new TextDecoder().decode(response.Payload));
 
+  console.log("verifyToken response payload:", payload);
+
   if (payload.errorMessage) {
     throw new Error(payload.errorMessage);
   }
 
-  return payload.username; // Assuming the payload contains a username
+  const nestedPayload = JSON.parse(payload.body);
+
+  console.log("verifyToken nested payload:", nestedPayload);
+
+  return nestedPayload;
+}
+
+async function getEmailByUserId(userId) {
+  console.log('Fetching email for user_id:', userId);
+  const user = await prisma.user.findUnique({
+    where: { uuid: userId },
+    select: { email: true },
+  });
+
+  if (!user) {
+    throw new Error('User not found');
+  }
+
+  return user.email;
 }
 
 exports.handler = async (event) => {
+  console.log('Received event:', event);
   const { authorizationToken, householdId, paymentSourceId } = JSON.parse(event.body);
 
   if (!authorizationToken) {
@@ -57,26 +78,23 @@ exports.handler = async (event) => {
   const s3Bucket = process.env.BUCKET;
   const s3Key = `ledger-exports/${uuidv4()}.csv`;
 
-  let username;
-  let tokenValid = false;
+  let userId;
+  let email;
 
   try {
-    username = await verifyToken(authorizationToken);
-    tokenValid = true;
+    const nestedPayload = await verifyToken(authorizationToken);
+    userId = nestedPayload.user_id;
+    console.log('Verified user_id:', userId);
+    if (!userId) {
+      throw new Error('User ID is undefined after token verification');
+    }
+    email = await getEmailByUserId(userId);
   } catch (error) {
-    console.error('Token verification failed:', error.message);
+    console.error('Token verification or email fetching failed:', error.message);
     return {
       statusCode: 401,
       headers: corsHeaders,
-      body: JSON.stringify({ message: 'Invalid token.', error: error.message }),
-    };
-  }
-
-  if (!tokenValid) {
-    return {
-      statusCode: 401,
-      headers: corsHeaders,
-      body: JSON.stringify({ message: 'Invalid token.' }),
+      body: JSON.stringify({ message: 'Invalid token or user not found.', error: error.message }),
     };
   }
 
@@ -97,8 +115,6 @@ exports.handler = async (event) => {
         updatedAt: true,
         updatedBy: true,
         runningTotal: true,
-        interestRate: true,
-        cashBack: true,
         tags: true
       }
     });
@@ -120,8 +136,6 @@ exports.handler = async (event) => {
         'description',
         'status',
         'runningTotal',
-        'interestRate',
-        'cashBack',
         'tags',
         'createdAt',
         'updatedAt',
@@ -145,7 +159,7 @@ exports.handler = async (event) => {
 
     const sesParams = {
       Destination: {
-        ToAddresses: [username]
+        ToAddresses: [email]
       },
       Message: {
         Body: {

@@ -6,14 +6,14 @@ const lambda = new LambdaClient({ region: process.env.AWS_REGION });
 
 const CORS_HEADERS = {
     'Access-Control-Allow-Origin': '*', // Adjust this to your specific origin if needed
-    'Access-Control-Allow-Methods': 'OPTIONS,PUT',
+    'Access-Control-Allow-Methods': 'OPTIONS,POST',
     'Access-Control-Allow-Headers': 'Content-Type,Authorization',
 };
 
 async function verifyToken(token) {
     const params = {
         FunctionName: 'verifyToken', // Replace with your actual Lambda function name
-        Payload: new TextEncoder().encode(JSON.stringify({ token })),
+        Payload: new TextEncoder().encode(JSON.stringify({ authToken: token })),
     };
 
     const command = new InvokeCommand(params);
@@ -21,11 +21,17 @@ async function verifyToken(token) {
 
     const payload = JSON.parse(new TextDecoder().decode(response.Payload));
 
+    console.log("verifyToken response payload:", payload);
+
     if (payload.errorMessage) {
         throw new Error(payload.errorMessage);
     }
 
-    return payload.isValid;
+    const nestedPayload = JSON.parse(payload.body);
+
+    console.log("verifyToken nested payload:", nestedPayload);
+
+    return nestedPayload;
 }
 
 async function invokeCalculateRunningTotal(householdId) {
@@ -50,10 +56,12 @@ async function invokeCalculateRunningTotal(householdId) {
 }
 
 async function editLedgerEntry(authToken, ledgerId, updatedLedgerData) {
-    // Verify the token
-    const isValid = await verifyToken(authToken);
-    if (!isValid) {
-        throw new Error('Invalid authorization token');
+    const nestedPayload = await verifyToken(authToken);
+    const userId = nestedPayload.user_id;
+    console.log('Verified user_id:', userId);
+
+    if (!userId) {
+        throw new Error('User ID is undefined after token verification');
     }
 
     // Retrieve the existing ledger entry
@@ -71,6 +79,13 @@ async function editLedgerEntry(authToken, ledgerId, updatedLedgerData) {
         data: {
             transactionDate: new Date(updatedLedgerData.transactionDate),
             status: updatedLedgerData.status,
+            description: updatedLedgerData.description,
+            amount: updatedLedgerData.amount,
+            category: updatedLedgerData.category,
+            tags: updatedLedgerData.tags,
+            householdId: updatedLedgerData.householdId,
+            paymentSourceId: updatedLedgerData.paymentSourceId,
+            transactionType: updatedLedgerData.transactionType,
             updatedAt: new Date(),
         },
     });
@@ -89,8 +104,7 @@ exports.handler = async (event) => {
         };
     }
 
-    const authToken = event.headers.Authorization || event.headers.authorization;
-    const { ledgerId, updatedLedgerData } = JSON.parse(event.body);
+    const { authToken, ledgerId, updatedLedgerData } = JSON.parse(event.body);
 
     if (!authToken) {
         return {
@@ -130,15 +144,3 @@ exports.handler = async (event) => {
         await prisma.$disconnect();
     }
 };
-
-// Example usage:
-// const authToken = 'your-auth-token';
-// const ledgerId = 'your-ledger-id';
-// const updatedLedgerData = {
-//     transactionDate: '2024-08-01',
-//     status: true,
-// };
-
-// editLedgerEntry(authToken, ledgerId, updatedLedgerData)
-//     .then(updatedLedgerEntry => console.log('Ledger entry updated:', updatedLedgerEntry))
-//     .catch(error => console.error('Error updating ledger entry:', error));
