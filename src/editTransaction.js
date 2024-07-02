@@ -11,8 +11,8 @@ const s3Client = new S3Client({ region: process.env.AWS_REGION });
 const corsHeaders = {
   'Content-Type': 'application/json',
   'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'Content-Type',
-  'Access-Control-Allow-Methods': 'OPTIONS,POST,GET'
+  'Access-Control-Allow-Headers': 'Content-Type,Authorization',
+  'Access-Control-Allow-Methods': 'OPTIONS,POST'
 };
 
 const BUCKET = process.env.BUCKET;
@@ -58,7 +58,7 @@ const deleteFromS3 = async (bucket, key) => {
 async function verifyToken(token) {
   const params = {
     FunctionName: 'verifyToken', // Replace with your actual Lambda function name
-    Payload: new TextEncoder().encode(JSON.stringify({ token })),
+    Payload: new TextEncoder().encode(JSON.stringify({ authToken: token })),
   };
 
   const command = new InvokeCommand(params);
@@ -66,17 +66,23 @@ async function verifyToken(token) {
 
   const payload = JSON.parse(new TextDecoder().decode(response.Payload));
 
+  console.log("verifyToken response payload:", payload);
+
   if (payload.errorMessage) {
     throw new Error(payload.errorMessage);
   }
 
-  return payload.isValid;
+  const nestedPayload = JSON.parse(payload.body);
+
+  console.log("verifyToken nested payload:", nestedPayload);
+
+  return nestedPayload;
 }
 
 exports.handler = async (event) => {
   try {
     const body = JSON.parse(event.body);
-    const { authorizationToken, householdId, amount, transactionType, transactionDate, category, description, status, sourceId, tags, image, transactionId } = body;
+    const { authToken, householdId, amount, transactionType, transactionDate, category, description, status, sourceId, tags, image, transactionId } = body;
 
     // Validate required fields
     if (!transactionId || !sourceId || !transactionDate || !transactionType || !amount || !description) {
@@ -87,7 +93,7 @@ exports.handler = async (event) => {
       };
     }
 
-    if (!authorizationToken) {
+    if (!authToken) {
       return {
         statusCode: 401,
         headers: corsHeaders,
@@ -96,13 +102,12 @@ exports.handler = async (event) => {
     }
 
     // Verify the token
-    const isValid = await verifyToken(authorizationToken);
-    if (!isValid) {
-      return {
-        statusCode: 401,
-        headers: corsHeaders,
-        body: JSON.stringify({ message: 'Invalid authorization token' }),
-      };
+    const nestedPayload = await verifyToken(authToken);
+    const userId = nestedPayload.user_id;
+    console.log('Verified user_id:', userId);
+
+    if (!userId) {
+      throw new Error('User ID is undefined after token verification');
     }
 
     const transactionExists = await prisma.transaction.findUnique({ where: { transactionId } });
