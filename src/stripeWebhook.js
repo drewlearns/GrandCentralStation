@@ -1,7 +1,7 @@
 const { PrismaClient } = require('@prisma/client');
 const prisma = new PrismaClient();
-const stripe = require('stripe')('sk_test_51OKoUuJMeGUbw0WodKTGYm9ICvEUEy14E2vjIci3XVvDQN0xTK6Yg0mOiCDNIRXYCrlxZT1BGKao12HsHudDXANE00hMkf8i1x');
-const endpointSecret = 'whsec_vhdfIsguzsGwXZ2xFhLZX8Kya3PjcWBK';
+const stripe = require('stripe')('process.env.STRIPE_SK');
+const endpointSecret = 'whsec_W3mNZT3xVo7KTP3tlHy1jJKwbP50Jzfq';
 
 async function updateUserSubscriptionStatus(stripeCustomerId, subscriptionStatus, endDate = null) {
   try {
