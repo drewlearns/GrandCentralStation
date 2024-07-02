@@ -8,13 +8,13 @@ const corsHeaders = {
     'Content-Type': 'application/json',
     'Access-Control-Allow-Origin': '*',
     'Access-Control-Allow-Headers': 'Content-Type,Authorization',
-    'Access-Control-Allow-Methods': 'OPTIONS,DELETE'
+    'Access-Control-Allow-Methods': 'OPTIONS,POST'
 };
 
 async function verifyToken(token) {
     const params = {
         FunctionName: 'verifyToken', // Replace with your actual Lambda function name
-        Payload: new TextEncoder().encode(JSON.stringify({ token })),
+        Payload: new TextEncoder().encode(JSON.stringify({ authToken: token })),
     };
 
     const command = new InvokeCommand(params);
@@ -22,11 +22,17 @@ async function verifyToken(token) {
 
     const payload = JSON.parse(new TextDecoder().decode(response.Payload));
 
+    console.log("verifyToken response payload:", payload);
+
     if (payload.errorMessage) {
         throw new Error(payload.errorMessage);
     }
 
-    return payload.isValid;
+    const nestedPayload = JSON.parse(payload.body);
+
+    console.log("verifyToken nested payload:", nestedPayload);
+
+    return nestedPayload;
 }
 
 async function invokeCalculateRunningTotal(householdId) {
@@ -60,17 +66,26 @@ exports.handler = async (event) => {
 
     const { authToken, ledgerId, householdId } = JSON.parse(event.body);
 
-    // Verify the token
-    const isValid = await verifyToken(authToken);
-    if (!isValid) {
+    if (!authToken) {
         return {
             statusCode: 401,
             headers: corsHeaders,
-            body: JSON.stringify({ message: 'Invalid authorization token' }),
+            body: JSON.stringify({ message: 'Access denied. No token provided.' })
         };
     }
 
+    let userId;
+
     try {
+        // Verify the token
+        const nestedPayload = await verifyToken(authToken);
+        userId = nestedPayload.user_id;
+        console.log('Verified user_id:', userId);
+
+        if (!userId) {
+            throw new Error('User ID is undefined after token verification');
+        }
+
         // Fetch the ledger entry to be deleted
         const ledgerEntry = await prisma.ledger.findUnique({
             where: { ledgerId: ledgerId },
@@ -116,12 +131,3 @@ exports.handler = async (event) => {
         await prisma.$disconnect();
     }
 };
-
-// Example usage:
-// const authToken = 'your-auth-token';
-// const ledgerId = 'your-ledger-id';
-// const householdId = 'your-household-id';
-
-// deleteLedgerEntry(authToken, ledgerId, householdId)
-//     .then(response => console.log(response))
-//     .catch(error => console.error('Error deleting ledger entry:', error));

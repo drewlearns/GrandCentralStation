@@ -2,20 +2,7 @@ const { PrismaClient } = require('@prisma/client');
 const prisma = new PrismaClient();
 
 exports.handler = async (event) => {
-  const { authToken, householdId, paymentSourceId } = JSON.parse(event.body);
-
-  if (!authToken) {
-    return {
-      statusCode: 401,
-      headers: {
-        'Content-Type': 'application/json',
-        'Access-Control-Allow-Origin': '*',
-      },
-      body: JSON.stringify({
-        message: 'Access denied. No token provided.'
-      }),
-    };
-  }
+  const { householdId, paymentSourceId } = JSON.parse(event.body);
 
   if (!householdId || !paymentSourceId) {
     return {
@@ -31,23 +18,37 @@ exports.handler = async (event) => {
   }
 
   try {
-    // Set the default payment source for the household
-    await prisma.preferences.upsert({
+    // Check if the preference already exists
+    const existingPreference = await prisma.preferences.findFirst({
       where: {
-        householdId_preferenceType: {
-          householdId: householdId,
-          preferenceType: 'defaultPaymentSource'
-        },
-      },
-      update: {
-        preferenceValue: paymentSourceId
-      },
-      create: {
         householdId: householdId,
         preferenceType: 'defaultPaymentSource',
-        preferenceValue: paymentSourceId
-      }
+      },
     });
+
+    let preference;
+
+    if (existingPreference) {
+      // Update existing preference
+      preference = await prisma.preferences.update({
+        where: { preferenceId: existingPreference.preferenceId },
+        data: {
+          preferenceValue: paymentSourceId,
+          updatedAt: new Date(),
+        },
+      });
+    } else {
+      // Create new preference
+      preference = await prisma.preferences.create({
+        data: {
+          householdId: householdId,
+          preferenceType: 'defaultPaymentSource',
+          preferenceValue: paymentSourceId,
+          createdAt: new Date(),
+          updatedAt: new Date(),
+        },
+      });
+    }
 
     return {
       statusCode: 200,
@@ -57,6 +58,7 @@ exports.handler = async (event) => {
       },
       body: JSON.stringify({
         message: 'Default payment source set successfully.',
+        defaultPaymentSource: preference.preferenceValue,
       }),
     };
   } catch (error) {

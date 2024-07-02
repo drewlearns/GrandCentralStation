@@ -2,20 +2,7 @@ const { PrismaClient } = require('@prisma/client');
 const prisma = new PrismaClient();
 
 exports.handler = async (event) => {
-  const { authToken, householdId } = JSON.parse(event.body);
-
-  if (!authToken) {
-    return {
-      statusCode: 401,
-      headers: {
-        'Content-Type': 'application/json',
-        'Access-Control-Allow-Origin': '*',
-      },
-      body: JSON.stringify({
-        message: 'Access denied. No token provided.'
-      }),
-    };
-  }
+  const { householdId } = JSON.parse(event.body);
 
   if (!householdId) {
     return {
@@ -32,12 +19,10 @@ exports.handler = async (event) => {
 
   try {
     // Get the default payment source for the household
-    const preference = await prisma.preferences.findUnique({
+    const preference = await prisma.preferences.findFirst({
       where: {
-        householdId_preferenceType: {
-          householdId: householdId,
-          preferenceType: 'defaultPaymentSource'
-        },
+        householdId: householdId,
+        preferenceType: 'defaultPaymentSource'
       },
     });
 
