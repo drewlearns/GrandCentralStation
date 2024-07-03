@@ -33,7 +33,7 @@ exports.handler = async (event) => {
 
     // Check subscription status
     const subscriptionStatus = user.subscriptionStatus;
-    const subscriptionEndDate = user.subscriptionEndDate;
+    const subscriptionEndDate = user.subscriptionEndDate ? user.subscriptionEndDate.toISOString().split('T')[0] : null;
     let isActive = false;
     let isExpired = false;
     let isTrial = false;

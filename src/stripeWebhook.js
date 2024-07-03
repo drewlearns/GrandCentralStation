@@ -1,6 +1,6 @@
 const { PrismaClient } = require('@prisma/client');
 const prisma = new PrismaClient();
-const stripe = require('stripe')('process.env.STRIPE_SK');
+const stripe = require('stripe')(process.env.STRIPE_SK);
 const endpointSecret = 'whsec_W3mNZT3xVo7KTP3tlHy1jJKwbP50Jzfq';
 
 async function updateUserSubscriptionStatus(stripeCustomerId, subscriptionStatus, endDate = null) {
@@ -64,6 +64,22 @@ exports.handler = async (event) => {
   };
 
   switch (stripeEvent.type) {
+    case 'checkout.session.completed':
+      const session = stripeEvent.data.object;
+      if (session.mode === 'subscription' && session.subscription) {
+        const subscription = await stripe.subscriptions.retrieve(session.subscription);
+        let subscriptionStatus = 'expired';
+        if (subscription.status === 'trialing') {
+          subscriptionStatus = 'trial';
+        } else if (subscription.status === 'active') {
+          subscriptionStatus = 'active';
+        } else if (subscription.status === 'canceled' || subscription.status === 'incomplete_expired') {
+          subscriptionStatus = 'cancelled';
+        }
+        await handleSubscriptionEvent(subscription, subscriptionStatus);
+      }
+      break;
+
     case 'customer.subscription.updated':
     case 'customer.subscription.created':
     case 'customer.subscription.trial_will_end':
