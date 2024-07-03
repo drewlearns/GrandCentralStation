@@ -14,12 +14,11 @@ const corsHeaders = {
     'Access-Control-Allow-Methods': 'OPTIONS,POST'
 };
 
-function calculateFutureDates(startDate, frequency, dayOfMonth) {
+function calculateFutureDates(startDate, endDate, frequency) {
     const dates = [];
     let currentDate = new Date(startDate);
-    currentDate.setDate(dayOfMonth);
 
-    while (currentDate <= new Date(new Date().setMonth(new Date().getMonth() + 12))) {
+    while (currentDate <= new Date(endDate)) {
         dates.push(new Date(currentDate));
 
         switch (frequency) {
@@ -112,7 +111,7 @@ exports.handler = async (event) => {
     }
 
     const body = JSON.parse(event.body);
-    const { householdId, amount, dayOfMonth, category, description, sourceId, tags, billId, url, username, password, frequency } = body;
+    const { householdId, amount, startDate, endDate, category, description, sourceId, tags, billId, url, username, password, frequency } = body;
 
     try {
         // Update the Bill table
@@ -121,7 +120,8 @@ exports.handler = async (event) => {
             data: {
                 category,
                 amount: new Decimal(amount).toFixed(2),
-                dayOfMonth: parseInt(dayOfMonth),  // Ensure dayOfMonth is an integer
+                startDate: new Date(startDate),
+                endDate: new Date(endDate),
                 frequency,
                 description,
                 status: false, // status will always be false
@@ -147,12 +147,10 @@ exports.handler = async (event) => {
             where: { billId }
         });
 
-        // Function to calculate the next transaction date based on frequency and day of the month
-        const startDate = new Date();
-        startDate.setDate(parseInt(dayOfMonth));  // Ensure dayOfMonth is an integer
-        const futureDates = calculateFutureDates(startDate, frequency, parseInt(dayOfMonth));  // Ensure dayOfMonth is an integer
+        // Calculate future dates based on the new frequency and start date
+        const futureDates = calculateFutureDates(new Date(startDate), new Date(endDate), frequency);
 
-        // Update the ledger entries based on the new frequency and day of the month
+        // Update the ledger entries based on the new frequency and dates
         for (let i = 0; i < ledgerEntries.length; i++) {
             if (futureDates[i]) {
                 await prisma.ledger.update({

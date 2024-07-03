@@ -66,9 +66,10 @@ async function validateUser(userId, householdId) {
     return isValidUser;
 }
 
-function calculateFutureDates(startDate, frequency) {
+function calculateFutureDates(startDate, endDate, frequency) {
     const dates = [];
     let currentDate = new Date(startDate);
+    const end = new Date(endDate);
 
     const incrementMap = {
         once: () => currentDate,
@@ -81,7 +82,7 @@ function calculateFutureDates(startDate, frequency) {
         annually: () => currentDate.setFullYear(currentDate.getFullYear() + 1),
     };
 
-    while (currentDate <= new Date(new Date().setMonth(new Date().getMonth() + 12))) {
+    while (currentDate <= end) {
         dates.push(new Date(currentDate));
         incrementMap[frequency]();
         if (frequency === 'once') break;
@@ -132,12 +133,12 @@ exports.handler = async (event) => {
         }
 
         // Validate incomeData fields
-        const { name, amount, frequency, firstPayDay } = incomeData;
-        if (!name || !amount || !frequency || !firstPayDay) {
+        const { name, amount, frequency, startDate, endDate } = incomeData;
+        if (!name || !amount || !frequency || !startDate || !endDate) {
             return {
                 statusCode: 400,
                 headers: corsHeaders,
-                body: JSON.stringify({ message: 'Missing required incomeData fields: name, amount, frequency, firstPayDay are all required.' }),
+                body: JSON.stringify({ message: 'Missing required incomeData fields: name, amount, frequency, startDate, endDate are all required.' }),
             };
         }
 
@@ -173,13 +174,14 @@ exports.handler = async (event) => {
                 name: name,
                 amount: new Decimal(amount), // Ensure the amount is correctly converted to Decimal
                 frequency: frequency,
-                firstPayDay: new Date(firstPayDay),
+                startDate: new Date(startDate),
+                endDate: new Date(endDate),
                 createdAt: new Date(),
                 updatedAt: new Date(),
             }
         });
 
-        const futureDates = calculateFutureDates(new Date(firstPayDay), frequency);
+        const futureDates = calculateFutureDates(new Date(startDate), new Date(endDate), frequency);
 
         const ledgerEntries = futureDates.map(date => ({
             householdId,

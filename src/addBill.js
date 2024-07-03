@@ -53,11 +53,11 @@ async function validateUser(userId, householdId) {
     return memberUuids.includes(userId);
 }
 
-function calculateFutureDates(startDate, frequency) {
+function calculateFutureDates(startDate, endDate, frequency) {
     const dates = [];
     let currentDate = new Date(startDate);
 
-    while (currentDate <= new Date(new Date().setMonth(new Date().getMonth() + 12))) {
+    while (currentDate <= new Date(endDate)) {
         dates.push(new Date(currentDate));
 
         switch (frequency) {
@@ -92,7 +92,7 @@ function calculateFutureDates(startDate, frequency) {
 }
 
 async function createNotification(ledgerEntry, userUuid) {
-    console.log('Creating notification for ledger entry:', ledgerEntry);  // Log ledger entry for debugging
+    console.log('Creating notification for ledger entry:', ledgerEntry);
 
     const params = {
         FunctionName: 'addNotification',
@@ -101,16 +101,15 @@ async function createNotification(ledgerEntry, userUuid) {
             billId: ledgerEntry.billId,
             title: `Upcoming bill: ${ledgerEntry.category}`,
             message: `Your bill ${ledgerEntry.description} is due on ${ledgerEntry.transactionDate.toDateString()}`,
-            dueDate: ledgerEntry.transactionDate.toISOString()  // Ensure date is in proper format
+            dueDate: ledgerEntry.transactionDate.toISOString()
         }),
     };
 
-    console.log('Notification Payload:', params.Payload);  // Log the payload for debugging
+    console.log('Notification Payload:', params.Payload);
 
     const command = new InvokeCommand(params);
     await lambda.send(command);
 }
-
 
 async function invokeCalculateRunningTotal(householdId, paymentSourceId) {
     const params = {
@@ -158,7 +157,7 @@ exports.handler = async (event) => {
     const { authToken, householdId, billData } = JSON.parse(event.body);
 
     // Verify required fields
-    const requiredFields = ['category', 'billName', 'amount', 'dayOfMonth', 'frequency', 'description'];
+    const requiredFields = ['category', 'billName', 'amount', 'startDate', 'endDate', 'frequency', 'description'];
     for (const field of requiredFields) {
         if (!billData[field]) {
             return {
@@ -216,7 +215,8 @@ exports.handler = async (event) => {
                 category: billData.category,
                 billName: billData.billName,
                 amount: billData.amount,
-                dayOfMonth: billData.dayOfMonth,
+                startDate: new Date(billData.startDate),
+                endDate: new Date(billData.endDate),
                 frequency: billData.frequency,
                 description: billData.description,
                 status: false,
@@ -239,9 +239,7 @@ exports.handler = async (event) => {
         }
 
         // Generate ledger entries based on the frequency
-        const startDate = new Date();
-        startDate.setDate(billData.dayOfMonth);
-        const futureDates = calculateFutureDates(startDate, billData.frequency);
+        const futureDates = calculateFutureDates(new Date(billData.startDate), new Date(billData.endDate), billData.frequency);
 
         const tags = `${billData.billName},${billData.category}`;
 
@@ -261,7 +259,6 @@ exports.handler = async (event) => {
             runningTotal: 0.0,
             tags,
         }));
-        
 
         await prisma.ledger.createMany({ data: ledgerEntries });
 

@@ -43,6 +43,8 @@ async function getHouseholdMembers(authToken, householdId) {
         throw new Error('Invalid token payload: missing uid');
     }
 
+    console.log(`Fetching members for household ID: ${householdId}`);
+
     // Fetch household members
     const members = await prisma.householdMembers.findMany({
         where: {
@@ -61,6 +63,8 @@ async function getHouseholdMembers(authToken, householdId) {
             joinedDate: true,
         },
     });
+
+    console.log(`Members fetched: ${JSON.stringify(members)}`);
 
     // Format the results
     const result = members.map(member => ({

@@ -76,16 +76,18 @@ async function editIncome(authToken, incomeId, updatedIncomeData) {
 
     console.log('updatedIncomeData:', updatedIncomeData);
 
-    // Validate the firstPayDay
-    if (!updatedIncomeData.firstPayDay) {
-        console.error('firstPayDay is missing in updatedIncomeData:', updatedIncomeData);
-        throw new Error('firstPayDay is missing');
+    // Validate the startDate and endDate
+    if (!updatedIncomeData.startDate || !updatedIncomeData.endDate) {
+        console.error('startDate or endDate is missing in updatedIncomeData:', updatedIncomeData);
+        throw new Error('startDate or endDate is missing');
     }
 
-    const firstPayDay = new Date(updatedIncomeData.firstPayDay);
-    if (isNaN(firstPayDay.getTime())) {
-        console.error('Invalid firstPayDay date:', updatedIncomeData.firstPayDay);
-        throw new Error('Invalid firstPayDay date');
+    const startDate = new Date(updatedIncomeData.startDate);
+    const endDate = new Date(updatedIncomeData.endDate);
+
+    if (isNaN(startDate.getTime()) || isNaN(endDate.getTime())) {
+        console.error('Invalid startDate or endDate:', updatedIncomeData.startDate, updatedIncomeData.endDate);
+        throw new Error('Invalid startDate or endDate');
     }
 
     // Validate the paymentSourceId
@@ -105,7 +107,8 @@ async function editIncome(authToken, incomeId, updatedIncomeData) {
             name: updatedIncomeData.name,
             amount: new Decimal(updatedIncomeData.amount).toFixed(2),
             frequency: updatedIncomeData.frequency,
-            firstPayDay: firstPayDay,
+            startDate: startDate,
+            endDate: endDate,
             updatedAt: new Date(),
         },
     });
@@ -116,7 +119,7 @@ async function editIncome(authToken, incomeId, updatedIncomeData) {
     });
 
     // Generate new ledger entries based on the new frequency
-    const futureDates = calculateFutureDates(firstPayDay, updatedIncomeData.frequency);
+    const futureDates = calculateFutureDates(startDate, endDate, updatedIncomeData.frequency);
 
     const ledgerEntries = futureDates.map(date => ({
         householdId: existingIncome.householdId,
@@ -141,41 +144,28 @@ async function editIncome(authToken, incomeId, updatedIncomeData) {
     return updatedIncome;
 }
 
-function calculateFutureDates(startDate, frequency) {
+function calculateFutureDates(startDate, endDate, frequency) {
     const dates = [];
     let currentDate = new Date(startDate);
+    const end = new Date(endDate);
 
-    while (currentDate <= new Date(new Date().setMonth(new Date().getMonth() + 12))) {
+    const incrementMap = {
+        once: () => currentDate,
+        weekly: () => currentDate.setDate(currentDate.getDate() + 7),
+        biweekly: () => currentDate.setDate(currentDate.getDate() + 14),
+        monthly: () => currentDate.setMonth(currentDate.getMonth() + 1),
+        bimonthly: () => currentDate.setMonth(currentDate.getMonth() + 2),
+        quarterly: () => currentDate.setMonth(currentDate.getMonth() + 3),
+        semiAnnually: () => currentDate.setMonth(currentDate.getMonth() + 6),
+        annually: () => currentDate.setFullYear(currentDate.getFullYear() + 1),
+    };
+
+    while (currentDate <= end) {
         dates.push(new Date(currentDate));
-
-        switch (frequency) {
-            case 'once':
-                return dates;
-            case 'weekly':
-                currentDate.setDate(currentDate.getDate() + 7);
-                break;
-            case 'biweekly':
-                currentDate.setDate(currentDate.getDate() + 14);
-                break;
-            case 'monthly':
-                currentDate.setMonth(currentDate.getMonth() + 1);
-                break;
-            case 'bimonthly':
-                currentDate.setMonth(currentDate.getMonth() + 2);
-                break;
-            case 'quarterly':
-                currentDate.setMonth(currentDate.getMonth() + 3);
-                break;
-            case 'semiAnnually':
-                currentDate.setMonth(currentDate.getMonth() + 6);
-                break;
-            case 'annually':
-                currentDate.setFullYear(currentDate.getFullYear() + 1);
-                break;
-            default:
-                throw new Error('Invalid frequency');
-        }
+        incrementMap[frequency]();
+        if (frequency === 'once') break;
     }
+
     return dates;
 }
 

@@ -86,7 +86,8 @@ model Incomes {
   name        String
   amount      Decimal @db.Decimal(10,2)
   frequency   String
-  firstPayDay DateTime
+  startDate   DateTime
+  endDate     DateTime
   createdAt   DateTime
   updatedAt   DateTime
 
@@ -129,7 +130,8 @@ model Bill {
   category     String
   billName     String
   amount       Decimal @db.Decimal(10, 2)
-  dayOfMonth   Int
+  startDate    DateTime
+  endDate      DateTime
   frequency    String
   description  String
   status       Boolean
