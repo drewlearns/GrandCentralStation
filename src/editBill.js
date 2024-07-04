@@ -17,38 +17,25 @@ const corsHeaders = {
 function calculateFutureDates(startDate, endDate, frequency) {
     const dates = [];
     let currentDate = new Date(startDate);
+    const end = endDate ? new Date(endDate) : null;
 
-    while (currentDate <= new Date(endDate)) {
+    const incrementMap = {
+        once: () => currentDate,
+        weekly: () => currentDate.setDate(currentDate.getDate() + 7),
+        biweekly: () => currentDate.setDate(currentDate.getDate() + 14),
+        monthly: () => currentDate.setMonth(currentDate.getMonth() + 1),
+        bimonthly: () => currentDate.setMonth(currentDate.getMonth() + 2),
+        quarterly: () => currentDate.setMonth(currentDate.getMonth() + 3),
+        semiAnnually: () => currentDate.setMonth(currentDate.getMonth() + 6),
+        annually: () => currentDate.setFullYear(currentDate.getFullYear() + 1),
+    };
+
+    while (!end || currentDate <= end) {
         dates.push(new Date(currentDate));
-
-        switch (frequency) {
-            case 'once':
-                return dates;
-            case 'weekly':
-                currentDate.setDate(currentDate.getDate() + 7);
-                break;
-            case 'biweekly':
-                currentDate.setDate(currentDate.getDate() + 14);
-                break;
-            case 'monthly':
-                currentDate.setMonth(currentDate.getMonth() + 1);
-                break;
-            case 'bimonthly':
-                currentDate.setMonth(currentDate.getMonth() + 2);
-                break;
-            case 'quarterly':
-                currentDate.setMonth(currentDate.getMonth() + 3);
-                break;
-            case 'semiAnnually':
-                currentDate.setMonth(currentDate.getMonth() + 6);
-                break;
-            case 'annually':
-                currentDate.setFullYear(currentDate.getFullYear() + 1);
-                break;
-            default:
-                throw new Error('Invalid frequency');
-        }
+        incrementMap[frequency]();
+        if (frequency === 'once') break;
     }
+
     return dates;
 }
 
@@ -114,14 +101,34 @@ exports.handler = async (event) => {
     const { householdId, amount, startDate, endDate, category, description, sourceId, tags, billId, url, username, password, frequency } = body;
 
     try {
+        // Validate required fields
+        if (!startDate || (frequency !== 'once' && !endDate)) {
+            return {
+                statusCode: 400,
+                headers: corsHeaders,
+                body: JSON.stringify({ message: 'Missing required fields: startDate is required. endDate is required unless frequency is "once".' }),
+            };
+        }
+
+        const startDateObj = new Date(startDate);
+        const endDateObj = endDate ? new Date(endDate) : null;
+
+        if (isNaN(startDateObj.getTime()) || (endDate && isNaN(endDateObj.getTime()))) {
+            return {
+                statusCode: 400,
+                headers: corsHeaders,
+                body: JSON.stringify({ message: 'Invalid date format for startDate or endDate.' }),
+            };
+        }
+
         // Update the Bill table
         const updatedBill = await prisma.bill.update({
             where: { billId },
             data: {
                 category,
                 amount: new Decimal(amount).toFixed(2),
-                startDate: new Date(startDate),
-                endDate: new Date(endDate),
+                startDate: startDateObj,
+                endDate: endDateObj,
                 frequency,
                 description,
                 status: false, // status will always be false
@@ -148,7 +155,7 @@ exports.handler = async (event) => {
         });
 
         // Calculate future dates based on the new frequency and start date
-        const futureDates = calculateFutureDates(new Date(startDate), new Date(endDate), frequency);
+        const futureDates = calculateFutureDates(startDateObj, endDateObj, frequency);
 
         // Update the ledger entries based on the new frequency and dates
         for (let i = 0; i < ledgerEntries.length; i++) {

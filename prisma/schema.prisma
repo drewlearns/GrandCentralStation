@@ -131,7 +131,7 @@ model Bill {
   billName     String
   amount       Decimal @db.Decimal(10, 2)
   startDate    DateTime
-  endDate      DateTime
+  endDate      DateTime?
   frequency    String
   description  String
   status       Boolean

@@ -69,7 +69,7 @@ async function validateUser(userId, householdId) {
 function calculateFutureDates(startDate, endDate, frequency) {
     const dates = [];
     let currentDate = new Date(startDate);
-    const end = new Date(endDate);
+    const end = endDate ? new Date(endDate) : null;
 
     const incrementMap = {
         once: () => currentDate,
@@ -82,7 +82,7 @@ function calculateFutureDates(startDate, endDate, frequency) {
         annually: () => currentDate.setFullYear(currentDate.getFullYear() + 1),
     };
 
-    while (currentDate <= end) {
+    while (!end || currentDate <= end) {
         dates.push(new Date(currentDate));
         incrementMap[frequency]();
         if (frequency === 'once') break;
@@ -134,11 +134,11 @@ exports.handler = async (event) => {
 
         // Validate incomeData fields
         const { name, amount, frequency, startDate, endDate } = incomeData;
-        if (!name || !amount || !frequency || !startDate || !endDate) {
+        if (!name || !amount || !frequency || !startDate || (frequency !== 'once' && !endDate)) {
             return {
                 statusCode: 400,
                 headers: corsHeaders,
-                body: JSON.stringify({ message: 'Missing required incomeData fields: name, amount, frequency, startDate, endDate are all required.' }),
+                body: JSON.stringify({ message: 'Missing required incomeData fields: name, amount, frequency, startDate are required. endDate is required unless frequency is "once".' }),
             };
         }
 
@@ -175,13 +175,13 @@ exports.handler = async (event) => {
                 amount: new Decimal(amount), // Ensure the amount is correctly converted to Decimal
                 frequency: frequency,
                 startDate: new Date(startDate),
-                endDate: new Date(endDate),
+                endDate: endDate ? new Date(endDate) : null,
                 createdAt: new Date(),
                 updatedAt: new Date(),
             }
         });
 
-        const futureDates = calculateFutureDates(new Date(startDate), new Date(endDate), frequency);
+        const futureDates = calculateFutureDates(new Date(startDate), endDate ? new Date(endDate) : null, frequency);
 
         const ledgerEntries = futureDates.map(date => ({
             householdId,

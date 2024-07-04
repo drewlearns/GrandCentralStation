@@ -77,15 +77,15 @@ async function editIncome(authToken, incomeId, updatedIncomeData) {
     console.log('updatedIncomeData:', updatedIncomeData);
 
     // Validate the startDate and endDate
-    if (!updatedIncomeData.startDate || !updatedIncomeData.endDate) {
+    if (!updatedIncomeData.startDate || (updatedIncomeData.frequency !== 'once' && !updatedIncomeData.endDate)) {
         console.error('startDate or endDate is missing in updatedIncomeData:', updatedIncomeData);
-        throw new Error('startDate or endDate is missing');
+        throw new Error('startDate is required, endDate is required unless frequency is "once".');
     }
 
     const startDate = new Date(updatedIncomeData.startDate);
-    const endDate = new Date(updatedIncomeData.endDate);
+    const endDate = updatedIncomeData.endDate ? new Date(updatedIncomeData.endDate) : null;
 
-    if (isNaN(startDate.getTime()) || isNaN(endDate.getTime())) {
+    if (isNaN(startDate.getTime()) || (endDate && isNaN(endDate.getTime()))) {
         console.error('Invalid startDate or endDate:', updatedIncomeData.startDate, updatedIncomeData.endDate);
         throw new Error('Invalid startDate or endDate');
     }
@@ -147,7 +147,7 @@ async function editIncome(authToken, incomeId, updatedIncomeData) {
 function calculateFutureDates(startDate, endDate, frequency) {
     const dates = [];
     let currentDate = new Date(startDate);
-    const end = new Date(endDate);
+    const end = endDate ? new Date(endDate) : null;
 
     const incrementMap = {
         once: () => currentDate,
@@ -160,7 +160,7 @@ function calculateFutureDates(startDate, endDate, frequency) {
         annually: () => currentDate.setFullYear(currentDate.getFullYear() + 1),
     };
 
-    while (currentDate <= end) {
+    while (!end || currentDate <= end) {
         dates.push(new Date(currentDate));
         incrementMap[frequency]();
         if (frequency === 'once') break;

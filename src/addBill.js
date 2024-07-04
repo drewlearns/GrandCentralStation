@@ -57,12 +57,10 @@ function calculateFutureDates(startDate, endDate, frequency) {
     const dates = [];
     let currentDate = new Date(startDate);
 
-    while (currentDate <= new Date(endDate)) {
+    while (frequency !== 'once' && currentDate <= new Date(endDate)) {
         dates.push(new Date(currentDate));
 
         switch (frequency) {
-            case 'once':
-                return dates;
             case 'weekly':
                 currentDate.setDate(currentDate.getDate() + 7);
                 break;
@@ -88,6 +86,11 @@ function calculateFutureDates(startDate, endDate, frequency) {
                 throw new Error('Invalid frequency');
         }
     }
+
+    if (frequency === 'once') {
+        dates.push(new Date(startDate));
+    }
+
     return dates;
 }
 
@@ -157,7 +160,7 @@ exports.handler = async (event) => {
     const { authToken, householdId, billData } = JSON.parse(event.body);
 
     // Verify required fields
-    const requiredFields = ['category', 'billName', 'amount', 'startDate', 'endDate', 'frequency', 'description'];
+    const requiredFields = ['category', 'billName', 'amount', 'startDate', 'frequency', 'description'];
     for (const field of requiredFields) {
         if (!billData[field]) {
             return {
@@ -166,6 +169,15 @@ exports.handler = async (event) => {
                 body: JSON.stringify({ message: `Missing required field: ${field}` }),
             };
         }
+    }
+
+    // End date is required only if frequency is not 'once'
+    if (billData.frequency !== 'once' && !billData.endDate) {
+        return {
+            statusCode: 400,
+            headers: corsHeaders,
+            body: JSON.stringify({ message: 'Missing required field: endDate' }),
+        };
     }
 
     // Verify the token
@@ -216,7 +228,7 @@ exports.handler = async (event) => {
                 billName: billData.billName,
                 amount: billData.amount,
                 startDate: new Date(billData.startDate),
-                endDate: new Date(billData.endDate),
+                endDate: billData.frequency !== 'once' ? new Date(billData.endDate) : null,
                 frequency: billData.frequency,
                 description: billData.description,
                 status: false,
@@ -239,7 +251,7 @@ exports.handler = async (event) => {
         }
 
         // Generate ledger entries based on the frequency
-        const futureDates = calculateFutureDates(new Date(billData.startDate), new Date(billData.endDate), billData.frequency);
+        const futureDates = calculateFutureDates(new Date(billData.startDate), billData.frequency !== 'once' ? new Date(billData.endDate) : null, billData.frequency);
 
         const tags = `${billData.billName},${billData.category}`;
 

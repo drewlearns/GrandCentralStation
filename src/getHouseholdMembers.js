@@ -43,6 +43,10 @@ async function getHouseholdMembers(authToken, householdId) {
         throw new Error('Invalid token payload: missing uid');
     }
 
+    if (!householdId || householdId === 'null') {
+        throw new Error('householdId is null or undefined');
+    }
+
     console.log(`Fetching members for household ID: ${householdId}`);
 
     // Fetch household members
@@ -113,12 +117,12 @@ exports.handler = async (event) => {
         };
     }
 
-    if (!householdId) {
-        console.error('householdId is missing');
+    if (!householdId || householdId === 'null') {
+        console.error('householdId is missing or null');
         return {
             statusCode: 400,
             headers: CORS_HEADERS,
-            body: JSON.stringify({ error: 'householdId is missing' }),
+            body: JSON.stringify({ error: 'householdId is missing or null' }),
         };
     }
 
