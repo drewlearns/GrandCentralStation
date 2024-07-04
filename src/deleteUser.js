@@ -68,7 +68,10 @@ exports.handler = async (event) => {
     const user = await prisma.user.findUnique({ where: { uuid: userId } });
     if (!user) return { statusCode: 404, headers: corsHeaders, body: JSON.stringify({ message: "User not found" }) };
 
-    // Delete the user and related data
+    // Delete related data that references the user first
+    await prisma.householdMembers.deleteMany({ where: { memberUuid: userId } });
+
+    // Delete the user
     await prisma.user.delete({ where: { uuid: userId } });
 
     return {
