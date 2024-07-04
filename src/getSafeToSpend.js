@@ -1,21 +1,74 @@
-// ... other imports
 const { PrismaClient } = require("@prisma/client");
+const { LambdaClient, InvokeCommand } = require("@aws-sdk/client-lambda");
+const Decimal = require('decimal.js');
+
+const prisma = new PrismaClient();
+const lambdaClient = new LambdaClient({ region: process.env.AWS_REGION });
+const corsHeaders = {
+  'Content-Type': 'application/json',
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Headers': 'Content-Type',
+  'Access-Control-Allow-Methods': 'OPTIONS,POST,GET'
+};
 
 async function getDefaultPaymentSource(householdId) {
-  const preference = await prisma.preferences.findUnique({
+  const preference = await prisma.preferences.findFirst({
     where: {
-      householdId_preferenceType: {
-        householdId: householdId,
-        preferenceType: 'defaultPaymentSource'
-      },
-    },
+      AND: [
+        { householdId: householdId },
+        { preferenceType: 'defaultPaymentSource' }
+      ]
+    }
   });
 
   return preference ? preference.preferenceValue : null;
 }
 
+async function verifyToken(token) {
+  const params = {
+    FunctionName: 'verifyToken', // Ensure this is the correct Lambda function name
+    Payload: new TextEncoder().encode(JSON.stringify({ authToken: token })),
+  };
+
+  const command = new InvokeCommand(params);
+  const response = await lambdaClient.send(command);
+
+  const payload = JSON.parse(new TextDecoder().decode(response.Payload));
+
+  if (payload.errorMessage) {
+    throw new Error(payload.errorMessage);
+  }
+
+  const nestedPayload = JSON.parse(payload.body);
+  console.log("verifyToken nested payload:", nestedPayload);
+
+  return nestedPayload;
+}
+
 exports.handler = async (event) => {
-  // ... other code
+  const { authToken, householdId } = JSON.parse(event.body);
+
+  if (!authToken) {
+    return {
+      statusCode: 401,
+      headers: corsHeaders,
+      body: JSON.stringify({
+        message: 'Access denied. No token provided.'
+      })
+    };
+  }
+
+  if (!householdId) {
+    return {
+      statusCode: 400,
+      headers: corsHeaders,
+      body: JSON.stringify({
+        message: 'No householdId provided.'
+      })
+    };
+  }
+
+  let userId;
 
   try {
     const tokenPayload = await verifyToken(authToken);
@@ -55,7 +108,7 @@ exports.handler = async (event) => {
     }
 
     const today = new Date();
-    today.setUTCHours(23, 59, 59, 59);
+    today.setUTCHours(0, 0, 0, 0);
 
     const defaultPaymentSourceId = await getDefaultPaymentSource(householdId);
     if (!defaultPaymentSourceId) {
@@ -79,7 +132,8 @@ exports.handler = async (event) => {
         body: JSON.stringify({
           safeToSpend: 0.0,
           nextPayday: "n/a",
-        }),      };
+        }),
+      };
     }
 
     let nextPayday = null;

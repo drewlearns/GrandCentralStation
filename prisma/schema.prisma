@@ -86,6 +86,7 @@ model Incomes {
   name        String
   amount      Decimal @db.Decimal(10,2)
   frequency   String
+  firstPayDay DateTime  // Add this line
   startDate   DateTime
   endDate     DateTime
   createdAt   DateTime
@@ -95,6 +96,7 @@ model Incomes {
   household Household @relation(fields: [householdId], references: [householdId])
   ledgers   Ledger[]
 }
+
 
 model Ledger {
   ledgerId        String   @id @default(uuid())

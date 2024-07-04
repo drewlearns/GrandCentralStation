@@ -82,8 +82,20 @@ async function verifyToken(token) {
 exports.handler = async (event) => {
   try {
     const body = JSON.parse(event.body);
+    console.log(event)
     const { authToken, householdId, amount, transactionType, transactionDate, category, description, status, sourceId, tags, image, transactionId } = body;
-
+    console.log(`authToken: ${authToken}`)
+    console.log(`householdId: ${householdId}`)
+    console.log(`amount: ${amount}`)
+    console.log(`transactionType: ${transactionType}`)
+    console.log(`transactionDate: ${transactionDate}`)
+    console.log(`category: ${category}`)
+    console.log(`description: ${description}`)
+    console.log(`status: ${status}`)
+    console.log(`sourceId: ${sourceId}`)
+    console.log(`tags: ${tags}`)
+    console.log(`image: ${image}`)
+    console.log(`transactionId: ${transactionId}`)
     // Validate required fields
     if (!transactionId || !sourceId || !transactionDate || !transactionType || !amount || !description) {
       return {

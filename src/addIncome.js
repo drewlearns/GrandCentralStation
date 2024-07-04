@@ -134,11 +134,17 @@ exports.handler = async (event) => {
 
         // Validate incomeData fields
         const { name, amount, frequency, startDate, endDate } = incomeData;
-        if (!name || !amount || !frequency || !startDate || (frequency !== 'once' && !endDate)) {
+        console.log(event.body)
+        console.log(`name: ${name}`)
+        console.log(`amount: ${amount}`)
+        console.log(`frequency: ${frequency}`)
+        console.log(`startDate: ${startDate}`)
+        console.log(`endDate: ${endDate}`)
+        if (!name || !amount || !frequency || !startDate) {
             return {
                 statusCode: 400,
                 headers: corsHeaders,
-                body: JSON.stringify({ message: 'Missing required incomeData fields: name, amount, frequency, startDate are required. endDate is required unless frequency is "once".' }),
+                body: JSON.stringify({ message: 'Missing required incomeData fields: name, amount, frequency, startDate are required.' }),
             };
         }
 
@@ -167,6 +173,25 @@ exports.handler = async (event) => {
 
         const incomeId = uuidv4();
 
+        // Validate and set endDate
+        let parsedStartDate = new Date(startDate);
+        let parsedEndDate = endDate ? new Date(endDate) : parsedStartDate;
+
+        console.log(`Parsed startDate: ${parsedStartDate}`);
+        console.log(`Parsed endDate: ${parsedEndDate}`);
+
+        if (isNaN(parsedStartDate.getTime())) {
+            return {
+                statusCode: 400,
+                headers: corsHeaders,
+                body: JSON.stringify({ message: 'Invalid startDate provided.' }),
+            };
+        }
+
+        if (isNaN(parsedEndDate.getTime())) {
+            parsedEndDate = parsedStartDate;
+        }
+
         const newIncome = await prisma.incomes.create({
             data: {
                 incomeId, // Use the generated UUID for incomeId
@@ -174,14 +199,15 @@ exports.handler = async (event) => {
                 name: name,
                 amount: new Decimal(amount), // Ensure the amount is correctly converted to Decimal
                 frequency: frequency,
-                startDate: new Date(startDate),
-                endDate: endDate ? new Date(endDate) : null,
+                startDate: parsedStartDate,
+                endDate: parsedEndDate, // Use the validated endDate or startDate if null
                 createdAt: new Date(),
                 updatedAt: new Date(),
+                firstPayDay: parsedStartDate, // Added firstPayDay
             }
         });
 
-        const futureDates = calculateFutureDates(new Date(startDate), endDate ? new Date(endDate) : null, frequency);
+        const futureDates = calculateFutureDates(parsedStartDate, parsedEndDate, frequency);
 
         const ledgerEntries = futureDates.map(date => ({
             householdId,

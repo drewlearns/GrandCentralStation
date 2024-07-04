@@ -1,6 +1,7 @@
 const { PrismaClient } = require('@prisma/client');
-const prisma = new PrismaClient();
 const { Decimal } = require('decimal.js');
+
+const prisma = new PrismaClient();
 
 async function main() {
   console.log('Start seeding ...');
@@ -104,6 +105,7 @@ async function main() {
       frequency: 'monthly',
       startDate: new Date('2024-07-01'),
       endDate: new Date('2025-06-30'),
+      firstPayDay: new Date('2024-07-01'), // Ensure the firstPayDay is included
       createdAt: new Date(),
       updatedAt: new Date(),
     },

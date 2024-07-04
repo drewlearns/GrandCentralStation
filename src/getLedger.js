@@ -187,6 +187,7 @@ async function getLedgerEntries(authToken, householdId, filters = {}, threshold 
             flattenedEntry.transactionId = ''; // Handle cases with no transactions
         }
 
+        // Determine the type of entry
         if (flattenedEntry.bill && flattenedEntry.bill.billId) {
             flattenedEntry.type = 'bill';
         } else if (flattenedEntry.income && flattenedEntry.income.incomeId) {
@@ -225,6 +226,7 @@ async function getLedgerEntries(authToken, householdId, filters = {}, threshold 
         totalItems,
     };
 }
+
 
 exports.handler = async (event) => {
     if (event.httpMethod === 'OPTIONS') {
