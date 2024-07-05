@@ -288,3 +288,289 @@ In the template input box, use the following code to ensure the raw body is pass
   }
 }
 ```
+
+
+To ensure that the keystore key is correctly generated and matches the upload certificate from Google Play, you'll need to follow these steps:
+
+Download the Upload Certificate from Google Play:
+
+Go to the Google Play Console.
+Navigate to Release > Setup > App Signing.
+Under "App signing key certificate" and "Upload key certificate," you should see the option to download the certificate.
+Generate a Keystore Using the Upload Certificate:
+Unfortunately, you can't directly create a keystore using the certificate file (PEM format) from Google. However, you can import the certificate into a new keystore.
+
+Let's break this process down:
+
+a. Convert the PEM Certificate to a PKCS12 (PFX) File:
+If you have the .pem certificate file, you need to convert it to a .pfx (PKCS12) file.
+
+If you do not have the private key, you cannot directly convert it to a .pfx. The upload certificate provided by Google Play is used to verify your upload key, but it does not contain the private key necessary to sign the app.
+
+However, you can create a new keystore and then generate a new certificate from this keystore. Here's the process:
+
+b. Generate a New Keystore and Key Pair:
+If you do not have the original upload key, you need to generate a new one. Here is how you can generate a new keystore:
+
+bash
+Copy code
+keytool -genkey -v -keystore upload-keystore.jks -keyalg RSA -keysize 2048 -validity 10000 -alias upload
+Follow the prompts to enter the necessary information (passwords, etc.).
+
+c. Export the Certificate from the New Keystore:
+After creating the new keystore, you can export the certificate to compare it:
+
+bash
+Copy code
+keytool -export -alias upload -keystore upload-keystore.jks -file upload_certificate.pem
+Compare the Certificates:
+Compare the SHA1 fingerprint of the newly generated certificate with the one provided by Google Play to ensure they match.
+
+bash
+Copy code
+keytool -list -v -keystore upload-keystore.jks -alias upload
+The output will include the SHA1 fingerprint, which should match the fingerprint of the upload certificate on Google Play.
+
+Use the Correct Keystore in Your Project:
+Ensure the key.properties file points to the correct keystore.
+
+properties
+Copy code
+storePassword=your_store_password
+keyPassword=your_key_password
+keyAlias=upload
+storeFile=/Users/drewk/development/bullet-train/upload-keystore.jks
+Updated build.gradle File:
+Ensure your build.gradle file correctly references the keystore properties:
+
+groovy
+Copy code
+plugins {
+    id "com.android.application"
+    id "kotlin-android"
+    id "dev.flutter.flutter-gradle-plugin"
+}
+
+def localProperties = new Properties()
+def localPropertiesFile = rootProject.file('local.properties')
+if (localPropertiesFile.exists()) {
+    localPropertiesFile.withReader('UTF-8') { reader ->
+        localProperties.load(reader)
+    }
+}
+
+def flutterVersionCode = localProperties.getProperty('flutter.versionCode')
+if (flutterVersionCode == null) {
+    flutterVersionCode = '1'
+}
+
+def flutterVersionName = localProperties.getProperty('flutter.versionName')
+if (flutterVersionName == null) {
+    flutterVersionName = '1.0'
+}
+
+def keystoreProperties = new Properties()
+def keystorePropertiesFile = rootProject.file('key.properties')
+if (keystorePropertiesFile.exists()) {
+    keystoreProperties.load(new FileInputStream(keystorePropertiesFile))
+} else {
+    println "Keystore file not found at ${keystorePropertiesFile}"
+}
+
+android {
+    compileSdkVersion 34
+
+    sourceSets {
+        main.java.srcDirs += 'src/main/kotlin'
+    }
+
+    lintOptions {
+        disable 'InvalidPackage'
+        checkReleaseBuilds false
+    }
+
+    defaultConfig {
+        applicationId "com.thepurplepiggybank.app"
+        minSdkVersion 21
+        targetSdkVersion 34
+        versionCode flutterVersionCode.toInteger()
+        versionName flutterVersionName
+    }
+
+    signingConfigs {
+        release {
+            keyAlias keystoreProperties['keyAlias']
+            keyPassword keystoreProperties['keyPassword']
+            storeFile file(keystoreProperties['storeFile'])
+            storePassword keystoreProperties['storePassword']
+        }
+    }
+
+    buildTypes {
+        release {
+            signingConfig signingConfigs.release
+            minifyEnabled false
+            shrinkResources false
+            proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
+        }
+    }
+}
+
+flutter {
+    source '../..'
+}
+
+dependencies {
+    implementation "org.jetbrains.kotlin:kotlin-stdlib-jdk7:1.7.10"
+}
+Clean and Rebuild the Project
+Clean the Project:
+
+bash
+Copy code
+./gradlew clean
+Rebuild the App Bundle:
+
+bash
+Copy code
+flutter build appbundle --release
+By following these steps, you should be able to ensure that your keystore and key match the upload certificate requirements for Google Play. If you still face issues, please provide specific details or error messages, and we'll continue troubleshooting further.
+
+
+Version code 4 has already been used. Try another version code.
+You uploaded an app bundle that is signed with an upload certificate that is not yet valid because it has been recently reset. You will be able to upload app bundles again from Jun 21, 2024, 4:04:22 PM UTC.
+
+
+It looks like there are two distinct issues you're encountering:
+
+Version Code Conflict: The version code you are using has already been used. You need to increment the version code.
+Upload Certificate Validity: The upload certificate is not yet valid due to a recent reset.
+Resolving Version Code Conflict
+To resolve the version code conflict, increment the version code in your build.gradle file. Here's how:
+
+Open build.gradle:
+Update the defaultConfig section to increment the version code. For example, if your current version code is 4, change it to 5:
+
+groovy
+Copy code
+defaultConfig {
+    applicationId "com.thepurplepiggybank.app"
+    minSdkVersion 21
+    targetSdkVersion 34
+    versionCode 5  // Incremented version code
+    versionName flutterVersionName
+}
+Alternatively, if you manage these values in your local.properties file, update them there.
+
+Handling Upload Certificate Validity
+The upload certificate error indicates that your certificate has recently been reset, and it will be valid from a specific date and time (June 21, 2024, 4:04:22 PM UTC). This means you need to wait until the specified time before you can successfully upload the new app bundle.
+
+Steps to Proceed:
+Update the Version Code:
+Increment the version code in your build.gradle file as shown above.
+
+Wait Until the Certificate is Valid:
+You will need to wait until June 21, 2024, 4:04:22 PM UTC for the upload certificate to become valid. Unfortunately, there isn't a way to bypass this waiting period if Google Play Console has imposed it.
+
+Example build.gradle File with Updated Version Code:
+groovy
+Copy code
+plugins {
+    id "com.android.application"
+    id "kotlin-android"
+    id "dev.flutter.flutter-gradle-plugin"
+}
+
+def localProperties = new Properties()
+def localPropertiesFile = rootProject.file('local.properties')
+if (localPropertiesFile.exists()) {
+    localPropertiesFile.withReader('UTF-8') { reader ->
+        localProperties.load(reader)
+    }
+}
+
+def flutterVersionCode = localProperties.getProperty('flutter.versionCode')
+if (flutterVersionCode == null) {
+    flutterVersionCode = '1'
+}
+
+def flutterVersionName = localProperties.getProperty('flutter.versionName')
+if (flutterVersionName == null) {
+    flutterVersionName = '1.0'
+}
+
+def keystoreProperties = new Properties()
+def keystorePropertiesFile = rootProject.file('key.properties')
+if (keystorePropertiesFile.exists()) {
+    keystoreProperties.load(new FileInputStream(keystorePropertiesFile))
+} else {
+    println "Keystore file not found at ${keystorePropertiesFile}"
+}
+
+android {
+    compileSdkVersion 34
+
+    sourceSets {
+        main.java.srcDirs += 'src/main/kotlin'
+    }
+
+    lintOptions {
+        disable 'InvalidPackage'
+        checkReleaseBuilds false
+    }
+
+    defaultConfig {
+        applicationId "com.thepurplepiggybank.app"
+        minSdkVersion 21
+        targetSdkVersion 34
+        versionCode flutterVersionCode.toInteger() + 1  // Incremented version code
+        versionName flutterVersionName
+    }
+
+    signingConfigs {
+        release {
+            keyAlias keystoreProperties['keyAlias']
+            keyPassword keystoreProperties['keyPassword']
+            storeFile file(keystoreProperties['storeFile'])
+            storePassword keystoreProperties['storePassword']
+        }
+    }
+
+    buildTypes {
+        release {
+            signingConfig signingConfigs.release
+            minifyEnabled false
+            shrinkResources false
+            proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
+        }
+    }
+}
+
+flutter {
+    source '../..'
+}
+
+dependencies {
+    implementation "org.jetbrains.kotlin:kotlin-stdlib-jdk7:1.7.10"
+}
+Clean and Rebuild the Project
+Clean the Project:
+
+bash
+Copy code
+./gradlew clean
+Rebuild the App Bundle:
+
+bash
+Copy code
+flutter build appbundle --release
+Upload the App Bundle
+Once the certificate becomes valid, you can upload the new app bundle to the Google Play Console.
+
+By following these steps, you should be able to resolve the version code conflict and wait for the upload certificate to become valid. If you have any further questions or issues, feel free to ask.
+
+
+
+
+
+
