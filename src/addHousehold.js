@@ -108,7 +108,7 @@ exports.handler = async (event) => {
         return {
             statusCode: 201,
             headers: corsHeaders,
-            body: JSON.stringify(newHousehold),
+            body: JSON.stringify({ householdId: newHousehold.householdId }),
         };
     } catch (error) {
         console.error('Error creating household:', error);

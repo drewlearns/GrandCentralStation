@@ -76,11 +76,11 @@ exports.handler = async (event) => {
                 updatedAt: new Date(),
             },
         });
-
+        console.log(JSON.stringify({ paymentSourceId: newPaymentSource.sourceId }))
         return {
             statusCode: 201,
             headers: corsHeaders,
-            body: JSON.stringify(newPaymentSource),
+            body: JSON.stringify({ paymentSourceId: newPaymentSource.sourceId }),
         };
     } catch (error) {
         console.error('Error adding payment source:', error);

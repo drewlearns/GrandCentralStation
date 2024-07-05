@@ -40,7 +40,7 @@ export const handler = async (event) => {
         };
     }
 
-    const { email, mailOptIn, firstName, lastName, uuid } = parsedBody;
+    const { email, mailOptIn, firstName, lastName, uuid = uuidv4() } = parsedBody; // Generate UUID if not provided
     try {
         const existingUser = await prisma.user.findUnique({ where: { email } });
 
@@ -69,105 +69,12 @@ export const handler = async (event) => {
         });
         console.log('User created:', newUser);
 
-        const householdId = uuidv4();
-        const newHousehold = await prisma.household.create({
-            data: {
-                householdId,
-                householdName: `${lastName} Household`,
-                creationDate: new Date(),
-                createdAt: new Date(),
-                updatedAt: new Date(),
-                setupComplete: false,
-                activeSubscription: false,
-            },
-        });
-        console.log('Household created:', newHousehold);
-
-        const newHouseholdMember = await prisma.householdMembers.create({
-            data: {
-                id: uuidv4(),
-                householdId: newHousehold.householdId,
-                memberUuid: newUser.uuid,
-                role: 'owner',
-                joinedDate: new Date(),
-                createdAt: new Date(),
-                updatedAt: new Date(),
-            },
-        });
-        console.log('Household member created:', newHouseholdMember);
-
-        const paymentSourceId = uuidv4();
-        const epochTime = Date.now();
-        const newPaymentSource = await prisma.paymentSource.create({
-            data: {
-                sourceId: paymentSourceId,
-                householdId: newHousehold.householdId,
-                sourceName: `Default-${epochTime}`,
-                sourceType: 'bank_account',
-                description: 'Default',
-                createdAt: new Date(),
-                updatedAt: new Date(),
-            },
-        });
-        console.log('Payment source created:', newPaymentSource);
-
-        // Set the newly created payment source as the default
-        await prisma.preferences.create({
-            data: {
-                preferenceId: uuidv4(),
-                householdId: newHousehold.householdId,
-                preferenceType: 'defaultPaymentSource',
-                preferenceValue: newPaymentSource.sourceId,
-                createdAt: new Date(),
-                updatedAt: new Date(),
-            },
-        });
-        console.log('Default payment source set:', newPaymentSource.sourceId);
-
-        const ledgerId = uuidv4();
-        const newLedger = await prisma.ledger.create({
-            data: {
-                ledgerId,
-                householdId: newHousehold.householdId,
-                paymentSourceId: newPaymentSource.sourceId,
-                amount: 0.0,
-                transactionType: 'Credit',
-                transactionDate: new Date(),
-                category: 'Initial',
-                description: 'Initial ledger entry',
-                status: true,
-                createdAt: new Date(),
-                updatedAt: new Date(),
-                runningTotal: 0.0,
-            },
-        });
-        console.log('Ledger created:', newLedger);
-
-        const transactionId = uuidv4();
-        const newTransaction = await prisma.transaction.create({
-            data: {
-                transactionId,
-                ledgerId: newLedger.ledgerId,
-                sourceId: newPaymentSource.sourceId,
-                amount: 0.0,
-                transactionDate: new Date(),
-                description: 'Initial transaction during user signup',
-                createdAt: new Date(),
-                updatedAt: new Date(),
-            },
-        });
-        console.log('Transaction created:', newTransaction);
-
         return {
             statusCode: 201,
             headers: corsHeaders,
             body: JSON.stringify({
                 message: 'User created successfully',
                 user: newUser,
-                household: newHousehold,
-                paymentSource: newPaymentSource,
-                ledger: newLedger,
-                transaction: newTransaction,
             }),
         };
 

@@ -45,65 +45,50 @@ async function getDefaultPaymentSource(householdId) {
 }
 
 async function getPaymentSources(authToken, householdId) {
-    // Verify the token
     const payload = await verifyToken(authToken);
-    const uid = payload.user_id;
-
-    if (!uid) {
+    if (!payload.user_id) {
         throw new Error('Invalid token payload: missing uid');
     }
 
-    // Fetch the default payment source for the household
     const defaultPaymentSourceId = await getDefaultPaymentSource(householdId);
-
-    // Fetch payment sources associated with the householdId
     const paymentSources = await prisma.paymentSource.findMany({
-        where: {
-            householdId: householdId,
-        },
-        select: {
-            sourceId: true,
-            sourceName: true,
-        },
+        where: { householdId },
+        select: { sourceId: true, sourceName: true },
     });
 
-    const paymentSourceIds = [];
-    const paymentSourceNames = [];
-    const runningTotals = [];
-    const isDefaultArray = [];
-    
+    const results = {
+        paymentSourceIds: [],
+        paymentSourceNames: [],
+        runningTotals: [],
+        isDefault: [],
+    };
+
     for (const source of paymentSources) {
-        // Fetch the most recent ledger entry up to today's date for each payment source
         const latestLedger = await prisma.ledger.findFirst({
             where: {
                 paymentSourceId: source.sourceId,
-                transactionDate: {
-                    lte: new Date(), // Up to today's date
-                },
+                transactionDate: { lte: new Date() },
             },
-            orderBy: {
-                transactionDate: 'desc',
-            },
-            select: {
-                runningTotal: true,
-            },
+            orderBy: { transactionDate: 'desc' },
+            select: { runningTotal: true },
         });
 
-        const runningTotal = latestLedger ? parseFloat(latestLedger.runningTotal) : null;
+        const runningTotal = latestLedger ? parseFloat(latestLedger.runningTotal) : 0.0; // Use 0.0 as a default value
 
-        paymentSourceIds.push(source.sourceId);
-        paymentSourceNames.push(source.sourceName);
-        runningTotals.push(runningTotal);
-        isDefaultArray.push(source.sourceId === defaultPaymentSourceId);
+        results.paymentSourceIds.push(source.sourceId);
+        results.paymentSourceNames.push(source.sourceName);
+        results.runningTotals.push(runningTotal);
+        results.isDefault.push(source.sourceId === defaultPaymentSourceId);
     }
 
-    return {
-        paymentSourceIds,
-        paymentSourceNames,
-        runningTotals,
-        isDefault: isDefaultArray,
-    };
+    if ([results.paymentSourceIds.length, results.paymentSourceNames.length, results.runningTotals.length, results.isDefault.length].some(len => len !== results.paymentSourceIds.length)) {
+        console.error('Mismatch in array lengths', results);
+        throw new Error('Internal server error due to data mismatch');
+    }
+
+    return results;
 }
+
 
 exports.handler = async (event) => {
     if (event.httpMethod === 'OPTIONS') {

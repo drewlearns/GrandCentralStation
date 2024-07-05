@@ -142,11 +142,11 @@ exports.handler = async (event) => {
             };
         }
 
-        const existingUser = await prisma.user.findUnique({ where: { uuid: email } });
+        const existingUser = await prisma.user.findUnique({ where: { email: email } });
 
         if (existingUser) {
             const isMember = await prisma.householdMembers.findFirst({
-                where: { householdId, memberUuid: email }
+                where: { householdId, memberUuid: existingUser.uuid }
             });
 
             if (isMember) {
@@ -160,7 +160,7 @@ exports.handler = async (event) => {
             await prisma.householdMembers.create({
                 data: {
                     householdId,
-                    memberUuid: email,
+                    memberUuid: existingUser.uuid,
                     role: 'member',
                     joinedDate: new Date(),
                     createdAt: new Date(),
