@@ -15,6 +15,9 @@ const corsHeaders = {
     'Access-Control-Allow-Methods': 'OPTIONS,POST'
 };
 
+const MAX_RETRIES = 5;
+const RETRY_DELAY_BASE = 200; // milliseconds
+
 async function verifyToken(token) {
     const params = {
         FunctionName: 'verifyToken',
@@ -95,8 +98,6 @@ function calculateFutureDates(startDate, endDate, frequency) {
 }
 
 async function createNotification(ledgerEntry, userUuid) {
-    console.log('Creating notification for ledger entry:', ledgerEntry);
-
     const params = {
         FunctionName: 'addNotification',
         Payload: JSON.stringify({
@@ -108,10 +109,22 @@ async function createNotification(ledgerEntry, userUuid) {
         }),
     };
 
-    console.log('Notification Payload:', params.Payload);
-
     const command = new InvokeCommand(params);
-    await lambda.send(command);
+    
+    for (let attempt = 0; attempt < MAX_RETRIES; attempt++) {
+        try {
+            await lambda.send(command);
+            break;
+        } catch (error) {
+            if (error.name === 'TooManyRequestsException' && attempt < MAX_RETRIES - 1) {
+                const delay = RETRY_DELAY_BASE * Math.pow(2, attempt);
+                console.warn(`Rate limit exceeded, retrying in ${delay}ms...`);
+                await new Promise(resolve => setTimeout(resolve, delay));
+            } else {
+                throw new Error(`Error creating notification: ${error.message}`);
+            }
+        }
+    }
 }
 
 async function invokeCalculateRunningTotal(householdId, paymentSourceId) {
@@ -121,18 +134,26 @@ async function invokeCalculateRunningTotal(householdId, paymentSourceId) {
     };
 
     const command = new InvokeCommand(params);
-    const response = await lambda.send(command);
 
-    try {
-        const payload = JSON.parse(new TextDecoder().decode(response.Payload));
+    for (let attempt = 0; attempt < MAX_RETRIES; attempt++) {
+        try {
+            const response = await lambda.send(command);
+            const payload = JSON.parse(new TextDecoder().decode(response.Payload));
 
-        if (payload.statusCode !== 200) {
-            throw new Error(`Error invoking calculateRunningTotal: ${payload.message || 'unknown error'}`);
+            if (payload.statusCode !== 200) {
+                throw new Error(`Error invoking calculateRunningTotal: ${payload.message || 'unknown error'}`);
+            }
+
+            return payload.message;
+        } catch (error) {
+            if (error.name === 'TooManyRequestsException' && attempt < MAX_RETRIES - 1) {
+                const delay = RETRY_DELAY_BASE * Math.pow(2, attempt);
+                console.warn(`Rate limit exceeded, retrying in ${delay}ms...`);
+                await new Promise(resolve => setTimeout(resolve, delay));
+            } else {
+                throw new Error(`Error invoking calculateRunningTotal: ${error.message}`);
+            }
         }
-
-        return payload.message;
-    } catch (error) {
-        throw new Error(`Error invoking calculateRunningTotal: ${error.message}`);
     }
 }
 
@@ -180,19 +201,20 @@ exports.handler = async (event) => {
         };
     }
 
-    // Verify the token
-    const payload = await verifyToken(authToken);
-    if (!payload.user_id) {
-        return {
-            statusCode: 401,
-            headers: corsHeaders,
-            body: JSON.stringify({ message: 'Invalid authorization token' }),
-        };
-    }
-
-    const userUuid = payload.user_id;
-
     try {
+        // Verify the token
+        const payload = await verifyToken(authToken);
+        if (!payload.user_id) {
+            return {
+                statusCode: 401,
+                headers: corsHeaders,
+                body: JSON.stringify({ message: 'Invalid authorization token' }),
+            };
+        }
+
+        const userUuid = payload.user_id;
+
+        // Validate user
         const isValidUser = await validateUser(userUuid, householdId);
         if (!isValidUser) {
             return {
@@ -232,7 +254,7 @@ exports.handler = async (event) => {
                 frequency: billData.frequency,
                 description: billData.description,
                 status: false,
-                url: billData.url,
+                url: billData.url, // Ensure this is set correctly
                 createdAt: new Date(),
                 updatedAt: new Date(),
             }
@@ -272,14 +294,13 @@ exports.handler = async (event) => {
             tags,
         }));
 
+        // Batch create ledger entries
         await prisma.ledger.createMany({ data: ledgerEntries });
 
-        // Create notifications for each ledger entry
-        for (const entry of ledgerEntries) {
-            await createNotification(entry, userUuid);
-        }
+        // Create notifications for each ledger entry in parallel
+        await Promise.all(ledgerEntries.map(entry => createNotification(entry, userUuid)));
 
-        // Invoke calculateRunningTotal Lambda function
+        // Invoke calculateRunningTotal Lambda function once
         await invokeCalculateRunningTotal(householdId, billData.paymentSourceId);
 
         return {

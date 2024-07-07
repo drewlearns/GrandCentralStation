@@ -72,18 +72,31 @@ async function getBillPassword(authToken, billId) {
 
     const isValidUser = await validateUser(userId, bill.householdId);
     if (!isValidUser) {
-        throw new Error('Invalid user or household association.');
+        return {
+            statusCode: 403,
+            headers: CORS_HEADERS,
+            body: JSON.stringify({ message: 'Invalid user or household association' }),
+        };
     }
 
     const secretArn = `bill-credentials/${billId}`; 
     const command = new GetSecretValueCommand({ SecretId: secretArn });
-    const response = await secretsManagerClient.send(command);
 
-    return {
-        statusCode: 200,
-        headers: CORS_HEADERS,
-        body: JSON.stringify({ secret: JSON.parse(response.SecretString) }),
-    };
+    try {
+        const response = await secretsManagerClient.send(command);
+        return {
+            statusCode: 200,
+            headers: CORS_HEADERS,
+            body: JSON.stringify({ secret: JSON.parse(response.SecretString) }),
+        };
+    } catch (error) {
+        console.error(`Error fetching secret:`, error);
+        return {
+            statusCode: 500,
+            headers: CORS_HEADERS,
+            body: JSON.stringify({ message: 'Failed to fetch secret' }),
+        };
+    }
 }
 
 exports.handler = async (event) => {
@@ -114,11 +127,9 @@ exports.handler = async (event) => {
         }
 
         const response = await getBillPassword(authToken, billId);
-
         return response;
     } catch (error) {
         console.error(`Error:`, error);
-
         return {
             statusCode: 500,
             headers: CORS_HEADERS,

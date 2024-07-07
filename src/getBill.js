@@ -38,28 +38,33 @@ async function getBillDetails(authToken, billId) {
         throw new Error('Invalid authorization token');
     }
 
-    const bill = await prisma.bill.findUnique({
-        where: { billId: billId },
-        include: {
-            household: true,
-            notifications: true,
-            ledgers: true,
-        },
-    });
+    try {
+        const bill = await prisma.bill.findUnique({
+            where: { billId: billId },
+            include: {
+                household: true,
+                notifications: true,
+                ledgers: true,
+            },
+        });
 
-    if (!bill) {
+        if (!bill) {
+            return {
+                statusCode: 404,
+                headers: CORS_HEADERS,
+                body: JSON.stringify({ message: 'Bill not found' }),
+            };
+        }
+
         return {
-            statusCode: 404,
+            statusCode: 200,
             headers: CORS_HEADERS,
-            body: JSON.stringify({ message: 'Bill not found' }),
+            body: JSON.stringify(bill),
         };
+    } catch (error) {
+        console.error("Prisma error:", error);
+        throw error;
     }
-
-    return {
-        statusCode: 200,
-        headers: CORS_HEADERS,
-        body: JSON.stringify(bill),
-    };
 }
 
 exports.handler = async (event) => {
@@ -95,7 +100,7 @@ exports.handler = async (event) => {
 
         return response;
     } catch (error) {
-        console.error("Error:", error);
+        console.error("Handler error:", error);
 
         return {
             statusCode: 500,
