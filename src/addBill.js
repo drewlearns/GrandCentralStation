@@ -3,7 +3,7 @@ const { PrismaClient } = require('@prisma/client');
 const { LambdaClient, InvokeCommand } = require('@aws-sdk/client-lambda');
 const { SecretsManagerClient, CreateSecretCommand } = require('@aws-sdk/client-secrets-manager');
 const { v4: uuidv4 } = require('uuid');
-const { format, fromUnixTime } = require('date-fns'); // Import date-fns functions
+const { format, fromUnixTime } = require('date-fns');
 
 const prisma = new PrismaClient();
 const lambda = new LambdaClient({ region: process.env.AWS_REGION });
@@ -87,7 +87,6 @@ function calculateFutureDates(startDate, endDate, frequency) {
                 }
             }
 
-            // Ensure the date is not beyond the end date
             if (end && currentDate > end) return false;
             return true;
         },
@@ -186,7 +185,6 @@ exports.handler = async (event) => {
 
     const { authToken, householdId, billData } = JSON.parse(event.body);
 
-    // Verify required fields
     const requiredFields = ['category', 'billName', 'amount', 'startDate', 'frequency', 'description'];
     for (const field of requiredFields) {
         if (!billData[field]) {
@@ -198,17 +196,15 @@ exports.handler = async (event) => {
         }
     }
 
-    // End date is required only if frequency is not 'once'
     if (billData.frequency !== 'once' && !billData.endDate) {
         return {
             statusCode: 400,
-                headers: corsHeaders,
-            body: JSON.stringify({ message: 'Missing required field: endDate' }),
+            headers: corsHeaders,
+            body: JSON.stringify({ message: 'Missing required field: endDate for the selected frequency' }),
         };
     }
 
     try {
-        // Verify the token
         const payload = await verifyToken(authToken);
         if (!payload.user_id) {
             return {
@@ -220,17 +216,15 @@ exports.handler = async (event) => {
 
         const userUuid = payload.user_id;
 
-        // Validate user
         const isValidUser = await validateUser(userUuid, householdId);
         if (!isValidUser) {
             return {
                 statusCode: 401,
                 headers: corsHeaders,
-                body: JSON.stringify({ message: 'Invalid user or household association.' }),
+                body: JSON.stringify({ message: 'Invalid user or household association' }),
             };
         }
 
-        // Verify paymentSourceId exists for the household if provided
         if (billData.paymentSourceId) {
             const paymentSource = await prisma.paymentSource.findUnique({
                 where: {
@@ -248,11 +242,9 @@ exports.handler = async (event) => {
             }
         }
 
-        // Convert epoch times to desired format
         let parsedStartDate = format(fromUnixTime(billData.startDate / 1000), 'yyyy-MM-dd HH:mm:ss.SSS');
         let parsedEndDate = billData.frequency !== 'once' ? format(fromUnixTime(billData.endDate / 1000), 'yyyy-MM-dd HH:mm:ss.SSS') : null;
 
-        // Create the new bill to get the billId
         const newBill = await prisma.bill.create({
             data: {
                 householdId,
@@ -264,13 +256,12 @@ exports.handler = async (event) => {
                 frequency: billData.frequency,
                 description: billData.description,
                 status: false,
-                url: billData.url, // Ensure this is set correctly
+                url: billData.url,
                 createdAt: new Date(),
                 updatedAt: new Date(),
             }
         });
 
-        // Store credentials in Secrets Manager if provided and update the bill with the ARN
         if (billData.username && billData.password) {
             const credentialsArn = await storeCredentialsInSecretsManager(newBill.billId, billData.username, billData.password);
             await prisma.bill.update({
@@ -282,7 +273,6 @@ exports.handler = async (event) => {
             });
         }
 
-        // Generate ledger entries based on the frequency
         const futureDates = calculateFutureDates(new Date(parsedStartDate), parsedEndDate ? new Date(parsedEndDate) : null, billData.frequency);
 
         const tags = `${billData.billName},${billData.category}`;
@@ -304,13 +294,10 @@ exports.handler = async (event) => {
             tags,
         }));
 
-        // Batch create ledger entries
         await prisma.ledger.createMany({ data: ledgerEntries });
 
-        // Create notifications for each ledger entry in parallel
         await Promise.all(ledgerEntries.map(entry => createNotification(entry, userUuid)));
 
-        // Invoke calculateRunningTotal Lambda function once
         await invokeCalculateRunningTotal(householdId, billData.paymentSourceId);
 
         return {

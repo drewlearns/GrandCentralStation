@@ -171,8 +171,8 @@ exports.handler = async (event) => {
             const emailParams = {
                 Destination: { ToAddresses: [email] },
                 Message: {
-                    Body: { Text: { Charset: "UTF-8", Data: `You have been added to the household: ${household.householdName}.` } },
-                    Subject: { Charset: 'UTF-8', Data: 'Household Membership' }
+                    Body: { Text: { Charset: "UTF-8", Data: `You have been added to the Budget: ${household.householdName}.` } },
+                    Subject: { Charset: 'UTF-8', Data: 'Budget Membership' }
                 },
                 Source: 'noreply@app.thepurplepiggybank.com'
             };
@@ -191,7 +191,7 @@ exports.handler = async (event) => {
             return {
                 statusCode: 200,
                 headers: CORS_HEADERS,
-                body: JSON.stringify({ message: "User added to household and email sent successfully" }),
+                body: JSON.stringify({ message: "User added to Budget and email sent successfully" }),
             };
         } else {
             const newInvitation = await prisma.invitations.create({
@@ -210,8 +210,8 @@ exports.handler = async (event) => {
             const emailParams = {
                 Destination: { ToAddresses: [email] },
                 Message: {
-                    Body: { Text: { Charset: "UTF-8", Data: `You have been invited to join the household. Please click the link to accept the invitation: https://app.thepurplepiggybank.com/AcceptInvite. Invitation code: ${newInvitation.invitationId}` } },
-                    Subject: { Charset: 'UTF-8', Data: 'Household Invitation' }
+                    Body: { Text: { Charset: "UTF-8", Data: `You have been invited to join the Budget. \n Please click the link to accept the invitation: https://app.thepurplepiggybank.com/AcceptInvite. \n Invitation code: \n ${newInvitation.invitationId}` } },
+                    Subject: { Charset: 'UTF-8', Data: 'Budget Invitation' }
                 },
                 Source: 'noreply@app.thepurplepiggybank.com'
             };

@@ -79,6 +79,9 @@ async function getIncomes(authToken, householdId) {
                 not: null,
             },
         },
+        orderBy: {
+            transactionDate: 'asc', // Order by transactionDate in ascending order
+        },
         select: {
             incomeId: true,  // Select incomeId
             transactionDate: true,
