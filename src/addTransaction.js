@@ -3,6 +3,7 @@ const { v4: uuidv4 } = require('uuid');
 const { S3Client, PutObjectCommand, HeadBucketCommand, HeadObjectCommand } = require('@aws-sdk/client-s3');
 const { LambdaClient, InvokeCommand } = require('@aws-sdk/client-lambda');
 const Decimal = require('decimal.js');
+const { format, fromUnixTime } = require('date-fns'); // Import date-fns functions
 
 const prisma = new PrismaClient();
 const lambda = new LambdaClient({ region: 'us-east-1' });
@@ -136,6 +137,9 @@ exports.handler = async (event) => {
 
         const runningTotal = await getRunningTotal(householdId, sourceId);
 
+        // Convert epoch time to desired format
+        const parsedTransactionDate = format(fromUnixTime(transactionDate / 1000), 'yyyy-MM-dd HH:mm:ss.SSS');
+
         const newLedger = await prisma.ledger.create({
             data: {
                 ledgerId: uuidv4(),
@@ -143,7 +147,7 @@ exports.handler = async (event) => {
                 paymentSourceId: sourceId,
                 amount: amount,
                 transactionType,
-                transactionDate: new Date(transactionDate),
+                transactionDate: new Date(parsedTransactionDate),
                 category,
                 description,
                 createdAt: new Date(),
@@ -161,7 +165,7 @@ exports.handler = async (event) => {
                 ledgerId: newLedger.ledgerId,
                 sourceId,
                 amount: amount,
-                transactionDate: new Date(transactionDate),
+                transactionDate: new Date(parsedTransactionDate),
                 description,
                 createdAt: new Date(),
                 updatedAt: new Date(),

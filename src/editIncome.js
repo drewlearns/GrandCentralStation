@@ -1,6 +1,7 @@
 const { Decimal } = require('decimal.js');
 const { PrismaClient } = require('@prisma/client');
 const { LambdaClient, InvokeCommand } = require('@aws-sdk/client-lambda');
+const { format, fromUnixTime } = require('date-fns'); // Import date-fns functions
 
 const prisma = new PrismaClient();
 const lambda = new LambdaClient({ region: process.env.AWS_REGION });
@@ -82,8 +83,12 @@ async function editIncome(authToken, incomeId, updatedIncomeData) {
         throw new Error('startDate is required, endDate is required unless frequency is "once".');
     }
 
-    const startDate = new Date(updatedIncomeData.startDate);
-    const endDate = updatedIncomeData.endDate ? new Date(updatedIncomeData.endDate) : null;
+    // Convert epoch times to desired format
+    const parsedStartDate = format(fromUnixTime(updatedIncomeData.startDate / 1000), 'yyyy-MM-dd HH:mm:ss.SSS');
+    const parsedEndDate = updatedIncomeData.endDate ? format(fromUnixTime(updatedIncomeData.endDate / 1000), 'yyyy-MM-dd HH:mm:ss.SSS') : null;
+
+    const startDate = new Date(parsedStartDate);
+    const endDate = parsedEndDate ? new Date(parsedEndDate) : null;
 
     if (isNaN(startDate.getTime()) || (endDate && isNaN(endDate.getTime()))) {
         console.error('Invalid startDate or endDate:', updatedIncomeData.startDate, updatedIncomeData.endDate);
@@ -158,11 +163,32 @@ function calculateFutureDates(startDate, endDate, frequency) {
         quarterly: () => currentDate.setMonth(currentDate.getMonth() + 3),
         semiAnnually: () => currentDate.setMonth(currentDate.getMonth() + 6),
         annually: () => currentDate.setFullYear(currentDate.getFullYear() + 1),
+        semiMonthly: () => {
+            const nextMonth = new Date(currentDate);
+            nextMonth.setMonth(nextMonth.getMonth() + 1);
+
+            if (currentDate.getDate() === 1) {
+                currentDate.setDate(15);
+            } else if (currentDate.getDate() === 15) {
+                currentDate.setDate(1);
+                currentDate.setMonth(currentDate.getMonth() + 1);
+            } else {
+                currentDate.setDate(currentDate.getDate() <= 15 ? 15 : 1);
+                if (currentDate.getDate() === 1) {
+                    currentDate.setMonth(currentDate.getMonth() + 1);
+                }
+            }
+
+            // Ensure the date is not beyond the end date
+            if (end && currentDate > end) return false;
+            return true;
+        },
     };
 
     while (!end || currentDate <= end) {
         dates.push(new Date(currentDate));
-        incrementMap[frequency]();
+        if (frequency === 'semiMonthly' && !incrementMap[frequency]()) break;
+        else incrementMap[frequency]();
         if (frequency === 'once') break;
     }
 

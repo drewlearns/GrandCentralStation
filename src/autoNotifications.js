@@ -10,18 +10,18 @@ exports.handler = async (event) => {
   const year = now.getUTCFullYear();
 
   const targetDay = day;
+  const targetDateStart = new Date(Date.UTC(year, month - 1, targetDay, 0, 0, 0)); // start of the target date in UTC
+  const targetDateEnd = new Date(Date.UTC(year, month - 1, targetDay, 23, 59, 59, 999)); // end of the target date in UTC
 
-  const targetDate = new Date(Date.UTC(year, month - 1, targetDay)); // target date in UTC
-
-  // Log the target date
-  console.log(`Target Date: ${targetDate.toISOString()}`);
+  // Log the target date range
+  console.log(`Target Date Range: ${targetDateStart.toISOString()} - ${targetDateEnd.toISOString()}`);
 
   try {
     const notifications = await prisma.notification.findMany({
       where: {
         dueDate: {
-          gte: targetDate,
-          lt: new Date(targetDate.getTime() + 24 * 60 * 60 * 1000) // targetDate + 1 day
+          gte: targetDateStart,
+          lt: targetDateEnd, // end date inclusive
         },
       },
       include: {
@@ -31,6 +31,16 @@ exports.handler = async (event) => {
 
     // Log the number of notifications found
     console.log(`Notifications found: ${notifications.length}`);
+
+    // Log raw notifications for today for debugging
+    const rawNotifications = await prisma.notification.findMany({
+      where: {
+        dueDate: {
+          gte: new Date(Date.UTC(year, month - 1, day)),
+        },
+      },
+    });
+    console.log(`Raw Notifications for ${day}/${month}/${year}:`, rawNotifications);
 
     const emailPromises = notifications.map(async (notification) => {
       // Log detailed information about each notification

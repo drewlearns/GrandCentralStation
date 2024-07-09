@@ -1,6 +1,7 @@
 const { PrismaClient, Decimal } = require('@prisma/client');
 const { LambdaClient, InvokeCommand } = require('@aws-sdk/client-lambda');
 const { v4: uuidv4 } = require('uuid');
+const { format, fromUnixTime } = require('date-fns'); // Import date-fns functions
 
 const prisma = new PrismaClient();
 const lambda = new LambdaClient({ region: process.env.AWS_REGION });
@@ -80,11 +81,32 @@ function calculateFutureDates(startDate, endDate, frequency) {
         quarterly: () => currentDate.setMonth(currentDate.getMonth() + 3),
         semiAnnually: () => currentDate.setMonth(currentDate.getMonth() + 6),
         annually: () => currentDate.setFullYear(currentDate.getFullYear() + 1),
+        semiMonthly: () => {
+            const nextMonth = new Date(currentDate);
+            nextMonth.setMonth(nextMonth.getMonth() + 1);
+
+            if (currentDate.getDate() === 1) {
+                currentDate.setDate(15);
+            } else if (currentDate.getDate() === 15) {
+                currentDate.setDate(1);
+                currentDate.setMonth(currentDate.getMonth() + 1);
+            } else {
+                currentDate.setDate(currentDate.getDate() <= 15 ? 15 : 1);
+                if (currentDate.getDate() === 1) {
+                    currentDate.setMonth(currentDate.getMonth() + 1);
+                }
+            }
+
+            // Ensure the date is not beyond the end date
+            if (end && currentDate > end) return false;
+            return true;
+        },
     };
 
     while (!end || currentDate <= end) {
         dates.push(new Date(currentDate));
-        incrementMap[frequency]();
+        if (frequency === 'semiMonthly' && !incrementMap[frequency]()) break;
+        else incrementMap[frequency]();
         if (frequency === 'once') break;
     }
 
@@ -134,19 +156,20 @@ exports.handler = async (event) => {
 
         // Validate incomeData fields
         const { name, amount, frequency, startDate, endDate } = incomeData;
-        console.log(event.body)
-        console.log(`name: ${name}`)
-        console.log(`amount: ${amount}`)
-        console.log(`frequency: ${frequency}`)
-        console.log(`startDate: ${startDate}`)
-        console.log(`endDate: ${endDate}`)
-        if (!name || !amount || !frequency || !startDate) {
+        
+        if (!name || amount === undefined || !frequency || !startDate) {
             return {
                 statusCode: 400,
                 headers: corsHeaders,
                 body: JSON.stringify({ message: 'Missing required incomeData fields: name, amount, frequency, startDate are required.' }),
             };
         }
+
+        console.log(`name: ${name}`);
+        console.log(`amount: ${amount}`);
+        console.log(`frequency: ${frequency}`);
+        console.log(`startDate: ${startDate}`);
+        console.log(`endDate: ${endDate}`);
 
         const payload = await verifyToken(authToken);
         console.log('Token payload:', payload);
@@ -173,24 +196,12 @@ exports.handler = async (event) => {
 
         const incomeId = uuidv4();
 
-        // Validate and set endDate
-        let parsedStartDate = new Date(startDate);
-        let parsedEndDate = endDate ? new Date(endDate) : parsedStartDate;
+        // Convert epoch times to desired format
+        let parsedStartDate = format(fromUnixTime(startDate / 1000), 'yyyy-MM-dd HH:mm:ss.SSS');
+        let parsedEndDate = endDate ? format(fromUnixTime(endDate / 1000), 'yyyy-MM-dd HH:mm:ss.SSS') : parsedStartDate;
 
         console.log(`Parsed startDate: ${parsedStartDate}`);
         console.log(`Parsed endDate: ${parsedEndDate}`);
-
-        if (isNaN(parsedStartDate.getTime())) {
-            return {
-                statusCode: 400,
-                headers: corsHeaders,
-                body: JSON.stringify({ message: 'Invalid startDate provided.' }),
-            };
-        }
-
-        if (isNaN(parsedEndDate.getTime())) {
-            parsedEndDate = parsedStartDate;
-        }
 
         const newIncome = await prisma.incomes.create({
             data: {
@@ -199,15 +210,15 @@ exports.handler = async (event) => {
                 name: name,
                 amount: new Decimal(amount), // Ensure the amount is correctly converted to Decimal
                 frequency: frequency,
-                startDate: parsedStartDate,
-                endDate: parsedEndDate, // Use the validated endDate or startDate if null
+                startDate: new Date(parsedStartDate),
+                endDate: new Date(parsedEndDate), // Use the validated endDate or startDate if null
                 createdAt: new Date(),
                 updatedAt: new Date(),
-                firstPayDay: parsedStartDate, // Added firstPayDay
+                firstPayDay: new Date(parsedStartDate), // Added firstPayDay
             }
         });
 
-        const futureDates = calculateFutureDates(parsedStartDate, parsedEndDate, frequency);
+        const futureDates = calculateFutureDates(new Date(parsedStartDate), new Date(parsedEndDate), frequency);
 
         const ledgerEntries = futureDates.map(date => ({
             householdId,

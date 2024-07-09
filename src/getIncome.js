@@ -49,8 +49,16 @@ async function getIncomeDetails(authToken, incomeId) {
             amount: true,
             frequency: true,
             firstPayDay: true,
+            startDate: true,
+            endDate: true,
             createdAt: true,
             updatedAt: true,
+            ledgers: {
+                select: {
+                    paymentSourceId: true,
+                },
+                take: 1, // Limit to one paymentSourceId
+            },
         },
     });
 
@@ -62,10 +70,15 @@ async function getIncomeDetails(authToken, incomeId) {
         };
     }
 
+    const response = {
+        ...income,
+        paymentSourceId: income.ledgers.length > 0 ? income.ledgers[0].paymentSourceId : null,
+    };
+
     return {
         statusCode: 200,
         headers: CORS_HEADERS,
-        body: JSON.stringify(income),
+        body: JSON.stringify(response),
     };
 }
 

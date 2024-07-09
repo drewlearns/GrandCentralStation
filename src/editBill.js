@@ -2,6 +2,7 @@ const { PrismaClient } = require('@prisma/client');
 const { LambdaClient, InvokeCommand } = require('@aws-sdk/client-lambda');
 const { SecretsManagerClient, CreateSecretCommand, UpdateSecretCommand } = require('@aws-sdk/client-secrets-manager');
 const Decimal = require('decimal.js');
+const { format, fromUnixTime } = require('date-fns'); // Import date-fns functions
 
 const prisma = new PrismaClient();
 const lambda = new LambdaClient({ region: process.env.AWS_REGION });
@@ -28,11 +29,32 @@ function calculateFutureDates(startDate, endDate, frequency) {
         quarterly: () => currentDate.setMonth(currentDate.getMonth() + 3),
         semiAnnually: () => currentDate.setMonth(currentDate.getMonth() + 6),
         annually: () => currentDate.setFullYear(currentDate.getFullYear() + 1),
+        semiMonthly: () => {
+            const nextMonth = new Date(currentDate);
+            nextMonth.setMonth(nextMonth.getMonth() + 1);
+
+            if (currentDate.getDate() === 1) {
+                currentDate.setDate(15);
+            } else if (currentDate.getDate() === 15) {
+                currentDate.setDate(1);
+                currentDate.setMonth(currentDate.getMonth() + 1);
+            } else {
+                currentDate.setDate(currentDate.getDate() <= 15 ? 15 : 1);
+                if (currentDate.getDate() === 1) {
+                    currentDate.setMonth(currentDate.getMonth() + 1);
+                }
+            }
+
+            // Ensure the date is not beyond the end date
+            if (end && currentDate > end) return false;
+            return true;
+        },
     };
 
     while (!end || currentDate <= end) {
         dates.push(new Date(currentDate));
-        incrementMap[frequency]();
+        if (frequency === 'semiMonthly' && !incrementMap[frequency]()) break;
+        else incrementMap[frequency]();
         if (frequency === 'once') break;
     }
 
@@ -110,8 +132,12 @@ exports.handler = async (event) => {
             };
         }
 
-        const startDateObj = new Date(startDate);
-        const endDateObj = endDate ? new Date(endDate) : null;
+        // Convert epoch times to desired format
+        let parsedStartDate = format(fromUnixTime(startDate / 1000), 'yyyy-MM-dd HH:mm:ss.SSS');
+        let parsedEndDate = endDate ? format(fromUnixTime(endDate / 1000), 'yyyy-MM-dd HH:mm:ss.SSS') : null;
+
+        const startDateObj = new Date(parsedStartDate);
+        const endDateObj = parsedEndDate ? new Date(parsedEndDate) : null;
 
         if (isNaN(startDateObj.getTime()) || (endDate && isNaN(endDateObj.getTime()))) {
             return {

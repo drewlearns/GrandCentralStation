@@ -3,6 +3,7 @@ const { PrismaClient } = require('@prisma/client');
 const { LambdaClient, InvokeCommand } = require('@aws-sdk/client-lambda');
 const { SecretsManagerClient, CreateSecretCommand } = require('@aws-sdk/client-secrets-manager');
 const { v4: uuidv4 } = require('uuid');
+const { format, fromUnixTime } = require('date-fns'); // Import date-fns functions
 
 const prisma = new PrismaClient();
 const lambda = new LambdaClient({ region: process.env.AWS_REGION });
@@ -59,39 +60,44 @@ async function validateUser(userId, householdId) {
 function calculateFutureDates(startDate, endDate, frequency) {
     const dates = [];
     let currentDate = new Date(startDate);
+    const end = endDate ? new Date(endDate) : null;
 
-    while (frequency !== 'once' && currentDate <= new Date(endDate)) {
-        dates.push(new Date(currentDate));
+    const incrementMap = {
+        once: () => currentDate,
+        weekly: () => currentDate.setDate(currentDate.getDate() + 7),
+        biweekly: () => currentDate.setDate(currentDate.getDate() + 14),
+        monthly: () => currentDate.setMonth(currentDate.getMonth() + 1),
+        bimonthly: () => currentDate.setMonth(currentDate.getMonth() + 2),
+        quarterly: () => currentDate.setMonth(currentDate.getMonth() + 3),
+        semiAnnually: () => currentDate.setMonth(currentDate.getMonth() + 6),
+        annually: () => currentDate.setFullYear(currentDate.getFullYear() + 1),
+        semiMonthly: () => {
+            const nextMonth = new Date(currentDate);
+            nextMonth.setMonth(nextMonth.getMonth() + 1);
 
-        switch (frequency) {
-            case 'weekly':
-                currentDate.setDate(currentDate.getDate() + 7);
-                break;
-            case 'biweekly':
-                currentDate.setDate(currentDate.getDate() + 14);
-                break;
-            case 'monthly':
+            if (currentDate.getDate() === 1) {
+                currentDate.setDate(15);
+            } else if (currentDate.getDate() === 15) {
+                currentDate.setDate(1);
                 currentDate.setMonth(currentDate.getMonth() + 1);
-                break;
-            case 'bimonthly':
-                currentDate.setMonth(currentDate.getMonth() + 2);
-                break;
-            case 'quarterly':
-                currentDate.setMonth(currentDate.getMonth() + 3);
-                break;
-            case 'semiAnnually':
-                currentDate.setMonth(currentDate.getMonth() + 6);
-                break;
-            case 'annually':
-                currentDate.setFullYear(currentDate.getFullYear() + 1);
-                break;
-            default:
-                throw new Error('Invalid frequency');
-        }
-    }
+            } else {
+                currentDate.setDate(currentDate.getDate() <= 15 ? 15 : 1);
+                if (currentDate.getDate() === 1) {
+                    currentDate.setMonth(currentDate.getMonth() + 1);
+                }
+            }
 
-    if (frequency === 'once') {
-        dates.push(new Date(startDate));
+            // Ensure the date is not beyond the end date
+            if (end && currentDate > end) return false;
+            return true;
+        },
+    };
+
+    while (!end || currentDate <= end) {
+        dates.push(new Date(currentDate));
+        if (frequency === 'semiMonthly' && !incrementMap[frequency]()) break;
+        else incrementMap[frequency]();
+        if (frequency === 'once') break;
     }
 
     return dates;
@@ -196,7 +202,7 @@ exports.handler = async (event) => {
     if (billData.frequency !== 'once' && !billData.endDate) {
         return {
             statusCode: 400,
-            headers: corsHeaders,
+                headers: corsHeaders,
             body: JSON.stringify({ message: 'Missing required field: endDate' }),
         };
     }
@@ -242,6 +248,10 @@ exports.handler = async (event) => {
             }
         }
 
+        // Convert epoch times to desired format
+        let parsedStartDate = format(fromUnixTime(billData.startDate / 1000), 'yyyy-MM-dd HH:mm:ss.SSS');
+        let parsedEndDate = billData.frequency !== 'once' ? format(fromUnixTime(billData.endDate / 1000), 'yyyy-MM-dd HH:mm:ss.SSS') : null;
+
         // Create the new bill to get the billId
         const newBill = await prisma.bill.create({
             data: {
@@ -249,8 +259,8 @@ exports.handler = async (event) => {
                 category: billData.category,
                 billName: billData.billName,
                 amount: billData.amount,
-                startDate: new Date(billData.startDate),
-                endDate: billData.frequency !== 'once' ? new Date(billData.endDate) : null,
+                startDate: new Date(parsedStartDate),
+                endDate: parsedEndDate ? new Date(parsedEndDate) : null,
                 frequency: billData.frequency,
                 description: billData.description,
                 status: false,
@@ -273,7 +283,7 @@ exports.handler = async (event) => {
         }
 
         // Generate ledger entries based on the frequency
-        const futureDates = calculateFutureDates(new Date(billData.startDate), billData.frequency !== 'once' ? new Date(billData.endDate) : null, billData.frequency);
+        const futureDates = calculateFutureDates(new Date(parsedStartDate), parsedEndDate ? new Date(parsedEndDate) : null, billData.frequency);
 
         const tags = `${billData.billName},${billData.category}`;
 
