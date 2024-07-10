@@ -56,10 +56,17 @@ async function getBillDetails(authToken, billId) {
             };
         }
 
+        // Convert Date objects to ISO strings
+        const billWithFormattedDates = {
+            ...bill,
+            startDate: bill.startDate.toISOString(),
+            endDate: bill.endDate ? bill.endDate.toISOString() : null,
+        };
+
         return {
             statusCode: 200,
             headers: CORS_HEADERS,
-            body: JSON.stringify(bill),
+            body: JSON.stringify(billWithFormattedDates),
         };
     } catch (error) {
         console.error("Prisma error:", error);
