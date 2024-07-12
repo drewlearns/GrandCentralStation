@@ -6,3 +6,11 @@ data "aws_secretsmanager_secret" "stripe" {
 data "aws_secretsmanager_secret_version" "stripe_version" {
     secret_id = data.aws_secretsmanager_secret.stripe.id
 }
+
+data "aws_secretsmanager_secret" "revenuecat" {
+  name = "revenueCatApiKey"
+}
+
+data "aws_secretsmanager_secret_version" "revenuecat" {
+  secret_id = data.aws_secretsmanager_secret.revenuecat.id
+}

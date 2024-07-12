@@ -16,12 +16,23 @@ exports.handler = async (event) => {
       };
     }
 
-    // Fetch all ledger entries for the household, optionally filtered by payment source, ordered by transaction date ascending
+    if (!paymentSourceId) {
+      return {
+        statusCode: 400,
+        body: JSON.stringify({
+          message: 'Missing paymentSourceId in the request',
+        }),
+      };
+    }
+
+    const ledgerFilter = {
+      householdId: householdId,
+      paymentSourceId: paymentSourceId,
+    };
+
+    // Fetch all ledger entries for the household and payment source, ordered by transaction date ascending
     const ledgerEntries = await prisma.ledger.findMany({
-      where: {
-        householdId: householdId,
-        ...(paymentSourceId && { paymentSourceId: paymentSourceId }),
-      },
+      where: ledgerFilter,
       orderBy: { transactionDate: 'asc' },
     });
 
@@ -34,13 +45,15 @@ exports.handler = async (event) => {
       };
     }
 
-    // Initialize the running total from the previous entry's running total if it exists
+    // Initialize the running total to 0
     let runningTotal = new Decimal(0);
+
+    // Fetch the last entry before the first entry date to initialize running total
     const firstTransactionDate = ledgerEntries[0].transactionDate;
     const previousEntry = await prisma.ledger.findFirst({
       where: {
         householdId: householdId,
-        ...(paymentSourceId && { paymentSourceId: paymentSourceId }),
+        paymentSourceId: paymentSourceId,
         transactionDate: {
           lt: firstTransactionDate,
         },
@@ -58,7 +71,7 @@ exports.handler = async (event) => {
         ? runningTotal.minus(new Decimal(entry.amount))
         : runningTotal.plus(new Decimal(entry.amount));
 
-      console.log(`Updated running total after entry: ${runningTotal.toFixed(2)}`);
+      console.log(`Updated running total for ${entry.paymentSourceId} after entry: ${runningTotal.toFixed(2)}`);
 
       await prisma.ledger.update({
         where: { ledgerId: entry.ledgerId },

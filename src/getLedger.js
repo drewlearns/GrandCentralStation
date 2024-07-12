@@ -97,9 +97,11 @@ async function getLedgerEntries(authToken, householdId, filters = {}, threshold 
             lt: new Date(filters.year, filters.month, 1),
         };
     } else if (filters.showCurrentMonthUpToToday !== false) {
-        // Default case: transactions up to today
+        // Default case: transactions up to the end of today
+        const endOfToday = new Date(currentDate);
+        endOfToday.setHours(23, 59, 59, 999);
         where.transactionDate = {
-            lte: new Date(),
+            lte: endOfToday,
         };
     }
 
@@ -226,7 +228,6 @@ async function getLedgerEntries(authToken, householdId, filters = {}, threshold 
         totalItems,
     };
 }
-
 
 exports.handler = async (event) => {
     if (event.httpMethod === 'OPTIONS') {
