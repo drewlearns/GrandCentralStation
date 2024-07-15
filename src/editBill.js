@@ -132,9 +132,28 @@ exports.handler = async (event) => {
             };
         }
 
+        // Validate that startDate and endDate are valid epoch times
+        if (isNaN(startDate) || (endDate && isNaN(endDate))) {
+            return {
+                statusCode: 400,
+                headers: corsHeaders,
+                body: JSON.stringify({ message: 'Invalid epoch time provided for startDate or endDate.' }),
+            };
+        }
+
         // Convert epoch times to desired format
-        let parsedStartDate = format(fromUnixTime(startDate / 1000), 'yyyy-MM-dd HH:mm:ss.SSS');
-        let parsedEndDate = endDate ? format(fromUnixTime(endDate / 1000), 'yyyy-MM-dd HH:mm:ss.SSS') : null;
+        let parsedStartDate;
+        let parsedEndDate;
+        try {
+            parsedStartDate = format(fromUnixTime(startDate / 1000), 'yyyy-MM-dd HH:mm:ss.SSS');
+            parsedEndDate = endDate ? format(fromUnixTime(endDate / 1000), 'yyyy-MM-dd HH:mm:ss.SSS') : null;
+        } catch (error) {
+            return {
+                statusCode: 400,
+                headers: corsHeaders,
+                body: JSON.stringify({ message: 'Invalid date format for startDate or endDate.' }),
+            };
+        }
 
         const startDateObj = new Date(parsedStartDate);
         const endDateObj = parsedEndDate ? new Date(parsedEndDate) : null;
