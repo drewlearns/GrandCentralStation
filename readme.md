@@ -312,22 +312,19 @@ However, you can create a new keystore and then generate a new certificate from 
 b. Generate a New Keystore and Key Pair:
 If you do not have the original upload key, you need to generate a new one. Here is how you can generate a new keystore:
 
-bash
-Copy code
+
 keytool -genkey -v -keystore upload-keystore.jks -keyalg RSA -keysize 2048 -validity 10000 -alias upload
 Follow the prompts to enter the necessary information (passwords, etc.).
 
 c. Export the Certificate from the New Keystore:
 After creating the new keystore, you can export the certificate to compare it:
 
-bash
-Copy code
+
 keytool -export -alias upload -keystore upload-keystore.jks -file upload_certificate.pem
 Compare the Certificates:
 Compare the SHA1 fingerprint of the newly generated certificate with the one provided by Google Play to ensure they match.
 
-bash
-Copy code
+
 keytool -list -v -keystore upload-keystore.jks -alias upload
 The output will include the SHA1 fingerprint, which should match the fingerprint of the upload certificate on Google Play.
 
@@ -343,8 +340,7 @@ storeFile=/Users/drewk/development/bullet-train/upload-keystore.jks
 Updated build.gradle File:
 Ensure your build.gradle file correctly references the keystore properties:
 
-groovy
-Copy code
+```
 plugins {
     id "com.android.application"
     id "kotlin-android"
@@ -423,16 +419,16 @@ flutter {
 dependencies {
     implementation "org.jetbrains.kotlin:kotlin-stdlib-jdk7:1.7.10"
 }
+```
+
 Clean and Rebuild the Project
 Clean the Project:
 
-bash
-Copy code
+
 ./gradlew clean
 Rebuild the App Bundle:
 
-bash
-Copy code
+
 flutter build appbundle --release
 By following these steps, you should be able to ensure that your keystore and key match the upload certificate requirements for Google Play. If you still face issues, please provide specific details or error messages, and we'll continue troubleshooting further.
 
@@ -451,8 +447,7 @@ To resolve the version code conflict, increment the version code in your build.g
 Open build.gradle:
 Update the defaultConfig section to increment the version code. For example, if your current version code is 4, change it to 5:
 
-groovy
-Copy code
+```
 defaultConfig {
     applicationId "com.thepurplepiggybank.app"
     minSdkVersion 21
@@ -460,6 +455,8 @@ defaultConfig {
     versionCode 5  // Incremented version code
     versionName flutterVersionName
 }
+```
+
 Alternatively, if you manage these values in your local.properties file, update them there.
 
 Handling Upload Certificate Validity
@@ -473,8 +470,8 @@ Wait Until the Certificate is Valid:
 You will need to wait until June 21, 2024, 4:04:22 PM UTC for the upload certificate to become valid. Unfortunately, there isn't a way to bypass this waiting period if Google Play Console has imposed it.
 
 Example build.gradle File with Updated Version Code:
-groovy
-Copy code
+
+```
 plugins {
     id "com.android.application"
     id "kotlin-android"
@@ -553,16 +550,16 @@ flutter {
 dependencies {
     implementation "org.jetbrains.kotlin:kotlin-stdlib-jdk7:1.7.10"
 }
+```
+
 Clean and Rebuild the Project
 Clean the Project:
 
-bash
-Copy code
+
 ./gradlew clean
 Rebuild the App Bundle:
 
-bash
-Copy code
+
 flutter build appbundle --release
 Upload the App Bundle
 Once the certificate becomes valid, you can upload the new app bundle to the Google Play Console.
