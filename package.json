@@ -21,7 +21,7 @@
     "@aws-sdk/s3-request-presigner": "^3.577.0",
     "@prisma/client": "^5.14.0",
     "@smithy/util-middleware": "^3.0.0",
-    "axios": "^1.6.8",
+    "axios": "^1.7.4",
     "buffer": "^6.0.3",
     "busboy": "^1.6.0",
     "crypto": "^1.0.1",
